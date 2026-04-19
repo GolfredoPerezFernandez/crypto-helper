@@ -1,0 +1,1 @@
+ALTER TABLE `demo_nfts` ADD `isPublic` integer DEFAULT 1;

@@ -1,0 +1,31 @@
+# fly.toml app configuration file generated for alice-moa on 2025-04-11T09:38:09-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'koolinart'
+primary_region = 'ams'
+
+[build]
+
+[env]
+  PRIVATE_TURSO_DATABASE_URL = "file:/data/db.sqlite"
+
+[mounts]
+  source = "sqlite_data"
+  destination = "/data"
+
+# In-process CMC sync uses node-cron in the Express process. If Fly stops all Machines when idle,
+# Node never wakes on its own — set auto_stop_machines = false so the cron keeps firing daily.
+# With file: SQLite on a volume, use one Machine (min_machines_running = 1) so all traffic/cache
+# share the same DB; for 2+ Machines use shared remote Turso (same PRIVATE_TURSO_DATABASE_URL on all).
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  size = 'performance-2x'

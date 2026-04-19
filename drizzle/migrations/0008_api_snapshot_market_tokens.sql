@@ -1,0 +1,1 @@
+ALTER TABLE `cached_market_tokens` ADD `apiSnapshot` text;

@@ -1,0 +1,26 @@
+import type { RequestHandler } from "@builder.io/qwik-city";
+import { fetchMoralisWalletStats } from "~/server/crypto-ghost/moralis-api";
+import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { verifyAuth } from "~/utils/auth";
+
+/** GET /wallets/{address}/stats — summary stats for one chain. Session required. */
+export const onGet: RequestHandler = async (ev) => {
+  if (!(await verifyAuth(ev))) {
+    ev.json(401, { ok: false, error: "Unauthorized" });
+    return;
+  }
+  const raw = ev.params.address?.trim() || "";
+  if (!isEvmAddress(raw)) {
+    ev.json(400, { ok: false, error: "invalid address" });
+    return;
+  }
+  const address = raw.toLowerCase();
+  const chain = ev.query.get("chain")?.trim() || undefined;
+
+  const r = await fetchMoralisWalletStats(address, chain);
+  if (!r.ok) {
+    ev.json(502, { ok: false, error: r.error });
+    return;
+  }
+  ev.json(200, { ok: true, address, chain: chain ?? null, data: r.data });
+};

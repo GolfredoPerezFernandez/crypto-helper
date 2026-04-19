@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/web-manifest-combined.json",
+  "name": "Crypto Helper",
+  "short_name": "Crypto Helper",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#04E6E6",
+  "description": "Crypto Helper — on-chain analytics, market data, and smart alerts.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot.png",
+      "type": "image/png",
+      "sizes": "862x568"
+    },
+    {
+      "src": "/screenshot.png",
+      "type": "image/png",
+      "sizes": "862x568",
+      "form_factor": "wide"
+    }
+  ]
+}

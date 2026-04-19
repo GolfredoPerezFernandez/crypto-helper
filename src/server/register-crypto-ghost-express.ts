@@ -1,0 +1,162 @@
+/**
+ * Crypto Helper — Express-only routes (SSE, webhooks, cron trigger).
+ * JSON REST for market/signals/wallet lives under Qwik: `/api/crypto/*` (served by the city router).
+ *
+ * Qwik API overview:
+ * - GET /api/crypto/health
+ * - GET /api/crypto/meta/categories
+ * - GET /api/crypto/market/tokens?category=&limit=&offset=
+ * - GET /api/crypto/market/tokens/:id
+ * - GET /api/crypto/market/by-slug/:category/:slug
+ * - GET /api/crypto/sync/status?history=
+ * - POST /api/crypto/sync/run (Qwik; Bearer CRON_SECRET if set; dev OK without secret)
+ * - GET /api/crypto/signals/{whales|traders|smart}?limit=
+ * - GET /api/crypto/wallet/:address/tokens?chain=
+ * - GET /api/crypto/wallet/:address/balance?chain=
+ * - GET /api/crypto/moralis/erc20/:address?chain=
+ * - GET /api/crypto/moralis/solana/wallet/:address/portfolio?network=&nftMetadata=&mediaItems=&excludeSpam=
+ * - GET /api/crypto/moralis/solana/wallet/:address/swaps?network=&limit=&cursor=&order=&fromDate=&toDate=&transactionTypes=&tokenAddress=
+ * - GET /api/crypto/moralis/solana/token/:mint/top-holders?network=&limit=&cursor=
+ * - GET /api/crypto/moralis/solana/token/:mint/holders/historical?network=&timeFrame=&fromDate=&toDate=&limit=&cursor=
+ * - GET /api/crypto/moralis/solana/token/:mint/pairs?network=&limit=&cursor=
+ * - GET /api/crypto/moralis/solana/token/:mint/swaps?network=&limit=&cursor=&order=&fromDate=&toDate=&transactionTypes=
+ * - GET /api/crypto/moralis/solana/pairs/:pair/swaps?network=&limit=&cursor=&order=&fromDate=&toDate=&transactionTypes=
+ * - GET /api/crypto/moralis/tokens/:address/analytics?tokenId=&chain=
+ * - POST /api/crypto/moralis/tokens/analytics/timeseries (JSON: tokenId or tokens[], timeframe 1d|7d|30d; max 30 tokens)
+ * - POST /api/crypto/moralis/solana/token/:mint/analytics-timeseries (JSON: timeframe)
+ * - Dashboard Solana (live Moralis): /[locale]/dashboard/solana/wallet/[address]/?network= · /[locale]/dashboard/solana/token/[mint]/?network=
+ * - Dashboard NFTs: /[locale]/dashboard/nfts/[0xContract]/?chain= · /[locale]/dashboard/nfts/[0xContract]/[tokenId]/?chain= (Moralis server loaders)
+ * - GET /api/crypto/moralis/wallet/:address/pnl?chain=&days=
+ * - GET /api/crypto/moralis/wallet/:address/net-worth?chains=
+ * - GET /api/crypto/moralis/wallet/:address/nft/collections?chain=&limit=&cursor=&exclude_spam=&include_prices=&token_counts= (session; Moralis GET /{address}/nft/collections)
+ * - GET /api/crypto/moralis/wallet/:address/nft/:contract?chain=&limit=&cursor=&… (session; Moralis GET /nft/{contract}; alias of /api/crypto/moralis/nft/:contract)
+ * - GET /api/crypto/moralis/nft/:contract?chain=&limit=&cursor=&format=&normalizeMetadata=&media_items=&include_prices=&totalRanges=&range= (session; Moralis GET /nft/{address})
+ * - GET /api/crypto/moralis/wallet/:address/history?chain=&limit=&cursor=&order= (session; wallet history)
+ * - GET /api/crypto/moralis/wallet/:address/erc20/transfers?chain=&limit=&cursor=&order=&from_block=&to_block= (session; ERC20 by wallet)
+ * - GET /api/crypto/moralis/wallet/:address/swaps?chain=&limit=&cursor=&order=&tokenAddress= (session; DEX swaps)
+ * - GET /api/crypto/moralis/wallet/:address/nfts/trades?chain=&limit=&cursor=&nft_metadata= (session; NFT trades)
+ * - GET /api/crypto/moralis/wallet/:address/verbose?chain=&limit=&cursor=&order=&include= (session; native txs decoded)
+ * - GET /api/crypto/moralis/wallet/:address/native?chain=&limit=&cursor=&order=&include= (session; Moralis GET /{address} raw native txs)
+ * - GET /api/crypto/moralis/wallet/:address/insight?chains=&includeChainBreakdown= (session; wallet insight)
+ * - GET /api/crypto/moralis/wallet/:address/stats?chain= (session; wallet stats)
+ * - GET /api/crypto/moralis/wallet/:address/chains?chains= (session; active chains)
+ * - GET /api/crypto/traders/icarus-swaps?limit=&offset=
+ */
+import type { Express, Request, Response } from "express";
+import cron from "node-cron";
+import { runDailyMarketSync } from "./crypto-ghost/cmc-sync";
+import { handleMoralisStreamWebhook } from "./crypto-ghost/webhook-processor";
+import { expressRequestHasProAccess } from "./crypto-ghost/user-access";
+import { smartEmitter, traderEmitter, whaleEmitter } from "./realtime/emitters";
+import { startUsdtWatcher } from "./crypto-ghost/usdt-watcher";
+
+function attachSse(emitter: typeof whaleEmitter, eventName: string) {
+  return async (_req: Request, res: Response) => {
+    if (!(await expressRequestHasProAccess(_req))) {
+      res.status(403).setHeader("Content-Type", "text/plain; charset=utf-8").send("Pro subscription required");
+      return;
+    }
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (typeof (res as any).flushHeaders === "function") (res as any).flushHeaders();
+
+    const onMsg = (msg: string) => {
+      res.write(`event: ${eventName}\ndata: ${msg}\n\n`);
+    };
+    emitter.on("message", onMsg);
+
+    const ping = setInterval(() => {
+      res.write(`: ping ${Date.now()}\n\n`);
+    }, 25_000);
+
+    _req.on("close", () => {
+      clearInterval(ping);
+      emitter.off("message", onMsg);
+    });
+  };
+}
+
+async function attachSmartSse(_req: Request, res: Response) {
+  if (!(await expressRequestHasProAccess(_req))) {
+    res.status(403).setHeader("Content-Type", "text/plain; charset=utf-8").send("Pro subscription required");
+    return;
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof (res as any).flushHeaders === "function") (res as any).flushHeaders();
+
+  const onAlert = (payload: string) => {
+    res.write(`event: alert\ndata: ${payload}\n\n`);
+  };
+  smartEmitter.on("alert", onAlert);
+
+  const ping = setInterval(() => {
+    res.write(`: ping ${Date.now()}\n\n`);
+  }, 25_000);
+
+  _req.on("close", () => {
+    clearInterval(ping);
+    smartEmitter.off("alert", onAlert);
+  });
+}
+
+export function registerCryptoGhostRoutes(app: Express): void {
+  app.get("/api/stream/whales", attachSse(whaleEmitter, "new-message"));
+  app.get("/api/stream/traders", attachSse(traderEmitter, "new-message"));
+  app.get("/api/stream/smart", attachSmartSse);
+
+  app.post("/api/webhook/moralis/whales", async (req, res) => {
+    try {
+      const r = await handleMoralisStreamWebhook(req.body, "whale");
+      res.status(r.ok ? 200 : 500).json(r);
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e?.message });
+    }
+  });
+
+  app.post("/api/webhook/moralis/traders", async (req, res) => {
+    try {
+      const r = await handleMoralisStreamWebhook(req.body, "trader");
+      res.status(r.ok ? 200 : 500).json(r);
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e?.message });
+    }
+  });
+
+  app.post("/api/internal/daily-sync", async (req, res) => {
+    const auth = req.headers.authorization || "";
+    const secret = process.env.CRON_SECRET?.trim() || "";
+    if (!secret || auth !== `Bearer ${secret}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const out = await runDailyMarketSync();
+    res.json(out);
+  });
+}
+
+export function scheduleCryptoGhostJobs(): void {
+  const expr = process.env.SYNC_CRON || "0 3 * * *";
+  cron.schedule(expr, () => {
+    console.log("[Crypto Helper] cron: scheduled market sync starting", new Date().toISOString());
+    runDailyMarketSync().catch((e) => console.error("[cron] CMC sync", e));
+  });
+  console.log(`[Crypto Helper] CMC daily sync scheduled: ${expr}`);
+
+  setTimeout(() => {
+    console.log("[Crypto Helper] delayed initial market sync (45s after boot)", new Date().toISOString());
+    runDailyMarketSync().catch((e) => console.error("[Crypto Helper] delayed initial sync failed", e));
+  }, 45_000);
+
+  const rpc = process.env.ETHEREUM_RPC_URL?.trim();
+  if (rpc) {
+    const stop = startUsdtWatcher(smartEmitter, rpc);
+    process.on("SIGTERM", stop);
+    console.log("[Crypto Helper] USDT fresh-wallet watcher enabled");
+  } else {
+    console.warn("[Crypto Helper] ETHEREUM_RPC_URL not set — smart watcher disabled");
+  }
+}

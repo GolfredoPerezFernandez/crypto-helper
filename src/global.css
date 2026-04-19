@@ -1,0 +1,337 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * KNRT Property Hub - Dark Theme Only
+ * Global styles with dark theme as default
+ */
+
+@layer base {
+  :root {
+    /* Dark theme variables as default */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --muted: 240 5% 20%;
+    --muted-foreground: 240 5% 64.9%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --border: 240 5% 30%;
+    --input: 240 5% 30%;
+    --primary: 193 91% 55%;
+    --primary-foreground: 240 10% 3.9%;
+    --secondary: 240 5% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 240 5% 20%;
+    --accent-foreground: 0 0% 98%;
+    --alert: 0 84.2% 60.2%;
+    --alert-foreground: 0 0% 98%;
+    --ring: 193 91% 55%;
+    
+    /* Custom KNRT colors */
+    --knrt-primary-50: #fff5f5;
+    --knrt-primary-100: #ffe5e7;
+    --knrt-primary-500: #d13238;
+    --knrt-primary-600: #c1272d;
+    --knrt-primary-700: #a91f23;
+  }
+
+  /* Ensure body uses dark theme */
+  html {
+    background-color: rgb(3 7 18 / 1); /* gray-950 */
+    color: rgb(243 244 246 / 1); /* gray-100 */
+  }
+
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial;
+    background-color: rgb(3 7 18 / 1); /* gray-950 */
+    color: rgb(243 244 246 / 1); /* gray-100 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Smooth scrolling and animations */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide scrollbars but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+
+  /* Prevent overscroll */
+  html, body {
+    overscroll-behavior: none;
+  }
+}
+
+/* Custom utility classes for KNRT Property Hub */
+@layer utilities {
+  .backdrop-blur {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .animate-slideDown {
+    animation: slideDown 0.2s ease-out;
+  }
+
+  @keyframes slideDown {
+    from { 
+      opacity: 0; 
+      transform: translateY(-10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+}
+
+/* Markdown content styling */
+.markdown-content strong {
+  font-weight: 700;
+  color: rgb(243 244 246 / 1); /* Always white in dark theme */
+}
+
+/* Markdown formatting */
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Input area styling */
+textarea {
+  width: 100%;
+  min-width: 300px;
+}
+
+/* --------------------------------------------------------------------------
+   Qwik City View Transitions — global SPA polish (QwikCityProvider + html.vt-root)
+   -------------------------------------------------------------------------- */
+html.vt-root {
+  view-transition-name: root;
+}
+
+::view-transition-old(root) {
+  animation: cg-vt-root-out 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+::view-transition-new(root) {
+  animation: cg-vt-root-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cg-vt-root-out {
+  from {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0.86;
+    filter: blur(3px) saturate(1.05);
+    transform: scale(0.992) translateY(6px);
+  }
+}
+
+@keyframes cg-vt-root-in {
+  from {
+    opacity: 0.82;
+    filter: blur(4px) saturate(1.08);
+    transform: scale(0.988) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Persistent chrome (header / footer): minimal crossfade so layout feels stable */
+.cg-vt-chrome {
+  view-transition-class: cg-vt-chrome;
+}
+::view-transition-old(.cg-vt-chrome),
+::view-transition-new(.cg-vt-chrome) {
+  animation: cg-vt-chrome 240ms ease both;
+}
+@keyframes cg-vt-chrome {
+  from {
+    opacity: 0.985;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Primary page column under header */
+.cg-vt-main-stage {
+  view-transition-class: cg-vt-main-stage;
+}
+::view-transition-old(.cg-vt-main-stage):only-child {
+  animation: cg-vt-main-out 300ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(.cg-vt-main-stage):only-child {
+  animation: cg-vt-main-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes cg-vt-main-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0.75;
+    transform: translateY(-8px) scale(0.995);
+  }
+}
+@keyframes cg-vt-main-in {
+  from {
+    opacity: 0.55;
+    transform: translateY(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Dashboard: sidebar + content stage */
+.cg-vt-dash-sidebar {
+  view-transition-class: cg-vt-dash-sidebar;
+}
+::view-transition-old(.cg-vt-dash-sidebar):only-child {
+  animation: cg-vt-dash-side-out 280ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(.cg-vt-dash-sidebar):only-child {
+  animation: cg-vt-dash-side-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes cg-vt-dash-side-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0.8;
+    transform: translateX(-12px);
+  }
+}
+@keyframes cg-vt-dash-side-in {
+  from {
+    opacity: 0.7;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.cg-vt-dash-stage {
+  view-transition-class: cg-vt-dash-stage;
+}
+::view-transition-old(.cg-vt-dash-stage):only-child {
+  animation: cg-vt-dash-out 300ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(.cg-vt-dash-stage):only-child {
+  animation: cg-vt-dash-in 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes cg-vt-dash-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.72;
+    transform: translateY(-10px);
+  }
+}
+@keyframes cg-vt-dash-in {
+  from {
+    opacity: 0.58;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Optional: add class `cg-vt-card` on panels/cards for a shared enter curve */
+.cg-vt-card {
+  view-transition-class: cg-vt-card;
+}
+::view-transition-new(.cg-vt-card):only-child {
+  animation: cg-vt-card-pop 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes cg-vt-card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(.cg-vt-chrome),
+  ::view-transition-new(.cg-vt-chrome),
+  ::view-transition-old(.cg-vt-main-stage),
+  ::view-transition-new(.cg-vt-main-stage),
+  ::view-transition-old(.cg-vt-dash-sidebar),
+  ::view-transition-new(.cg-vt-dash-sidebar),
+  ::view-transition-old(.cg-vt-dash-stage),
+  ::view-transition-new(.cg-vt-dash-stage),
+  ::view-transition-old(.cg-vt-card),
+  ::view-transition-new(.cg-vt-card),
+  ::view-transition-old(.cg-home-feature),
+  ::view-transition-new(.cg-home-feature),
+  ::view-transition-old(.cg-home-stat),
+  ::view-transition-new(.cg-home-stat) {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.home-feature-card {
+  view-transition-class: cg-home-feature;
+}
+
+::view-transition-new(.cg-home-feature):only-child {
+  animation: cg-card-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cg-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.home-stat-card {
+  view-transition-class: cg-home-stat;
+}
+
+::view-transition-new(.cg-home-stat):only-child {
+  animation: cg-card-in 280ms ease-out both;
+}

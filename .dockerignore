@@ -1,0 +1,33 @@
+# flyctl launch added from .gitignore
+# Cloudflare
+**/functions/**/*.js
+fly.toml
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Production
+dist
+
+# Misc
+.DS_Store
+.env
+.npmrc
+npm-debug.log
+yarn-error.log
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# DB (We use local file but don't want backups/temp files if any, actually we DO want db.sqlite if local deploy)
+# BUT user wants to deploy local DB.
+# So we keep db.sqlite NOT ignored here.
+# But ignore backups
+drizzle/db/*.bak

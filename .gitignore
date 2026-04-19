@@ -1,0 +1,10 @@
+# Cloudflare
+functions/**/*.js
+node_modules
+dist
+.env
+drizzle/db/db.sqlite
+drizzle/db/db.sqlite.bak
+drizzle/db/*.bak
+*.sqlite
+*.sqlite.bak
