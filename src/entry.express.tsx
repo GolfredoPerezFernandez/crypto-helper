@@ -56,7 +56,8 @@ app.use("/api/internal", express.json({ limit: "32kb" }));
 
 registerCryptoGhostRoutes(app);
 
-const limiter = rateLimit({
+/** Only rate-limit /api/* — never SSR/HTML routes (429 on /dashboard was confusing and broke behind shared/misread IPs). */
+const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 500,
   standardHeaders: "draft-7",
@@ -64,10 +65,12 @@ const limiter = rateLimit({
   skip: (req) =>
     req.path.startsWith("/api/stream/") ||
     req.path.startsWith("/api/crypto/") ||
-    req.path.startsWith("/api/push/") ||
-    req.path.startsWith("/build/"),
+    req.path.startsWith("/api/push/"),
 });
-app.use(limiter);
+app.use((req, res, next) => {
+  if (!req.path.startsWith("/api/")) return next();
+  return apiLimiter(req, res, next);
+});
 
 app.use(router);
 app.use(notFound);
