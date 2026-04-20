@@ -13,8 +13,10 @@ function arrayBufferToHex(buffer: ArrayBufferLike): string {
     .join('');
 }
 
+const authVerbose = () => process.env.NODE_ENV !== 'production';
+
 export async function hashPassword(password: string): Promise<string> {
-  console.log('[AUTH] Hashing password');
+  if (authVerbose()) console.log('[AUTH] Hashing password');
 
   // Convert password to ArrayBuffer
   const passwordBuffer = stringToArrayBuffer(password);
@@ -50,7 +52,7 @@ export async function hashPassword(password: string): Promise<string> {
 
   // Return as hex string
   const hash = arrayBufferToHex(combined.buffer);
-  console.log('[AUTH] Password hashed successfully');
+  if (authVerbose()) console.log('[AUTH] Password hashed successfully');
   return hash;
 }
 
@@ -58,7 +60,7 @@ export async function verifyPassword(
   password: string,
   hash: string
 ): Promise<boolean> {
-  console.log('[AUTH] Verifying password');
+  if (authVerbose()) console.log('[AUTH] Verifying password');
 
   // Convert hex string back to ArrayBuffer
   const combined = new Uint8Array(hash.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
@@ -93,7 +95,7 @@ export async function verifyPassword(
   const derivedKeyHex = arrayBufferToHex(derivedKey);
   const storedKeyHex = arrayBufferToHex(storedKey.buffer);
   const isValid = derivedKeyHex === storedKeyHex;
-  console.log(`[AUTH] Password verification result: ${isValid}`);
+  if (authVerbose()) console.log(`[AUTH] Password verification result: ${isValid}`);
   return isValid;
 }
 
@@ -144,7 +146,6 @@ export const clearAuthCookies = (requestEvent: RequestEventBase) => {
 
 export const getUserId = (requestEvent: RequestEventBase): string | null => {
   const user_id = requestEvent.cookie.get('auth_token')?.value;
-  console.log(`[AUTH] Retrieved user_id: ${user_id || 'none'}`);
   return user_id || null;
 };
 
@@ -178,6 +179,6 @@ export const verifyAuth = async (requestEvent: RequestEventBase): Promise<boolea
   // If session extension is needed later, a more robust mechanism
   // (e.g., checking expiry time) should be implemented.
 
-  console.log('[AUTH] User authenticated successfully');
+  if (authVerbose()) console.log('[AUTH] User authenticated successfully');
   return true;
 };

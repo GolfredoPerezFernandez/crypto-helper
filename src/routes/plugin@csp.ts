@@ -1,14 +1,20 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { isDev } from "@builder.io/qwik/build";
 
-export const onRequest: RequestHandler = event => {
-    if (isDev) return; // Will not return CSP headers in dev mode
-    const nonce = Date.now().toString(36); // Your custom nonce logic here
+/**
+ * CSP for SSR (see https://qwik.dev/docs/advanced/content-security-policy/).
+ * - `event.sharedMap.set("@nonce", nonce)` lets Qwik City inject the same nonce on SSR script tags.
+ * - Custom inline `<script>` tags must use `nonce={useServerData("nonce")}`.
+ * - Third-party chart iframes need explicit hosts in `frame-src` (nonce only applies to your own frames).
+ */
+export const onRequest: RequestHandler = (event) => {
+    if (isDev) return;
+
+    const nonce = Date.now().toString(36);
     event.sharedMap.set("@nonce", nonce);
-    // TradingView widget + Dexscreener embeds load third-party iframes; frame-src must list those hosts
-    // (otherwise the browser shows “content blocked” / contenido bloqueado for the chart).
+
     const frameAllow =
-        "'self' https://*.tradingview.com https://www.tradingview.com https://s.tradingview.com https://*.tradingview-widget.com https://dexscreener.com https://*.dexscreener.com";
+        `'self' 'nonce-${nonce}' https://*.tradingview.com https://www.tradingview.com https://s.tradingview.com https://*.tradingview-widget.com https://dexscreener.com https://*.dexscreener.com`;
 
     const csp = [
         `default-src 'self' 'unsafe-inline'`,
@@ -19,7 +25,7 @@ export const onRequest: RequestHandler = event => {
         `frame-src ${frameAllow}`,
         `object-src 'none'`,
         `base-uri 'self'`,
-        `connect-src 'self' https: wss: *.tile.openstreetmap.org *.arcgisonline.com`, // Allow connections to external APIs and websockets
+        `connect-src 'self' https: wss: *.tile.openstreetmap.org *.arcgisonline.com`,
     ];
 
     event.headers.set("Content-Security-Policy", csp.join("; "));

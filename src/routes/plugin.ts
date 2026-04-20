@@ -1,4 +1,5 @@
 import { type RequestHandler } from '@builder.io/qwik-city';
+import { isDev } from '@builder.io/qwik/build';
 import { config } from '../speak-config';
 
 export const onRequest: RequestHandler = ({ params, locale }) => {
@@ -7,7 +8,9 @@ export const onRequest: RequestHandler = ({ params, locale }) => {
         (l) => l.lang.toLowerCase() === params.locale?.toLowerCase()
     )?.lang || config.defaultLocale.lang;
 
-    console.log(`[Plugin SSR] Resolved lang: ${lang} (from param: ${params.locale})`);
+    if (isDev) {
+        console.log(`[Plugin SSR] Resolved lang: ${lang} (from param: ${params.locale})`);
+    }
 
     // Set Qwik locale
     locale(lang);
