@@ -1,7 +1,7 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { eq } from "drizzle-orm";
 import { getUserId } from "~/utils/auth";
-import { users } from "../../../../../drizzle/schema";
+import { users } from "../../../../../../drizzle/schema";
 import { db } from "~/lib/turso";
 import { verifyAndGrantPro } from "~/server/crypto-ghost/pro-payment-verify";
 import { getProChainEntry } from "~/constants/pro-networks";

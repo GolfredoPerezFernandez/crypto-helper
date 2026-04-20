@@ -27,7 +27,13 @@ FROM deps as build
  
 # Copy the rest of the source files into the image.
 COPY . .
- 
+
+# deps used --ignore-scripts; run sharp's install so linuxmusl-x64 binaries exist for PWA on Alpine.
+RUN for f in node_modules/@qwikdev/pwa/node_modules/sharp/install/check.js \
+             node_modules/sharp/install/check.js; do \
+      if [ -f "$f" ]; then node "$f" && break; fi; \
+    done
+
 # Run the build script.
 RUN yarn run build
  
