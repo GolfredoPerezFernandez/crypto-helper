@@ -17,14 +17,14 @@ export const useNftsLoader = routeLoader$(async () => {
     hot: hot?.ok ? hot.data : null,
     hotErr:
       hot == null
-        ? "Sin snapshot en Turso — ejecuta el sync diario."
+        ? "Sin datos en caché — ejecuta el sync diario."
         : hot.ok
           ? null
           : hot.error,
     top: top?.ok ? top.data : null,
     topErr:
       top == null
-        ? "Sin snapshot en Turso — ejecuta el sync diario."
+        ? "Sin datos en caché — ejecuta el sync diario."
         : top.ok
           ? null
           : top.error,
@@ -51,7 +51,7 @@ function moralisChainSlug(c: Record<string, unknown>): string {
   return s || "eth";
 }
 
-/** Moralis market-data devuelve `collection_image`; otras rutas usan `collection_logo`, `image`, etc. */
+/** Algunas APIs devuelven `collection_image`; otras usan `collection_logo`, `image`, etc. */
 function nftCollectionImageUrl(c: Record<string, unknown>): string | null {
   const meta = c.metadata as Record<string, unknown> | undefined;
   const candidates: unknown[] = [
@@ -91,7 +91,7 @@ function firstFiniteNumber(obj: Record<string, unknown>, keys: string[]): number
   return null;
 }
 
-/** Moralis v2.2 suele usar snake_case; a veces camelCase. */
+/** Payloads suelen usar snake_case; a veces camelCase. */
 function nftCollectionVolumeUsd(c: Record<string, unknown>): number | null {
   return firstFiniteNumber(c, [
     "volume_usd",
@@ -161,7 +161,7 @@ export default component$(() => {
       <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">NFT collections</h1>
       <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
         {showSync
-          ? "Datos desde Turso (último sync Moralis). Sin llamadas a Moralis en cada carga."
+          ? "Datos desde la base (último sync programado). Sin llamadas extra al abrir la página."
           : "Datos en caché (actualizados periódicamente)."}
       </p>
 
@@ -295,9 +295,9 @@ export default component$(() => {
           Showing <span class="font-semibold text-slate-300">{topFiltered.value.length}</span> collections
         </p>
         <p class="mt-2 max-w-2xl text-[11px] leading-relaxed text-slate-600">
-          Moralis puede devolver <span class="text-slate-500">Vol $0</span> cuando no hay volumen USD en su ventana de
-          datos, aunque la colección siga en el ranking por{" "}
-          <span class="text-slate-500">cap. de mercado</span>. En ese caso mostramos el cap si viene en la API.
+          A veces el volumen USD aparece como <span class="text-slate-500">Vol $0</span> en caché aunque la colección
+          siga en el ranking por <span class="text-slate-500">capitalización</span>. En ese caso mostramos el cap si
+          viene en el snapshot.
         </p>
         <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topFiltered.value.length === 0 ? (
@@ -344,7 +344,7 @@ export default component$(() => {
                       </p>
                       {topVol != null && topVol <= 0 ? (
                         <p class="text-[10px] leading-snug text-slate-500">
-                          Vol USD en 0 o no reportado en Moralis para esta colección.
+                          Volumen USD en 0 o no incluido en el snapshot para esta colección.
                         </p>
                       ) : null}
                     </div>

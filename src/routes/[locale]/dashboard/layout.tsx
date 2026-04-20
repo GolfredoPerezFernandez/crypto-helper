@@ -115,7 +115,7 @@ export default component$(() => {
       sse: tr("dashboard.sse@@SSE"),
       proOnlyTitle: tr("dashboard.proOnlyTitle@@Pro subscribers only — see plans on Overview"),
       proBadge: tr("dashboard.proBadge@@Pro"),
-      solanaMoralisTitle: tr("dashboard.solanaMoralisTitle@@Solana"),
+      solanaNavTitle: tr("dashboard.solanaNavTitle@@Solana"),
       solanaOverview: tr("dashboard.solanaOverview@@Overview"),
       walletApi: tr("dashboard.walletApi@@Wallet"),
       solanaWalletPanel: tr("dashboard.solanaWalletPanel@@Wallet (live)"),
@@ -244,7 +244,7 @@ export default component$(() => {
               <Link
                 class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/solana")}`}
                 href={`${sol}/`}
-                title={d.value.solanaMoralisTitle}
+                title={d.value.solanaNavTitle}
               >
                 <LuZap class={iconClass} />
                 <span class={lbl}>{d.value.solana}</span>

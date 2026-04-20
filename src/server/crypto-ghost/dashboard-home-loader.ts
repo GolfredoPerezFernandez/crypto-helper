@@ -92,7 +92,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
     address: string | null;
     authProvider?: string | null;
     tokens: { symbol: string; usdLabel: string; logo: string | null; tokenAddress: string }[];
-    moralisError?: string;
+    walletTokensError?: string;
   } = { address: null, tokens: [] };
 
   const uid = getUserId(ev);
@@ -128,7 +128,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
           m && !m.ok
             ? m.error
             : "Sin snapshot Base en Turso (sync diario). Registra la wallet o espera al próximo sync.";
-        wallet.moralisError = err.length > 160 ? `${err.slice(0, 160)}…` : err;
+        wallet.walletTokensError = err.length > 160 ? `${err.slice(0, 160)}…` : err;
       }
     }
   }

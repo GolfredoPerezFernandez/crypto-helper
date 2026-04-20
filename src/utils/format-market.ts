@@ -1,5 +1,5 @@
 /**
- * Human-readable USD formatting for cached CMC / Moralis numbers.
+ * Human-readable USD formatting for cached CMC / on-chain snapshot numbers.
  * Avoids scientific notation and trims noise from DB string decimals.
  */
 
@@ -89,11 +89,78 @@ export function formatUsdLiquidity(input: number | string | null | undefined): s
   return prefix + n.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 0 });
 }
 
-/** Wallet / portfolio USD totals (always2 fraction digits when meaningful). */
+/** Wallet / portfolio USD totals (grouping + decimals). Uses en-US so UI does not mix `1.234,56` vs `$1,234.56`. */
 export function formatUsdBalance(input: number | string | null | undefined): string {
   const n = toNum(input);
   if (n === null) return "—";
-  return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+}
+
+/** Wallet PnL / net worth: above this absolute value is treated as bad API data (avoids absurd UI). */
+export const MAX_PLAUSIBLE_WALLET_USD = 1e15;
+
+/**
+ * Snapshot / API USD fields: may be number, or string with `,` or EU-style `1.234,56`.
+ */
+export function parseWalletUsdField(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw)) return null;
+    if (Math.abs(raw) > MAX_PLAUSIBLE_WALLET_USD) return null;
+    return raw;
+  }
+  let s = String(raw).trim().replace(/\s/g, "");
+  if (s === "" || s === "—") return null;
+  s = s.replace(/^\$/, "").replace(/^USD/i, "").trim();
+  /*
+   * EU thousands: `1.234.567,89` or `1.234.567`. Do not treat `-157.195` as EU (that is US decimal −157.195).
+   * Require either a comma decimal part, or at least two `.\d{3}` thousand groups.
+   * Simple EU cents: `1234,56` (no `.` thousands) — not `1,234` US-style (handled below).
+   */
+  const euSimpleCents = /^-?\d+,\d{2}$/;
+  const euWithCommaDecimal = /^-?\d{1,3}(\.\d{3})*,\d{1,6}$/;
+  const euMultiGroup = /^-?\d{1,3}(\.\d{3}){2,}(,\d+)?$/;
+  if (euSimpleCents.test(s) && !s.includes(".")) {
+    s = s.replace(",", ".");
+  } else if (euWithCommaDecimal.test(s) || euMultiGroup.test(s)) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else {
+    s = s.replace(/,/g, "");
+  }
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  if (Math.abs(n) > MAX_PLAUSIBLE_WALLET_USD) return null;
+  return n;
+}
+
+/**
+ * Watchlist / small cards: compact currency for large |USD| (avoids layout break from absurd API values).
+ * Always en-US + narrow $ so locale never yields `USD-157.195,18`-style output.
+ */
+export function formatUsdWalletCard(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  const a = Math.abs(n);
+  if (a > MAX_PLAUSIBLE_WALLET_USD) return "—";
+  const fmtCompact: Intl.NumberFormatOptions = {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 2,
+    maximumSignificantDigits: 5,
+  };
+  const fmtStandard: Intl.NumberFormatOptions = {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  };
+  if (a >= 1_000_000) {
+    return new Intl.NumberFormat("en-US", fmtCompact).format(n);
+  }
+  return new Intl.NumberFormat("en-US", fmtStandard).format(n);
 }
 
 /** Parse CMC / DB percent strings ("1.23", "-4.5%", "1,2"). */

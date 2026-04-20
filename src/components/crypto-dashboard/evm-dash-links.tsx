@@ -1,7 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import { Link } from "@builder.io/qwik-city";
 
-/** Block explorer origin for EVM (Moralis chain slug or hex). */
+/** Block explorer origin for EVM (chain slug or hex id). */
 export function txExplorerBase(chain: string): string {
   const c = String(chain || "").toLowerCase();
   if (c === "base") return "https://basescan.org";
@@ -23,7 +23,7 @@ export function txExplorerBase(chain: string): string {
   return "https://etherscan.io";
 }
 
-/** Rutas internas de tx solo Base / Ethereum (Moralis `fetchMoralisTransaction`). */
+/** Internal tx routes only support Base / Ethereum (see `/dashboard/tx`). */
 export function moralisChainToInternalTxChain(moralisChain: string): "base" | "eth" | null {
   const x = String(moralisChain || "").toLowerCase();
   if (x === "base" || x === "0x2105") return "base";
@@ -54,8 +54,8 @@ export function dashboardTxHref(locale: string, chain: "base" | "eth", hash: unk
 export type EvmAddrVariant = "wallet" | "token" | "nft";
 
 /**
- * Dirección 0x: enlace principal en la app; ↗ al explorador de la cadena Moralis.
- * `moralisChain`: slug Moralis (`base`, `eth`, `polygon`, …).
+ * Dirección 0x: enlace principal en la app; ↗ al explorador de la cadena.
+ * `moralisChain`: slug de cadena (`base`, `eth`, `polygon`, …).
  */
 export const EvmAddrLinks = component$(
   (props: { locale: string; moralisChain: string; address: unknown; variant?: EvmAddrVariant }) => {

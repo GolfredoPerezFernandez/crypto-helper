@@ -386,6 +386,10 @@ async function buildTokenApiSnapshot(
   const topLosersSyncOn = /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_TOP_LOSERS ?? ""));
   let topLosers: MoralisWalletTokensResult | undefined;
   const moralisKey = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const ownersLimitRaw = Number(process.env.MORALIS_SYNC_TOKEN_OWNERS_LIMIT ?? "25");
+  const ownersLimit = Number.isFinite(ownersLimitRaw)
+    ? Math.min(100, Math.max(5, Math.floor(ownersLimitRaw)))
+    : 25;
 
   if (isEvm && moralisKey) {
     if (metrics) metrics.evmWithMoralisKey++;
@@ -394,7 +398,7 @@ async function buildTokenApiSnapshot(
         [topGainers, topLosers, owners, moralisPrice, moralisTransfers, moralisMeta] = await Promise.all([
           fetchMoralisErc20TopGainers(addr, chain, 20),
           fetchMoralisErc20TopLosers(addr, chain, 20),
-          fetchMoralisErc20Owners(addr, chain, 25),
+          fetchMoralisErc20Owners(addr, chain, ownersLimit),
           fetchMoralisErc20PriceBestEffort(addr, chain),
           fetchMoralisErc20Transfers(addr, chain, 18),
           fetchMoralisErc20Metadata(addr, chain),
@@ -402,7 +406,7 @@ async function buildTokenApiSnapshot(
       } else {
         [topGainers, owners, moralisPrice, moralisTransfers, moralisMeta] = await Promise.all([
           fetchMoralisErc20TopGainers(addr, chain, 20),
-          fetchMoralisErc20Owners(addr, chain, 25),
+          fetchMoralisErc20Owners(addr, chain, ownersLimit),
           fetchMoralisErc20PriceBestEffort(addr, chain),
           fetchMoralisErc20Transfers(addr, chain, 18),
           fetchMoralisErc20Metadata(addr, chain),

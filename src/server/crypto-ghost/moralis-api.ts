@@ -852,7 +852,8 @@ export async function fetchMoralisErc20Owners(
   const addr = encodeURIComponent(tokenAddress);
   const ch = encodeURIComponent(chain);
   const lim = encodeURIComponent(String(limit));
-  return moralisGet(`/erc20/${addr}/owners?chain=${ch}&limit=${lim}`);
+  /** `order=DESC` — largest holders first (see Moralis Data API token owners). */
+  return moralisGet(`/erc20/${addr}/owners?chain=${ch}&limit=${lim}&order=DESC`);
 }
 
 export async function fetchMoralisErc20Price(

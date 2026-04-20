@@ -574,11 +574,12 @@ export default component$(() => {
           ) : (
             <p class="text-xs text-gray-500 mb-2">Cuenta email — dirección gestionada.</p>
           )}
-          {w.moralisError ? (
+          {w.walletTokensError ? (
             <p class="text-sm text-amber-400/90">
               {showSync ? (
                 <>
-                  No se cargaron tokens ({w.moralisError}). Mostrando datos guardados en caché.
+                  No se pudieron cargar los últimos tokens de Base ({w.walletTokensError}). Se muestra la caché del
+                  último sync.
                 </>
               ) : (
                 <>No se pudieron cargar los últimos balances de Base. Los datos mostrados son los guardados en caché.</>

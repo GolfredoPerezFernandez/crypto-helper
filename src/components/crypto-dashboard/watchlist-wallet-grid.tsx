@@ -9,7 +9,7 @@ import {
   LuWallet,
   LuArrowDownUp,
 } from "@qwikest/icons/lucide";
-import { formatUsdBalance } from "~/utils/format-market";
+import { formatUsdWalletCard, parseWalletUsdField } from "~/utils/format-market";
 
 export type WatchlistWalletRow = {
   address: string;
@@ -36,16 +36,28 @@ function pct(r: WatchlistWalletRow): number | null {
 
 function roiUsd(r: WatchlistWalletRow): number | null {
   const d = pnlData(r);
-  if (!d || d.total_realized_profit_usd == null) return null;
-  const n = Number(d.total_realized_profit_usd);
-  return Number.isFinite(n) ? n : null;
+  if (!d) return null;
+  return parseWalletUsdField(d.total_realized_profit_usd ?? d.totalRealizedProfitUsd);
 }
 
 function netWorthUsd(r: WatchlistWalletRow): number | null {
   const d = nwData(r);
-  if (!d || d.total_networth_usd == null) return null;
-  const n = Number(d.total_networth_usd);
-  return Number.isFinite(n) ? n : null;
+  if (!d) return null;
+  const top = parseWalletUsdField(d.total_networth_usd ?? d.totalNetworthUsd);
+  if (top != null && top > 0) return top;
+  const chains = d.chains;
+  if (Array.isArray(chains)) {
+    let sum = 0;
+    for (const c of chains) {
+      if (c && typeof c === "object") {
+        const rec = c as Record<string, unknown>;
+        const v = parseWalletUsdField(rec.networth_usd ?? rec.networthUsd);
+        if (v != null) sum += v;
+      }
+    }
+    if (sum > 0) return sum;
+  }
+  return top;
 }
 
 type SortKey = "networth" | "pnlpct" | "roi" | "address";
@@ -211,22 +223,28 @@ export const WatchlistWalletGrid = component$(
                       </button>
                     </div>
                     <dl class="mt-4 grid grid-cols-2 gap-2 text-xs">
-                      <div class="rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
+                      <div class="min-w-0 rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
                         <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">PnL %</dt>
                         <dd class="mt-0.5 font-semibold tabular-nums text-slate-200">
                           {p != null ? `${p.toFixed(2)}%` : "—"}
                         </dd>
                       </div>
-                      <div class="rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
+                      <div class="min-w-0 rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
                         <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Realized</dt>
-                        <dd class="mt-0.5 font-semibold tabular-nums text-[#04E6E6]">
-                          {roi != null ? `$${formatUsdBalance(roi)}` : "—"}
+                        <dd
+                          class="mt-0.5 min-w-0 max-w-full break-all font-semibold tabular-nums text-[#04E6E6] sm:break-normal"
+                          title={roi != null ? String(roi) : undefined}
+                        >
+                          {roi != null ? formatUsdWalletCard(roi) : "—"}
                         </dd>
                       </div>
-                      <div class="col-span-2 rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
+                      <div class="col-span-2 min-w-0 rounded-lg bg-black/25 px-2.5 py-2 ring-1 ring-[#043234]/40">
                         <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Net worth</dt>
-                        <dd class="mt-0.5 font-semibold tabular-nums text-slate-200">
-                          {nw != null ? `$${formatUsdBalance(nw)}` : "—"}
+                        <dd
+                          class="mt-0.5 min-w-0 max-w-full break-all font-semibold tabular-nums text-slate-200 sm:break-normal"
+                          title={nw != null ? String(nw) : undefined}
+                        >
+                          {nw != null ? formatUsdWalletCard(nw) : "—"}
                         </dd>
                       </div>
                     </dl>

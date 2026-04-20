@@ -41,7 +41,7 @@ export default component$(() => {
       title="Most profitable"
       subtitle={
         showSync
-          ? "Watchlist desde Turso (último sync). Ordena y filtra por dirección en esta página."
+          ? "Watchlist desde caché (último sync). Ordena y filtra por dirección en esta página."
           : "Watchlist · datos en caché. Ordena y filtra por dirección en esta página."
       }
       rows={v.rows}
