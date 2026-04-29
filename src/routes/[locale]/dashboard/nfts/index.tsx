@@ -2,7 +2,7 @@ import { component$, useSignal, useComputed$, $ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { LuSearch, LuX } from "@qwikest/icons/lucide";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import {
   getGlobalSnapshotJson,
   GLOBAL_NFT_HOTTEST,

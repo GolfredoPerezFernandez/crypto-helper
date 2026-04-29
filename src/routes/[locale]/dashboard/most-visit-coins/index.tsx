@@ -1,7 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { queryMostVisitedOrFallback } from "~/server/crypto-ghost/market-queries";
 

@@ -156,7 +156,8 @@ export const BubbleChartD3 = component$(
           .append("svg")
           .attr("class", "w-full h-full block")
           .attr("viewBox", `0 0 ${width} ${height}`)
-          .attr("preserveAspectRatio", "xMidYMid meet");
+          .attr("preserveAspectRatio", "xMidYMid meet")
+          .style("overflow", "hidden");
 
         const defs = svg.append("defs");
 
@@ -328,15 +329,16 @@ export const BubbleChartD3 = component$(
         );
 
         node.on("click", (_e, d) => {
-          window.location.href = `/${locale}/dashboard/token/${d.id}/`;
+          window.location.href = `/${locale}/token/${d.id}/`;
         });
 
         simulation!.nodes(nodes).on("tick", () => {
           node.attr("transform", (d) => {
-            const minX = 0.06 * width;
-            const maxX = 0.98 * width;
-            const minY = 0.1 * height;
-            const maxY = 0.92 * height;
+            const edgePad = radiusFor(d) + 8;
+            const minX = edgePad;
+            const maxX = width - edgePad;
+            const minY = edgePad;
+            const maxY = height - edgePad;
             d.x = Math.max(minX, Math.min(maxX, d.x!));
             d.y = Math.max(minY, Math.min(maxY, d.y!));
             return `translate(${d.x},${d.y})`;
@@ -370,7 +372,7 @@ export const BubbleChartD3 = component$(
     return (
       <div
         ref={hostRef}
-        class="h-[min(78vh,800px)] w-full min-h-[420px] rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114]"
+        class="h-[min(78vh,800px)] w-full min-h-[420px] overflow-hidden rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114]"
       />
     );
   },

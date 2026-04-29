@@ -1,7 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import { LiveSignalsPushSettings } from "~/components/push/live-signals-push-settings";
 import { PriceAlertsSettings } from "~/components/push/price-alerts-settings";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 
 export default component$(() => {
   const dash = useDashboardAuth();

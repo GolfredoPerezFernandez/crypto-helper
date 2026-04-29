@@ -3,7 +3,7 @@ import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 // @ts-ignore qwik-speak types
 import { useSpeak, inlineTranslate } from "qwik-speak";
 import { LuShield } from "@qwikest/icons/lucide";
-import { useDashboardAuth } from "../../layout";
+import { useDashboardAuth } from "../../../layout";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { TradingViewAdvancedChart } from "~/components/crypto/tradingview-advanced-chart";
 import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";

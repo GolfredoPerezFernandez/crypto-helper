@@ -1,7 +1,7 @@
 import { component$, useSignal, $, useVisibleTask$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { LuCopy, LuExternalLink } from "@qwikest/icons/lucide";
-import { useDashboardAuth } from "../../layout";
+import { useDashboardAuth } from "../../../layout";
 import { getWalletSnapshotJson } from "~/server/crypto-ghost/api-snapshot-sync";
 import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";

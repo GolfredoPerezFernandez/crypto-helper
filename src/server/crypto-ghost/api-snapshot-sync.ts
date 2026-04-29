@@ -29,6 +29,7 @@ export const GLOBAL_ICARUS_TOP_USERS = "icarus_top_users_swaps";
 export const GLOBAL_TOKEN_CATEGORIES = "moralis_token_categories";
 export const GLOBAL_DISCOVERY_TOP_LOSERS = "moralis_discovery_top_losers";
 export const GLOBAL_LATEST_BLOCKS_EVM = "moralis_latest_blocks_evm";
+export const GLOBAL_CMC_GLOBAL_METRICS = "cmc_global_metrics";
 
 function nowSec() {
   return Math.floor(Date.now() / 1000);

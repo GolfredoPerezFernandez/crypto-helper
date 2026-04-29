@@ -5,7 +5,6 @@ import {
 } from "~/server/crypto-ghost/moralis-api";
 import { getMarketTokenById, isEvmAddress } from "~/server/crypto-ghost/market-queries";
 import { parseTokenApiSnapshot } from "~/server/crypto-ghost/market-token-snapshot";
-import { isSolanaWalletAddress } from "~/server/crypto-ghost/wallet-snapshot";
 
 const TF = new Set(["1d", "7d", "30d"]);
 
@@ -91,25 +90,5 @@ export const onPost: RequestHandler = async ({ request, json }) => {
     return;
   }
 
-  if (isSolanaWalletAddress(addrRaw)) {
-    if (chain && chain !== "solana") {
-      json(400, {
-        ok: false,
-        error: "Solana mint requires moralisChain solana on snapshot (or omit chain)",
-      });
-      return;
-    }
-    const out = await fetchMoralisTokenAnalyticsTimeseries(
-      [{ chain: "solana", tokenAddress: addrRaw }],
-      timeframe as "1d" | "7d" | "30d",
-    );
-    if (!out.ok) {
-      json(502, { ok: false, error: out.error });
-      return;
-    }
-    json(200, { ok: true, data: out.data, chain: "solana", tokenAddress: addrRaw, timeframe });
-    return;
-  }
-
-  json(400, { ok: false, error: "token address is neither EVM nor Solana mint" });
+  json(400, { ok: false, error: "token address is not a valid EVM address" });
 };

@@ -1,5 +1,5 @@
-import { component$, Slot, useSignal, $, useTask$, useComputed$ } from "@builder.io/qwik";
-import { Link, routeLoader$, useLocation, useNavigate } from "@builder.io/qwik-city";
+import { component$, Slot, useSignal, $, useComputed$ } from "@builder.io/qwik";
+import { Link, useLocation } from "@builder.io/qwik-city";
 // @ts-ignore qwik-speak types
 import { inlineTranslate } from "qwik-speak";
 import {
@@ -20,31 +20,7 @@ import {
   LuWaves,
   LuZap,
 } from "@qwikest/icons/lucide";
-import { verifyAuth } from "~/utils/auth";
-
-export const useDashboardAuth = routeLoader$(async (ev) => {
-  const isAuthenticated = await verifyAuth(ev);
-  if (!isAuthenticated) {
-    return {
-      ok: true as const,
-      hasPro: false,
-      isSubscriber: false,
-      isAdmin: false,
-      showSyncDebug: false,
-      canTriggerFullMarketSync: false,
-    };
-  }
-  const { getUserProAccess } = await import("~/server/crypto-ghost/user-access");
-  const pro = await getUserProAccess(ev);
-  return {
-    ok: true as const,
-    hasPro: pro.hasPro,
-    isSubscriber: pro.isSubscriber,
-    isAdmin: pro.isAdmin,
-    showSyncDebug: pro.showSyncDebug,
-    canTriggerFullMarketSync: pro.canTriggerFullMarketSync,
-  };
-});
+import { useDashboardAuth } from "../layout";
 
 export type DashboardAccessState = {
   hasPro: boolean;
@@ -56,26 +32,10 @@ export type DashboardAccessState = {
 
 export const DashboardShell = component$((props: { session: DashboardAccessState }) => {
   const loc = useLocation();
-  const nav = useNavigate();
   const L = loc.params.locale || "en-us";
   const base = `/${L}`;
   const sol = `${base}/solana`;
   const hasPro = props.session.hasPro;
-
-  const chainFamily = useSignal<"evm" | "solana">(
-    loc.url.pathname.includes("/solana") ? "solana" : "evm",
-  );
-  useTask$(({ track }) => {
-    const path = track(() => loc.url.pathname);
-    chainFamily.value = path.includes("/solana") ? "solana" : "evm";
-  });
-
-  const onChainSelect = $((e: Event) => {
-    const v = (e.target as HTMLSelectElement).value as "evm" | "solana";
-    const locSeg = loc.params.locale || "en-us";
-    if (v === "solana") void nav(`/${locSeg}/solana/`);
-    else void nav(`/${locSeg}/home/`);
-  });
 
   const sidebarCollapsed = useSignal(false);
   const tokensOpen = useSignal(true);
@@ -249,27 +209,8 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
           </button>
         </div>
 
-        <div class={["mt-3 md:mt-4", collapsed ? "md:mt-2" : ""].join(" ")}>
-          <label for="cg-dash-chain" class="sr-only">
-            {d.value.chainLabel}
-          </label>
-          <select
-            id="cg-dash-chain"
-            class={[
-              "w-full rounded-lg border border-[#043234] bg-[#001a1c] text-xs text-gray-200 px-2 py-2 md:text-sm outline-none focus-visible:ring-1 focus-visible:ring-[#04E6E6]/50",
-              collapsed ? "md:text-[10px] md:px-1 md:py-1.5" : "",
-            ].join(" ")}
-            value={chainFamily.value}
-            onChange$={onChainSelect}
-            aria-label={d.value.chainAria}
-          >
-            <option value="evm">{d.value.evm}</option>
-            <option value="solana">{d.value.solana}</option>
-          </select>
-        </div>
-
         <nav class={["mt-4 flex flex-col gap-0.5", mobileNavOpen.value ? "block" : "hidden md:flex"].join(" ")}>
-          {chainFamily.value === "solana" ? (
+          {false ? (
             collapsed ? (
               <Link
                 class={`${navClass} ${navClassMdCollapsed} ${active("/solana")}`}

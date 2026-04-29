@@ -2,11 +2,11 @@ import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { getWalletSnapshotJson } from "~/server/crypto-ghost/api-snapshot-sync";
 import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 25;
 
 export const head: DocumentHead = {
   title: "Top Crypto Traders Watchlist | Crypto Helper",
@@ -53,8 +53,8 @@ export default component$(() => {
       title="Most profitable"
       subtitle={
         showSync
-          ? "Watchlist desde caché (último sync). Ordena y filtra por dirección en esta página."
-          : "Watchlist · datos en caché. Ordena y filtra por dirección en esta página."
+          ? "Listado de traders actualizado. Ordena y filtra por dirección en esta página."
+          : "Listado de traders. Ordena y filtra por dirección en esta página."
       }
       rows={v.rows}
       page={v.page}

@@ -2,7 +2,7 @@ import { component$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
 import { EvmAddrLinks } from "~/components/crypto-dashboard/evm-dash-links";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { getWalletSnapshotJson } from "~/server/crypto-ghost/api-snapshot-sync";
 import { loadTopTokenHoldersGroups } from "~/server/crypto-ghost/market-top-owners";
 import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";

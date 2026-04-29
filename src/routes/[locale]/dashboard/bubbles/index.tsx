@@ -1,7 +1,7 @@
 import { component$, useComputed$, useSignal, $, useVisibleTask$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { desc, eq, sql } from "drizzle-orm";
 import {
   BubbleChartD3,

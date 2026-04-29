@@ -2,7 +2,7 @@ import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { clampLimit, queryMarketTokens } from "~/server/crypto-ghost/market-queries";
 
 export const head: DocumentHead = {

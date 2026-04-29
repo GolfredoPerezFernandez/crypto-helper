@@ -41,7 +41,6 @@ import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
 import { DashboardShell, type DashboardAccessState } from './dashboard/layout';
-export { useDashboardAuth } from './dashboard/layout';
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
@@ -73,6 +72,29 @@ export const useLayoutAuthLoader = routeLoader$(async (requestEvent) => {
     } catch {
         return { isAuthenticated: false as const, hasPro: false as const };
     }
+});
+
+export const useDashboardAuth = routeLoader$(async (ev) => {
+    const isAuthenticated = await verifyAuth(ev);
+    if (!isAuthenticated) {
+        return {
+            ok: true as const,
+            hasPro: false,
+            isSubscriber: false,
+            isAdmin: false,
+            showSyncDebug: false,
+            canTriggerFullMarketSync: false,
+        };
+    }
+    const pro = await getUserProAccess(ev);
+    return {
+        ok: true as const,
+        hasPro: pro.hasPro,
+        isSubscriber: pro.isSubscriber,
+        isAdmin: pro.isAdmin,
+        showSyncDebug: pro.showSyncDebug,
+        canTriggerFullMarketSync: pro.canTriggerFullMarketSync,
+    };
 });
 
 // ---------------- MAIN LAYOUT ----------------
@@ -461,33 +483,6 @@ export default component$(() => {
                                 {t_homeNav.value}
                             </NavLink>
 
-                            <NavLink
-                                    href={`/${L}/home/`}
-                                activeClass="bg-[#043234] text-[#04E6E6]"
-                                class="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-[#043234]/70 hover:text-white"
-                            >
-                                <LuCoins class="h-4 w-4 text-slate-500 group-hover:text-[#04E6E6] group-[.active]:text-[#04E6E6]" />
-                                {t_dashboardNav.value}
-                            </NavLink>
-
-                            {!auth.value?.isAuthenticated ? (
-                                <>
-                                    <Link
-                                        href={`/${L}/login/`}
-                                        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-[#043234]/70 hover:text-white"
-                                    >
-                                        <LuLogIn class="h-4 w-4 text-slate-500" />
-                                        {t_loginNav.value}
-                                    </Link>
-                                    <Link
-                                        href={`/${L}/register/`}
-                                        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[#04E6E6] transition-colors hover:text-white"
-                                    >
-                                        <LuUserPlus class="h-4 w-4" />
-                                        {t_registerNav.value}
-                                    </Link>
-                                </>
-                            ) : null}
                         </nav>
                     </div>
 
@@ -505,6 +500,25 @@ export default component$(() => {
                             </button>
                         ) : null}
                         <LanguageSwitcher />
+
+                        {!auth.value?.isAuthenticated && !wallet.connected ? (
+                            <div class="hidden items-center gap-2 sm:flex">
+                                <Link
+                                    href={`/${L}/login/`}
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#001a1c]/80 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                                >
+                                    <LuLogIn class="h-4 w-4 text-slate-400" />
+                                    {t_loginNav.value}
+                                </Link>
+                                <Link
+                                    href={`/${L}/register/`}
+                                    class="inline-flex items-center gap-1.5 rounded-lg bg-[#04E6E6] px-3 py-2 text-xs font-semibold text-[#001a1c] transition hover:brightness-110"
+                                >
+                                    <LuUserPlus class="h-4 w-4" />
+                                    {t_registerNav.value}
+                                </Link>
+                            </div>
+                        ) : null}
 
                         {isConnecting.value || isModalOpening.value ? (
                         <button
@@ -565,7 +579,7 @@ export default component$(() => {
                                 </span>
                             ) : null}
                         </div>
-                        ) : (
+                        ) : auth.value?.isAuthenticated ? (
                         <button
                             onClick$={handleConnect}
                             disabled={isConnecting.value || isModalOpening.value}
@@ -575,7 +589,7 @@ export default component$(() => {
                             <span class="hidden sm:inline">{t_connect.value}</span>
                             <span class="sm:hidden">{t_walletShort.value}</span>
                         </button>
-                        )}
+                        ) : null}
 
                         <button
                             type="button"
@@ -623,16 +637,6 @@ export default component$(() => {
                                 <LuHome class="h-5 w-5" />
                             </span>
                             {t_homeNav.value}
-                        </NavLink>
-                        <NavLink
-                                href={`/${L}/home/`}
-                            activeClass="bg-[#043234] text-[#04E6E6]"
-                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
-                        >
-                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
-                                <LuCoins class="h-5 w-5" />
-                            </span>
-                            {t_dashboardNav.value}
                         </NavLink>
                         {auth.value?.isAuthenticated && auth.value?.hasPro === false ? (
                             <button

@@ -1,7 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import {
   getGlobalSnapshotJson,
   getWalletSnapshotJson,

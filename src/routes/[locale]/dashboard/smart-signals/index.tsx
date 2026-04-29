@@ -1,6 +1,6 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 import { SmartSignalFeed } from "~/components/crypto-dashboard/smart-signal-feed";
 import { querySmartSignalsWithAddresses } from "~/server/crypto-ghost/market-queries";
 import { useRequirePro } from "../use-require-pro";

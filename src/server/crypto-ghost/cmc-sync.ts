@@ -19,7 +19,11 @@ import {
 } from "~/server/crypto-ghost/moralis-api";
 import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";
 import { MARKET_CATEGORIES } from "~/server/crypto-ghost/market-category-constants";
-import { runAuxiliaryApiSnapshotSync } from "~/server/crypto-ghost/api-snapshot-sync";
+import {
+  GLOBAL_CMC_GLOBAL_METRICS,
+  runAuxiliaryApiSnapshotSync,
+  upsertGlobalSnapshot,
+} from "~/server/crypto-ghost/api-snapshot-sync";
 import { runPriceAlertEvaluation } from "~/server/crypto-ghost/price-alert-evaluator";
 import {
   setSyncRunDbId,
@@ -691,6 +695,26 @@ async function runDailyMarketSyncBody(): Promise<{
       Accept: "application/json",
       "X-CMC_PRO_API_KEY": apiKey,
     });
+
+    syncLogInfo("phase: CMC global-metrics/quotes/latest");
+    const globalMetricsRes = await timedFetch(
+      "CMC global-metrics/quotes/latest",
+      `${BASE}/global-metrics/quotes/latest?convert=USD`,
+      { headers },
+    );
+    if (globalMetricsRes.ok) {
+      const globalMetricsJson: any = await globalMetricsRes.json();
+      await upsertGlobalSnapshot(GLOBAL_CMC_GLOBAL_METRICS, {
+        syncedAt: Math.floor(Date.now() / 1000),
+        source: "coinmarketcap.global-metrics",
+        ...globalMetricsJson,
+      });
+      syncLogInfo("CMC global metrics snapshot saved");
+    } else {
+      syncLogWarn("CMC global-metrics unavailable", {
+        bodyPreview: (await globalMetricsRes.text()).slice(0, 200),
+      });
+    }
 
     syncLogInfo("phase: CMC listings/latest");
     const latestRes = await timedFetch(

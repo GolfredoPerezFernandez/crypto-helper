@@ -1,6 +1,6 @@
 import { component$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
-import { useDashboardAuth } from "../../layout";
+import { useDashboardAuth } from "../../../layout";
 import {
   fetchMoralisMultipleNftMetadata,
   fetchMoralisNftCollectionMetadata,

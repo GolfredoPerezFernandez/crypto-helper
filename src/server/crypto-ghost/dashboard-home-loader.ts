@@ -6,6 +6,7 @@ import type { RequestEventBase } from "@builder.io/qwik-city";
 import { count, desc, eq, gt } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import {
+  GLOBAL_CMC_GLOBAL_METRICS,
   getGlobalSnapshotJson,
   getWalletSnapshotJson,
   GLOBAL_NFT_HOTTEST,
@@ -45,7 +46,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
   try {
   const since24h = Math.floor(Date.now() / 1000) - 86_400;
 
-  const [meme, ai, totalRow, lastSync, topVolume, trendingPack, whale24, trader24, smart24, syncHistory] =
+  const [meme, ai, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap] =
     await Promise.all([
       db
         .select()
@@ -64,6 +65,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
       db.select({ n: count() }).from(cachedMarketTokens).get(),
       getLatestSyncRun(),
       queryMarketTokens({ category: "volume", limit: 6, offset: 0 }),
+      queryMarketTokens({ category: "volume", limit: 120, offset: 0 }),
       queryTrendingOrFallback(6),
       db
         .select({ n: count() })
@@ -81,7 +83,71 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         .where(gt(freshSignals.createdAt, since24h))
         .get(),
       queryRecentSyncRuns(20),
+      getGlobalSnapshotJson<any>(GLOBAL_CMC_GLOBAL_METRICS),
     ]);
+
+  const parseNum = (v: unknown): number => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
+  const clamp100 = (n: number): number => Math.max(0, Math.min(100, n));
+  const sampleMarketCap = topVolumeForPulse.reduce((acc, t: any) => acc + parseNum(t.fullyDilutedValuation), 0);
+  const sampleVolume24h = topVolumeForPulse.reduce((acc, t: any) => acc + parseNum(t.volume), 0);
+  const advanced = topVolumeForPulse.reduce(
+    (acc, t: any) => acc + (parseNum(t.percentChange24h) > 0 ? 1 : 0),
+    0,
+  );
+  const declined = topVolumeForPulse.reduce(
+    (acc, t: any) => acc + (parseNum(t.percentChange24h) < 0 ? 1 : 0),
+    0,
+  );
+  const avg24hChange =
+    topVolumeForPulse.length > 0
+      ? topVolumeForPulse.reduce((acc, t: any) => acc + parseNum(t.percentChange24h), 0) / topVolumeForPulse.length
+      : 0;
+  const gmData = globalMetricsSnap?.data ?? {};
+  const gmUsd = gmData?.quote?.USD ?? {};
+  const marketCap = parseNum(gmUsd?.total_market_cap) || sampleMarketCap;
+  const volume24h = parseNum(gmUsd?.total_volume_24h) || sampleVolume24h;
+  const activeCryptocurrencies = Math.max(0, Math.floor(parseNum(gmData?.active_cryptocurrencies)));
+  const hasGlobalMetrics = parseNum(gmUsd?.total_market_cap) > 0 || parseNum(gmUsd?.total_volume_24h) > 0;
+  const btc = topVolumeForPulse.find((t: any) => String(t.symbol ?? "").toUpperCase() === "BTC");
+  const btcDominanceFromGlobal = parseNum(gmData?.btc_dominance);
+  const btcDominance =
+    btcDominanceFromGlobal > 0
+      ? btcDominanceFromGlobal
+      : marketCap > 0
+        ? (parseNum(btc?.fullyDilutedValuation) / marketCap) * 100
+        : null;
+  const btcPerf90d = parseNum(btc?.percentChange90d);
+  const altCandidates = topVolumeForPulse
+    .filter((t: any) => String(t.symbol ?? "").toUpperCase() !== "BTC")
+    .slice(0, 60);
+  const altOutperformers = altCandidates.reduce(
+    (acc, t: any) => acc + (parseNum(t.percentChange90d) > btcPerf90d ? 1 : 0),
+    0,
+  );
+  const altcoinSeason = altCandidates.length > 0 ? (altOutperformers / altCandidates.length) * 100 : 0;
+  const rsiCandidates = topVolumeForPulse.slice(0, 80);
+  const avgRsi =
+    rsiCandidates.length > 0
+      ? rsiCandidates.reduce((acc, t: any) => {
+          const p24 = parseNum(t.percentChange24h);
+          const p7d = parseNum(t.percentChange7d);
+          // Proxy RSI from momentum mix when OHLC candles are unavailable in cache.
+          const momentum = p24 * 0.6 + p7d * 0.4;
+          const normalized = clamp100(50 + momentum * 2.2);
+          return acc + normalized;
+        }, 0) / rsiCandidates.length
+      : 50;
+  const fearGreed = (() => {
+    const breadthRatio = topVolumeForPulse.length > 0 ? (advanced - declined) / topVolumeForPulse.length : 0;
+    const breadthScore = clamp100(50 + breadthRatio * 50);
+    const perfScore = clamp100(50 + avg24hChange * 3.5);
+    const dominancePenalty = btcDominance == null ? 0.5 : clamp01((btcDominance - 35) / 35);
+    return clamp100(breadthScore * 0.45 + perfScore * 0.4 + (1 - dominancePenalty) * 100 * 0.15);
+  })();
 
   const pro = await getUserProAccess(ev);
 
@@ -148,6 +214,20 @@ export async function loadDashboardHome(ev: RequestEventBase) {
       },
     },
     topVolume,
+    marketPulse: {
+      sampleSize: topVolumeForPulse.length,
+      marketCap,
+      volume24h,
+      activeCryptocurrencies,
+      hasGlobalMetrics,
+      advanced,
+      declined,
+      avg24hChange,
+      btcDominance,
+      fearGreed,
+      altcoinSeason,
+      avgRsi,
+    },
     trending: trendingPack,
     access: pro,
     nftGlobal: {
@@ -175,6 +255,20 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         signals24h: { whales: 0, traders: 0, smart: 0 },
       },
       topVolume: [],
+      marketPulse: {
+        sampleSize: 0,
+        marketCap: 0,
+        volume24h: 0,
+        activeCryptocurrencies: 0,
+        hasGlobalMetrics: false,
+        advanced: 0,
+        declined: 0,
+        avg24hChange: 0,
+        btcDominance: null,
+        fearGreed: 50,
+        altcoinSeason: 50,
+        avgRsi: 50,
+      },
       trending: { rows: [], usedFallback: true },
       access: pro,
       nftGlobal: {

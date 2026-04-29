@@ -1,7 +1,7 @@
 import { component$, useSignal, $ } from "@builder.io/qwik";
 import { askCryptoGhostDb } from "~/server/db-chat-actions";
 import { useRequirePro } from "../use-require-pro";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 
 export default component$(() => {
   useRequirePro();

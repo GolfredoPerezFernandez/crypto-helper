@@ -5,7 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../../../drizzle/schema";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "../../layout";
 
 export const head: DocumentHead = {
   title: "AI & big data | Dashboard",
