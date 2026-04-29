@@ -605,10 +605,10 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       </aside>
       <main
         style={{ viewTransitionName: "cg-dash-stage" }}
-        class="cg-vt-dash-stage flex-1 p-4 md:p-8 border-t md:border-t-0 border-[#043234]/50"
+        class="cg-vt-dash-stage flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 border-t md:border-t-0 border-[#043234]/50 flex flex-col"
       >
         <Slot />
-        <footer class="mt-12 rounded-2xl border border-[#043234] bg-gradient-to-r from-[#001318] via-[#001a1c] to-[#001318] px-5 py-4">
+        <footer class="mt-auto pt-10 rounded-2xl border border-[#043234] bg-gradient-to-r from-[#001318] via-[#001a1c] to-[#001318] px-5 py-4">
           <div class="flex flex-col items-center justify-center gap-2 text-center">
             <div>
               <p class="text-sm font-semibold text-[#04E6E6]">Crypto Helper</p>
