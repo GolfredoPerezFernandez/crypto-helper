@@ -1038,7 +1038,7 @@ export default component$(() => {
                   {profileNfts.value.map((nft) => (
                     <li key={`${nft.chain}-${nft.contract}-${nft.tokenId}`}>
                       <Link
-                        href={`/${loc.params.locale ?? 'en-us'}/dashboard/nfts/${nft.contract}/${encodeURIComponent(nft.tokenId)}/?chain=${encodeURIComponent(nft.chain)}`}
+                        href={`/${loc.params.locale ?? 'en-us'}/nfts/${nft.contract}/${encodeURIComponent(nft.tokenId)}/?chain=${encodeURIComponent(nft.chain)}`}
                         class="block overflow-hidden rounded-2xl border border-[#043234]/70 bg-[#043234]/30 shadow-sm transition hover:border-[#04E6E6]/40 hover:shadow-md"
                       >
                         <div class="aspect-square w-full overflow-hidden bg-[#043234]/50">
@@ -1208,7 +1208,7 @@ export default component$(() => {
                           </td>
                           <td class="max-w-[220px] px-3 py-2">
                             <Link
-                              href={`/${loc.params.locale ?? 'en-us'}/dashboard/nfts/${tr.contract}/${encodeURIComponent(tr.tokenId)}/?chain=${encodeURIComponent(tr.chain)}`}
+                              href={`/${loc.params.locale ?? 'en-us'}/nfts/${tr.contract}/${encodeURIComponent(tr.tokenId)}/?chain=${encodeURIComponent(tr.chain)}`}
                               class="block font-medium text-[#04E6E6] hover:underline"
                             >
                               <span class="line-clamp-2">{tr.label}</span>

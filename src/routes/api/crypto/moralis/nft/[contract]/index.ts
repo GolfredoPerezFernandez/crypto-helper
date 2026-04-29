@@ -5,7 +5,7 @@ import { verifyAuth } from "~/utils/auth";
 
 /**
  * Proxies Moralis GET /nft/{address} — NFTs by collection (paginated).
- * Same data as dashboard `/dashboard/nfts/[contract]` list; useful for authenticated clients. Burns CUs.
+ * Same data as `/nfts/[contract]` list; useful for authenticated clients. Burns CUs.
  */
 export const onGet: RequestHandler = async (ev) => {
   if (!(await verifyAuth(ev))) {

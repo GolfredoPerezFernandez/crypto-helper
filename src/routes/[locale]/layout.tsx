@@ -40,7 +40,7 @@ import { ProUpgradeModal } from '~/components/billing/pro-upgrade-modal';
 import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
-import { DashboardShell, type DashboardAccessState } from './dashboard/layout';
+import { DashboardShell, type DashboardAccessState } from './dashboard-shell';
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
@@ -132,7 +132,6 @@ export default component$(() => {
     });
     const usePrimarySidebarShell = useComputed$(() => {
         const p = location.url.pathname.toLowerCase();
-        if (p.includes('/dashboard/')) return false;
         if (/\/(login|register|privacy|terms)\//.test(p)) return false;
         return true;
     });

@@ -24,8 +24,8 @@
  * - GET /api/crypto/moralis/tokens/:address/analytics?tokenId=&chain=
  * - POST /api/crypto/moralis/tokens/analytics/timeseries (JSON: tokenId or tokens[], timeframe 1d|7d|30d; max 30 tokens)
  * - POST /api/crypto/moralis/solana/token/:mint/analytics-timeseries (JSON: timeframe)
- * - Dashboard Solana (live Moralis): /[locale]/dashboard/solana/wallet/[address]/?network= · /[locale]/dashboard/solana/token/[mint]/?network=
- * - Dashboard NFTs: /[locale]/dashboard/nfts/[0xContract]/?chain= · /[locale]/dashboard/nfts/[0xContract]/[tokenId]/?chain= (Moralis server loaders)
+ * - Solana (live Moralis): /[locale]/solana/wallet/[address]/?network= · /[locale]/solana/token/[mint]/?network=
+ * - NFTs: /[locale]/nfts/[0xContract]/?chain= · /[locale]/nfts/[0xContract]/[tokenId]/?chain= (Moralis server loaders)
  * - GET /api/crypto/moralis/wallet/:address/pnl?chain=&days=
  * - GET /api/crypto/moralis/wallet/:address/net-worth?chains=
  * - GET /api/crypto/moralis/wallet/:address/nft/collections?chain=&limit=&cursor=&exclude_spam=&include_prices=&token_counts= (session; Moralis GET /{address}/nft/collections)

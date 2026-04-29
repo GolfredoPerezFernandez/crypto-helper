@@ -157,7 +157,7 @@ export const PriceAlertsSettings = component$(() => {
             />
           </label>
           <p class="text-[10px] text-slate-500">
-            Same number as in <code class="text-slate-400">/dashboard/token/[id]/</code> — open a token and use the
+            Same number as in <code class="text-slate-400">/token/[id]/</code> — open a token and use the
             quick link, or paste the id from the URL.
           </p>
           <label class="text-slate-300">
@@ -224,7 +224,7 @@ export const PriceAlertsSettings = component$(() => {
                 </button>
                 <a
                   class="rounded border border-[#043234] px-2 py-1 text-xs text-slate-300 hover:bg-[#043234]/50"
-                  href={`/${L}/dashboard/token/${row.tokenId}/`}
+                  href={`/${L}/token/${row.tokenId}/`}
                 >
                   View
                 </a>

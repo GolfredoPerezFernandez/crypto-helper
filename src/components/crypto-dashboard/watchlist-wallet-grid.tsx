@@ -72,7 +72,7 @@ export const WatchlistWalletGrid = component$(
     pageSize: number;
     total: number;
     hasMore: boolean;
-    /** e.g. `/en-us/dashboard/top-traders/` */
+    /** e.g. `/en-us/top-traders/` */
     basePath: string;
   }) => {
     const L = props.locale;
@@ -201,7 +201,7 @@ export const WatchlistWalletGrid = component$(
                         </span>
                         <div class="min-w-0">
                           <Link
-                            href={`/${L}/dashboard/wallet/${r.address}/`}
+                            href={`/${L}/wallet/${r.address}/`}
                             class="block font-mono text-xs text-white hover:text-[#04E6E6] hover:underline"
                             title={r.address}
                           >
@@ -254,7 +254,7 @@ export const WatchlistWalletGrid = component$(
                       </p>
                     )}
                     <Link
-                      href={`/${L}/dashboard/wallet/${r.address}/`}
+                      href={`/${L}/wallet/${r.address}/`}
                       class="mt-4 block w-full rounded-lg bg-[#04E6E6]/10 py-2.5 text-center text-xs font-semibold text-[#04E6E6] ring-1 ring-[#04E6E6]/25 transition hover:bg-[#04E6E6]/20"
                     >
                       Open wallet →

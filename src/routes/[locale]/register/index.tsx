@@ -52,7 +52,7 @@ export default component$(() => {
             try {
                 const out = await runWalletSiweLogin();
                 if (out.kind === 'needs_email') {
-                    const nextDash = encodeURIComponent(`/${locale}/dashboard/home/`);
+                    const nextDash = encodeURIComponent(`/${locale}/home/`);
                     window.location.href = `/${locale}/login/?session=required&next=${nextDash}`;
                     return;
                 }
@@ -70,7 +70,7 @@ export default component$(() => {
                     localStorage.setItem('knrt_wallet_type', 'metamask');
                     localStorage.removeItem('knrt_managed_wallet');
                 }
-                window.location.href = `/${locale}/dashboard/home/`;
+                window.location.href = `/${locale}/home/`;
             } catch (e: unknown) {
                 formError.value = e instanceof Error ? e.message : 'MetaMask sign-in failed';
                 walletSiweStarted.value = false;
@@ -102,7 +102,7 @@ export default component$(() => {
             }
 
             const locale = localeFromPathname(location.url.pathname, location.params.locale);
-            window.location.href = `/${locale}/dashboard/home/`;
+            window.location.href = `/${locale}/home/`;
 
         } catch (err: any) {
             formError.value = err.message;

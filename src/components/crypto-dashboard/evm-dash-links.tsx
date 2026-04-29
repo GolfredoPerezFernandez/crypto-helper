@@ -23,7 +23,7 @@ export function txExplorerBase(chain: string): string {
   return "https://etherscan.io";
 }
 
-/** Internal tx routes only support Base / Ethereum (see `/dashboard/tx`). */
+/** Internal tx routes only support Base / Ethereum (see `/tx`). */
 export function moralisChainToInternalTxChain(moralisChain: string): "base" | "eth" | null {
   const x = String(moralisChain || "").toLowerCase();
   if (x === "base" || x === "0x2105") return "base";
@@ -37,7 +37,7 @@ export function evmTxExplorerUrl(moralisChain: string, hash: string): string {
   return `${txExplorerBase(moralisChain)}/tx/${h}`;
 }
 
-/** BaseScan / Etherscan solo para cadenas soportadas en `/dashboard/tx`. */
+/** BaseScan / Etherscan solo para cadenas soportadas en `/tx`. */
 export function evmExplorerTxUrlBaseEth(chain: "base" | "eth", hash: unknown): string {
   const h = String(hash ?? "").trim();
   if (!/^0x[a-fA-F0-9]{64}$/.test(h)) return "#";
@@ -48,7 +48,7 @@ export function dashboardTxHref(locale: string, chain: "base" | "eth", hash: unk
   const h = String(hash ?? "").trim().toLowerCase();
   if (!/^0x[a-f0-9]{64}$/.test(h)) return "#";
   const ch = chain === "eth" ? "eth" : "base";
-  return `/${locale}/dashboard/tx/${encodeURIComponent(h)}/?chain=${ch}`;
+  return `/${locale}/tx/${encodeURIComponent(h)}/?chain=${ch}`;
 }
 
 export type EvmAddrVariant = "wallet" | "token" | "nft";
@@ -69,10 +69,10 @@ export const EvmAddrLinks = component$(
     const chQ = encodeURIComponent(props.moralisChain);
     const primaryHref =
       v === "token"
-        ? `/${props.locale}/dashboard/token-details/${encodeURIComponent(a)}/`
+        ? `/${props.locale}/token-details/${encodeURIComponent(a)}/`
         : v === "nft"
-          ? `/${props.locale}/dashboard/nfts/${a}/?chain=${chQ}`
-          : `/${props.locale}/dashboard/wallet/${a}/`;
+          ? `/${props.locale}/nfts/${a}/?chain=${chQ}`
+          : `/${props.locale}/wallet/${a}/`;
     return (
       <span class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
         <Link
@@ -98,7 +98,7 @@ export const EvmAddrLinks = component$(
 );
 
 /**
- * Hash de tx: enlace a `/dashboard/tx` en Base/Eth; en otras cadenas solo explorador (mismo estilo).
+ * Hash de tx: enlace a `/tx` en Base/Eth; en otras cadenas solo explorador (mismo estilo).
  */
 export const TxHashLink = component$(
   (props: {

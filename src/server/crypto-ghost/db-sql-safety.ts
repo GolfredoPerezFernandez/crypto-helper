@@ -87,7 +87,7 @@ Database: SQLite (Turso / libSQL). Use ONLY SELECT. One statement. Prefer explic
 
 ### App context (Crypto Helper)
 - Stack: Qwik + Qwik City; this DB backs dashboard lists, signals, and API snapshot caches (no live Moralis calls from this chat).
-- Routes use a locale prefix, e.g. \`/{locale}/dashboard/...\` (en, es).
+- Routes use a locale prefix, e.g. \`/{locale}/...\` (en, es).
 - Token boards by vertical (CMC sync → cached_market_tokens): volume → \`/volume-coins\`, trending → \`/trending-coins\`, most-visited → \`/most-visit-coins\`, memes → \`/meme-coins\`, AI → \`/ai-coins\`, gaming → \`/gaming-coins\`, mineable → \`/mineable-coins\`, early listings → \`/earlybird-coins\`.
 - Live swap-style feeds: whale rows in signal_whales, trader rows in signal_traders; “smart money” rollups use fresh_signals + analyzed_addresses.
 - Global JSON cache: api_global_snapshots (key/value). Per-EVM-wallet Moralis bundles: api_wallet_snapshots (address = lowercased 0x…).

@@ -12,7 +12,7 @@ export const MARKET_CATEGORIES = [
 ] as const;
 export type MarketCategory = (typeof MARKET_CATEGORIES)[number];
 
-/** Route segment under `/dashboard/*` for each category (token detail “back” links). */
+/** Route segment under `/{locale}/*` for each category (token detail “back” links). */
 export const CATEGORY_DASHBOARD_PATH: Record<string, string> = {
   memes: "meme-coins",
   "ai-big-data": "ai-coins",

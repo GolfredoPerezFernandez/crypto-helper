@@ -20,7 +20,7 @@ import {
   LuWaves,
   LuZap,
 } from "@qwikest/icons/lucide";
-import { useDashboardAuth } from "../layout";
+import { useDashboardAuth } from "./layout";
 
 export type DashboardAccessState = {
   hasPro: boolean;

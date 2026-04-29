@@ -70,7 +70,7 @@ export async function runPriceAlertEvaluation(): Promise<void> {
       if (last != null && now - last < COOLDOWN_SEC) continue;
 
       const loc = defaultLocale();
-      const link = `/${loc}/dashboard/token/${r.tokenId}/`;
+      const link = `/${loc}/token/${r.tokenId}/`;
       const sym = (r.symbol || "TOKEN").toUpperCase();
       const title = `${sym} price ${dir === "above" ? "≥" : "≤"} $${threshold.toLocaleString("en-US", { maximumFractionDigits: 8 })}`;
       const body = `Now ~$${price.toLocaleString("en-US", { maximumFractionDigits: 8 })} · ${r.name || sym}`;

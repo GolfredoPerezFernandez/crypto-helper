@@ -379,7 +379,7 @@ export const CategoryTokenTable = component$(
                         </span>
                       )}
                       <Link
-                        href={`/${L}/dashboard/token/${id}/`}
+                        href={`/${L}/token/${id}/`}
                         class="shrink-0 rounded-lg bg-[#04E6E6]/10 px-3 py-1.5 text-xs font-semibold text-[#04E6E6] ring-1 ring-[#04E6E6]/25 transition hover:bg-[#04E6E6]/20"
                       >
                         View →

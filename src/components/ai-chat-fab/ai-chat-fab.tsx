@@ -162,7 +162,7 @@ export const AiChatFab = component$((props: AiChatFabProps) => {
               <div class="space-y-3">
                 <p class="text-slate-400">{t("app.aiFab.signInLine@@Sign in to use the assistant and Pro features.")}</p>
                 <Link
-                  href={`${base}/login/?next=${encodeURIComponent(`${base}/dashboard/db-insight/`)}`}
+                  href={`${base}/login/?next=${encodeURIComponent(`${base}/db-insight/`)}`}
                   class="block w-full rounded-xl border border-[#043234] py-2.5 text-center text-sm font-medium text-[#04E6E6] transition hover:bg-[#043234]/50"
                   onClick$={closePanel}
                 >
@@ -220,7 +220,7 @@ export const AiChatFab = component$((props: AiChatFabProps) => {
             )}
 
             <Link
-              href={`${base}/dashboard/db-insight/`}
+              href={`${base}/db-insight/`}
               class="block text-center text-xs text-[#04E6E6] underline-offset-2 hover:underline"
               onClick$={closePanel}
             >

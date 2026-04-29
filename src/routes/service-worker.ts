@@ -108,7 +108,7 @@ sw.addEventListener("push", (event: PushEvent) => {
   const fallbackData = {
     title: "Crypto Helper",
     body: "New live signal.",
-    data: { link: "/en-us/dashboard/home/" },
+    data: { link: "/en-us/home/" },
   };
 
   const promise = (async () => {

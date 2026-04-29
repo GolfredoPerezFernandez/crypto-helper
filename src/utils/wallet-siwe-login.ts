@@ -40,7 +40,7 @@ export function hasClientSessionMarker(): boolean {
 
 /** Same-origin relative paths only (avoids open redirects via `next`). */
 export function getSafeNextPath(params: URLSearchParams, locale: string): string {
-  const fallback = `/${locale}/dashboard/home/`;
+  const fallback = `/${locale}/home/`;
   const raw = params.get("next");
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return fallback;
   if (raw.includes("://")) return fallback;
