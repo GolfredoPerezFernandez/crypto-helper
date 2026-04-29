@@ -124,16 +124,28 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
   const confirmations = Math.max(0, Number(process.env.USDT_WATCHER_CONFIRMATIONS ?? 2));
   let nextFromBlock: bigint | null = null;
   let polling = false;
+  let pollCount = 0;
+  let lastHeartbeatLog = Date.now();
+  const heartbeatMs = Number(process.env.USDT_WATCHER_HEARTBEAT_MS ?? 60_000);
+  console.log(
+    "[USDT watcher] starting",
+    JSON.stringify({ pollMs, chunkSize, confirmations, heartbeatMs }),
+  );
 
   const pollLogs = async () => {
     if (polling) return;
     polling = true;
+    pollCount++;
     try {
       const head = await client.getBlockNumber();
       const safeHead = head > BigInt(confirmations) ? head - BigInt(confirmations) : 0n;
 
       if (nextFromBlock == null) {
         nextFromBlock = safeHead;
+        console.log(
+          "[USDT watcher] starting from block",
+          JSON.stringify({ fromBlock: nextFromBlock.toString() }),
+        );
         return;
       }
       if (nextFromBlock > safeHead) return;
@@ -148,8 +160,33 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
         fromBlock: nextFromBlock,
         toBlock,
       });
+      if (logs.length > 0) {
+        console.log(
+          "[USDT watcher] logs fetched",
+          JSON.stringify({
+            from: nextFromBlock.toString(),
+            to: toBlock.toString(),
+            count: logs.length,
+          }),
+        );
+      }
       await processLogs(logs as Array<{ transactionHash: `0x${string}`; args: { to?: `0x${string}` } }>);
       nextFromBlock = toBlock + 1n;
+
+      if (Date.now() - lastHeartbeatLog >= heartbeatMs) {
+        console.log(
+          "[USDT watcher] heartbeat",
+          JSON.stringify({
+            pollCount,
+            nextFromBlock: nextFromBlock.toString(),
+            head: head.toString(),
+            httpRequestCount,
+            hourlyRecipients: hourlyRecipients.size,
+            totalBalanceEth: totalBalance,
+          }),
+        );
+        lastHeartbeatLog = Date.now();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("beyond current head block")) {
@@ -165,7 +202,12 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
   const intervalMs = Number(process.env.SMART_ALERT_INTERVAL_MS || 10 * 60 * 1000);
 
   const tick = async () => {
-    if (!(await ensureMoralis())) return;
+    console.log("[USDT watcher] tick start", new Date().toISOString());
+    const tickT0 = Date.now();
+    if (!(await ensureMoralis())) {
+      console.warn("[USDT watcher] tick aborted — Moralis not initialized");
+      return;
+    }
     let ethUsd = 0;
     try {
       const price = await Moralis.EvmApi.token.getTokenPrice({
@@ -173,12 +215,19 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
         chain: "0x1",
       });
       ethUsd = Number(price.raw.usdPrice || 0);
-    } catch {
+    } catch (e) {
+      console.warn(
+        "[USDT watcher] tick — getTokenPrice failed",
+        e instanceof Error ? e.message : String(e),
+      );
       ethUsd = 0;
     }
     const usd = totalBalance * ethUsd;
     if (totalBalance <= 0) {
-      console.log("[USDT watcher] no accumulated balance this window");
+      console.log(
+        "[USDT watcher] tick — no accumulated balance this window",
+        JSON.stringify({ ms: Date.now() - tickT0, ethUsd }),
+      );
       return;
     }
 
@@ -210,6 +259,15 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
     const smartPayload = JSON.stringify({ message });
     smartEmitter.emit("alert", smartPayload);
     notifySmartSignalPush(smartPayload);
+    console.log(
+      "[USDT watcher] tick alert emitted",
+      JSON.stringify({
+        ms: Date.now() - tickT0,
+        recipients: analyzedList.length,
+        totalEth: totalBalance,
+        usd,
+      }),
+    );
 
     totalBalance = 0;
     hourlyRecipients.clear();

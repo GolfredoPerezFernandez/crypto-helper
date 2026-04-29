@@ -73,11 +73,10 @@ export default component$(() => {
             <label class="block text-xs font-medium uppercase tracking-wide text-slate-500">Cadena</label>
             <select
               name="chain"
-              defaultValue={v.chain}
               class="mt-1 w-full rounded-lg border border-[#043234] bg-[#000D0E] px-3 py-2 text-sm text-slate-100"
             >
               {CHAIN_OPTIONS.map(([val, label]) => (
-                <option key={val} value={val}>
+                <option key={val} value={val} selected={v.chain === val}>
                   {label}
                 </option>
               ))}
@@ -104,7 +103,7 @@ export default component$(() => {
           <input
             type="text"
             name="block"
-            defaultValue={v.blockParam}
+            value={v.blockParam}
             placeholder="Ej. 18500000 o 0x9b559aef7ea858608c2e554246fe4a24287e7aeeb976848df2b9a2531f4b9171"
             class="mt-1 w-full rounded-lg border border-[#043234] bg-[#000D0E] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
             autoComplete="off"
@@ -118,7 +117,7 @@ export default component$(() => {
           <input
             type="text"
             name="date"
-            defaultValue={v.dateParam}
+            value={v.dateParam}
             placeholder="Unix ms, ISO o fecha legible (p. ej. 2020-01-01)"
             class="mt-1 w-full rounded-lg border border-[#043234] bg-[#000D0E] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
             autoComplete="off"
@@ -157,7 +156,7 @@ export default component$(() => {
         <section class="rounded-xl border border-[#043234] bg-[#000D0E]/80 p-4">
           <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bloque</h2>
           <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            {[
+            {([
               ["hash", (blockData as Record<string, unknown>).hash],
               ["number", (blockData as Record<string, unknown>).number],
               ["timestamp", (blockData as Record<string, unknown>).timestamp],
@@ -165,7 +164,7 @@ export default component$(() => {
               ["transaction_count", (blockData as Record<string, unknown>).transaction_count],
               ["gas_used", (blockData as Record<string, unknown>).gas_used],
               ["gas_limit", (blockData as Record<string, unknown>).gas_limit],
-            ].map(([k, val]) => (
+            ] as Array<[string, unknown]>).map(([k, val]) => (
               <div key={k} class="min-w-0">
                 <dt class="text-[10px] uppercase text-slate-600">{k}</dt>
                 <dd class="truncate font-mono text-slate-200" title={val != null ? String(val) : ""}>

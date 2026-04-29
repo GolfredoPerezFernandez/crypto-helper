@@ -3,6 +3,9 @@ import { askCryptoGhostDb } from "~/server/db-chat-actions";
 import { useRequirePro } from "../use-require-pro";
 import { useDashboardAuth } from "../../layout";
 
+// Re-export loader so Qwik City can register it for this route.
+export { useRequirePro } from "../use-require-pro";
+
 export default component$(() => {
   useRequirePro();
   const dash = useDashboardAuth();
@@ -36,7 +39,7 @@ export default component$(() => {
           {showSync ? (
             <>
               Solo suscriptores Pro. Pregunta en lenguaje natural sobre el estado agregado de la base (tokens, tableros
-              de mercado, señales whale/trader, sync, snapshots, direcciones demo). Solo lectura: usuarios, credenciales y{" "}
+              de mercado, señales whale/trader, sincronización, datos cacheados, direcciones demo). Solo lectura: usuarios, credenciales y{" "}
               <span class="text-slate-500">push_subscriptions</span> no están expuestos. Respuestas orientativas — no es
               asesoramiento financiero ni recomendación personalizada.
             </>

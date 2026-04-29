@@ -38,7 +38,6 @@ import { useMarketplaceContracts } from '~/hooks/useMarketplaceContracts';
 import { formatUnits } from 'viem';
 import { ExportPrivateKeyCard } from '~/components/wallet/ExportPrivateKeyCard';
 import {
-  fetchProfileWalletNftsBundle,
   type ProfileNftCard,
   type ProfileNftTransferRow,
 } from '~/server/crypto-ghost-actions';
@@ -48,7 +47,6 @@ import { formatTokenUsdPrice } from '~/utils/format-market';
 /* Moralis Config                                     */
 /* -------------------------------------------------- */
 
-const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
 const MORALIS_CHAIN = '0x2105'; // Base mainnet chainId in hex
 
 /* -------------------------------------------------- */
@@ -148,41 +146,30 @@ interface SwapTx {
 const moralisFetch = async (
   path: string,
   params: Record<string, string | number | boolean | undefined> = {},
-) => {
-  const apiKey = import.meta.env.PUBLIC_MORALIS_API_KEY as string | undefined;
-
-  if (!apiKey) {
-    console.error(
-      'PUBLIC_MORALIS_API_KEY is not defined. Please add it to your .env file with the PUBLIC_ prefix.',
-    );
-    return null;
-  }
-
+): Promise<any | null> => {
   const search = new URLSearchParams();
+  search.set('path', path);
   search.set('chain', MORALIS_CHAIN);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) search.set(k, String(v));
   }
 
-  const url = `${MORALIS_BASE_URL}${path}?${search.toString()}`;
-
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`/api/crypto/profile/moralis?${search.toString()}`, {
       method: 'GET',
-      headers: {
-        accept: 'application/json',
-        'X-API-Key': apiKey,
-      },
+      credentials: 'include',
+      headers: { accept: 'application/json' },
     });
-
-    if (!res.ok) {
-      console.error('Moralis error', res.status, res.statusText);
+    const payload = (await res.json().catch(() => null)) as
+      | { ok?: boolean; data?: unknown; error?: string }
+      | null;
+    if (!res.ok || !payload?.ok) {
+      console.error('Moralis proxy error', payload?.error || res.statusText);
       return null;
     }
-
-    return res.json();
+    return (payload.data as any) ?? null;
   } catch (err) {
-    console.error('Moralis network error', err);
+    console.error('Moralis proxy network error', err);
     return null;
   }
 };
@@ -736,15 +723,25 @@ export default component$(() => {
       return;
     }
     try {
-      const r = await fetchProfileWalletNftsBundle(userAddress.value);
-      if (r.ok) {
-        profileNfts.value = r.items;
-        profileNftTransfers.value = r.transfers;
-        if (r.warnings?.length) console.warn('[profile NFTs]', r.warnings);
-      } else {
+      const addr = encodeURIComponent(userAddress.value);
+      const res = await fetch(`/api/crypto/profile/wallet/${addr}/nfts`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { accept: 'application/json' },
+      });
+      const r = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; items?: ProfileNftCard[]; transfers?: ProfileNftTransferRow[]; warnings?: string[] }
+        | null;
+      if (!res.ok || !r?.ok) {
         profileNfts.value = [];
         profileNftTransfers.value = [];
-        profileNftsError.value = r.error;
+        profileNftsError.value = r?.error || 'No se pudieron cargar los NFTs.';
+        return;
+      }
+      profileNfts.value = Array.isArray(r.items) ? r.items : [];
+      profileNftTransfers.value = Array.isArray(r.transfers) ? r.transfers : [];
+      if (Array.isArray(r.warnings) && r.warnings.length) {
+        console.warn('[profile NFTs]', r.warnings);
       }
     } catch {
       profileNfts.value = [];

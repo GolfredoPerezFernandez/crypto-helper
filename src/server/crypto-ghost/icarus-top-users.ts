@@ -8,6 +8,7 @@ export async function fetchIcarusTopUsersBySwaps(
   offset: number = 0,
 ): Promise<IcarusTopUser[]> {
   const url = "https://omni.icarus.tools/ethereum/cush/topUsers";
+  syncLogInfo("Icarus POST topUsers — request", { url, limit, offset });
   const t0 = Date.now();
   try {
     const res = await fetch(url, {
@@ -49,7 +50,8 @@ export async function fetchIcarusTopUsersBySwaps(
     });
     return rows as IcarusTopUser[];
   } catch (e: unknown) {
-    syncLogError("Icarus topUsers network/error", e instanceof Error ? e : { error: String(e) });
+    const ms = Date.now() - t0;
+    syncLogError("Icarus topUsers network/error", e instanceof Error ? e : { error: String(e), ms });
     return [];
   }
 }

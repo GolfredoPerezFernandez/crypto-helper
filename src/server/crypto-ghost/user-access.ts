@@ -15,6 +15,19 @@ const FULL_MARKET_SYNC_EMAILS = new Set(
   ["golfredo.pf@gmail.com"].map((e) => e.toLowerCase()),
 );
 
+/**
+ * Forced-Pro accounts (treated as `hasPro: true` regardless of `type`/`subscriber` columns).
+ * Use for staff/admin emails that need to QA every Pro feature without owning a paid sub.
+ */
+const FORCE_PRO_EMAILS = new Set(
+  ["golfredo.pf@gmail.com"].map((e) => e.toLowerCase()),
+);
+
+function emailIsForcedPro(email: string | null | undefined): boolean {
+  if (email == null || email === "") return false;
+  return FORCE_PRO_EMAILS.has(String(email).toLowerCase().trim());
+}
+
 export type UserProFlags = {
   userId: number | null;
   isAdmin: boolean;
@@ -102,9 +115,10 @@ export async function getUserProAccess(ev: RequestEventBase): Promise<UserProFla
       .from(users)
       .where(eq(users.id, userId))
       .get();
-    const isAdmin = row?.type === "admin";
+    const forcedPro = emailIsForcedPro(row?.email ?? null);
+    const isAdmin = row?.type === "admin" || forcedPro;
     const isSubscriber = (row?.subscriber ?? 0) === 1;
-    const hasPro = isAdmin || isSubscriber;
+    const hasPro = isAdmin || isSubscriber || forcedPro;
     const showSyncDebug = emailMaySeeSyncDebug(row?.email ?? null);
     const canTriggerFullMarketSync = emailMayTriggerFullMarketSync(row?.email ?? null);
     const result: UserProFlags = {
@@ -157,11 +171,12 @@ export async function expressRequestHasProAccess(req: Request): Promise<boolean>
   if (!Number.isFinite(userId)) return false;
   try {
     const row = await db
-      .select({ type: users.type, subscriber: users.subscriber })
+      .select({ type: users.type, subscriber: users.subscriber, email: users.email })
       .from(users)
       .where(eq(users.id, userId))
       .get();
     if (!row) return false;
+    if (emailIsForcedPro(row.email)) return true;
     return row.type === "admin" || (row.subscriber ?? 0) === 1;
   } catch (e) {
     console.error("[expressRequestHasProAccess] DB error", e);

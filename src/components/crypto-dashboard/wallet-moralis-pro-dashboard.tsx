@@ -15,7 +15,9 @@ export const WalletMoralisProDashboard = component$(
         <div class="rounded-xl border border-[#043234] bg-[#000D0E]/50 px-4 py-8 text-center">
           <div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#04E6E6]/30 border-t-[#04E6E6]" />
           <p class="text-sm text-gray-400">Cargando datos en vivo (Base + Ethereum, todos los tipos)…</p>
-          <p class="mt-1 text-[11px] text-gray-600">18 solicitudes en paralelo · sesión requerida</p>
+          <p class="mt-1 text-[11px] text-gray-600">
+            {MORALIS_WALLET_LIVE_KINDS.length * 2} solicitudes en paralelo · sesión requerida
+          </p>
         </div>
       );
     }

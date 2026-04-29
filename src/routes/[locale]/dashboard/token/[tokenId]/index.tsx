@@ -377,7 +377,7 @@ function cmcInfoUrls(infoPayload: unknown, cmcId: number): { website?: string; e
 
 const missingApiSnapshot = {
   ok: false as const,
-  error: "Sin snapshot en base de datos — ejecuta el sync diario.",
+  error: "Sin datos en base de datos — ejecuta la actualización diaria.",
 };
 
 export const useTokenDetailLoader = routeLoader$(async (ev) => {
@@ -430,7 +430,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
   const cmcInfo = snap?.cmcInfo ?? missingApiSnapshot;
   const evmOrSnapHint = {
     ok: false as const,
-    error: "Sin datos on-chain en el snapshot (contrato, claves del servidor o fila antigua).",
+    error: "Sin datos on-chain en caché (contrato, claves del servidor o fila antigua).",
   };
   const topGainers = snap?.topGainers ?? evmOrSnapHint;
   const owners = snap?.owners ?? evmOrSnapHint;
@@ -442,7 +442,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     ({
       ok: false as const,
       error:
-        "Sin swaps en el snapshot. Vuelve a ejecutar el sync o usa la carga en vivo si está disponible.",
+        "Sin swaps en caché. Vuelve a ejecutar la actualización o usa la carga en vivo si está disponible.",
     } as const);
 
   const moralisTokenAnalytics =
@@ -450,7 +450,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     ({
       ok: false as const,
       error:
-        "Sin analytics en el snapshot. Prueba la carga en vivo o espera al próximo sync.",
+        "Sin analytics en caché. Prueba la carga en vivo o espera a la próxima actualización.",
     } as const);
 
   return {
@@ -509,16 +509,16 @@ export default component$(() => {
       chartHintTv: tr("chartHintTv@@TradingView · first pair "),
       chartHintSuffix: tr("chartHintSuffix@@ — switch CEX pair if it does not load."),
       tabTransfers: tr("tabTransfers@@Transfers"),
-      tabHolders: tr("tabHolders@@Holders (snapshot)"),
-      tabTraders: tr("tabTraders@@Top traders / PnL (snapshot)"),
-      tabSwaps: tr("tabSwaps@@DEX swaps (snapshot)"),
+      tabHolders: tr("tabHolders@@Holders"),
+      tabTraders: tr("tabTraders@@Top traders / PnL"),
+      tabSwaps: tr("tabSwaps@@DEX swaps"),
       recentTransfers: tr("recentTransfers@@Recent transfers"),
-      snapshotChainLabel: tr("snapshotChainLabel@@Cached snapshot · chain"),
+      snapshotChainLabel: tr("snapshotChainLabel@@Datos en caché · red"),
       colTx: tr("colTx@@Tx"),
       colFrom: tr("colFrom@@From"),
       colTo: tr("colTo@@To"),
       colValue: tr("colValue@@Value"),
-      noTransfersSnapshot: tr("noTransfersSnapshot@@No recent transfers in the snapshot."),
+      noTransfersSnapshot: tr("noTransfersSnapshot@@No recent transfers available."),
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
       swapsDex: tr("swapsDex@@DEX swaps"),
       syncFooter: tr(
@@ -675,7 +675,7 @@ export default component$(() => {
   );
 
   return (
-    <div class="max-w-5xl">
+    <div class="mx-auto w-full max-w-[1600px] 2xl:max-w-[1760px]">
       {/* Principal: resumen + chart siempre visibles arriba; las pestañas solo cambian el bloque inferior. */}
       <div class="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-3 mb-2 bg-[#000D0E]/97 backdrop-blur-md border-b border-[#043234]/60">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
@@ -1578,7 +1578,7 @@ ERC-20
         <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
           <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">{tp.value.recentTransfers}</h2>
           <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Transferencias recientes del token en <span class="font-mono">{moralisChain}</span> (snapshot).
+            Transferencias recientes del token en <span class="font-mono">{moralisChain}</span>.
           </p>
           <div class="overflow-x-auto text-xs font-mono">
             <table class="w-full text-left">
@@ -1654,7 +1654,7 @@ ERC-20
         <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
           <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">Token holders</h2>
           <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Principales holders en <span class="font-mono">{moralisChain}</span> (snapshot).
+            Principales holders en <span class="font-mono">{moralisChain}</span>.
           </p>
           <div class="overflow-x-auto text-xs">
             <table class="w-full text-left">
@@ -1776,7 +1776,7 @@ ERC-20
         <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
           <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">{tp.value.swapsDex}</h2>
           <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Swaps DEX detectados para este token en <span class="font-mono">{moralisChain}</span> (snapshot).
+            Swaps DEX detectados para este token en <span class="font-mono">{moralisChain}</span>.
           </p>
           <div class="overflow-x-auto text-xs">
             <table class="w-full text-left">
@@ -1901,7 +1901,7 @@ ERC-20
                 ) : mSwaps?.ok ? (
                   <tr>
                     <td colSpan={10} class="py-10 text-center text-slate-400">
-                      Sin swaps en el snapshot.
+                      Sin swaps disponibles.
                     </td>
                   </tr>
                 ) : showSync ? (

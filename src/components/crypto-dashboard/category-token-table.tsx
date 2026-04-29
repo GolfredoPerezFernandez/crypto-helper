@@ -43,13 +43,13 @@ function compareRows(a: Row, b: Row, sortKey: SortKey, dir: 1 | -1): number {
       break;
     case "chg24":
       cmp =
-        (parsePercentNumber(a.percentChange24h) ?? 0) -
-        (parsePercentNumber(b.percentChange24h) ?? 0);
+        (parsePercentNumber(a.percentChange24h as string | number | null | undefined) ?? 0) -
+        (parsePercentNumber(b.percentChange24h as string | number | null | undefined) ?? 0);
       break;
     case "chg7":
       cmp =
-        (parsePercentNumber(a.percentChange7d) ?? 0) -
-        (parsePercentNumber(b.percentChange7d) ?? 0);
+        (parsePercentNumber(a.percentChange7d as string | number | null | undefined) ?? 0) -
+        (parsePercentNumber(b.percentChange7d as string | number | null | undefined) ?? 0);
       break;
     case "name":
       cmp = String(a.name ?? "")

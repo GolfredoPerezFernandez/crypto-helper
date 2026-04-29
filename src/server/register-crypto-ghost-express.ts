@@ -139,21 +139,41 @@ export function registerCryptoGhostRoutes(app: Express): void {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+    console.log(
+      "[Crypto Helper] manual sync trigger via /api/internal/daily-sync",
+      new Date().toISOString(),
+    );
+    const t0 = Date.now();
     const out = await runDailyMarketSync();
+    console.log(
+      "[Crypto Helper] manual sync finished",
+      JSON.stringify({ ok: out.ok, ms: Date.now() - t0, error: out.error }),
+    );
     res.json(out);
   });
 }
 
 export function scheduleCryptoGhostJobs(): void {
+  console.log("[Crypto Helper] scheduleCryptoGhostJobs() — start", new Date().toISOString());
   const expr = process.env.SYNC_CRON || "0 */12 * * *";
   cron.schedule(expr, () => {
-    console.log("[Crypto Helper] cron: scheduled market sync starting", new Date().toISOString());
-    runDailyMarketSync().catch((e) => console.error("[cron] CMC sync", e));
+    const tsStart = new Date().toISOString();
+    console.log("[Crypto Helper] cron: scheduled market sync starting", tsStart);
+    const t0 = Date.now();
+    runDailyMarketSync()
+      .then((out) =>
+        console.log(
+          "[Crypto Helper] cron: scheduled market sync finished",
+          JSON.stringify({ ok: out.ok, ms: Date.now() - t0, error: out.error, skipped: out.skipped }),
+        ),
+      )
+      .catch((e) => console.error("[cron] CMC sync", e));
   });
   console.log(`[Crypto Helper] CMC daily sync scheduled: ${expr}`);
 
   const bootSyncEnabled = BOOL_TRUE_RE.test(String(process.env.SYNC_BOOTSTRAP_ENABLED ?? "1"));
   if (bootSyncEnabled) {
+    console.log("[Crypto Helper] bootstrap sync enabled — will check freshness in 45s");
     setTimeout(async () => {
       try {
         const freshnessHoursRaw = Number(
@@ -165,6 +185,11 @@ export function scheduleCryptoGhostJobs(): void {
         const freshnessSeconds = freshnessHours * 60 * 60;
         const nowSec = Math.floor(Date.now() / 1000);
         const threshold = nowSec - freshnessSeconds;
+
+        console.log(
+          "[Crypto Helper] bootstrap sync — checking last success",
+          JSON.stringify({ freshnessHours, thresholdEpoch: threshold }),
+        );
 
         const lastRecentSuccess = await db
           .select({ id: syncRuns.id, finishedAt: syncRuns.finishedAt })
@@ -182,12 +207,18 @@ export function scheduleCryptoGhostJobs(): void {
         if (lastRecentSuccess.length > 0) {
           console.log(
             `[Crypto Helper] delayed initial market sync skipped (recent success within ${freshnessHours}h)`,
+            JSON.stringify({ lastFinishedAt: lastRecentSuccess[0].finishedAt }),
           );
           return;
         }
 
         console.log("[Crypto Helper] delayed initial market sync (45s after boot)", new Date().toISOString());
-        await runDailyMarketSync();
+        const t0 = Date.now();
+        const out = await runDailyMarketSync();
+        console.log(
+          "[Crypto Helper] delayed initial market sync finished",
+          JSON.stringify({ ok: out.ok, ms: Date.now() - t0, error: out.error, skipped: out.skipped }),
+        );
       } catch (e) {
         console.error("[Crypto Helper] delayed initial sync failed", e);
       }
@@ -204,4 +235,5 @@ export function scheduleCryptoGhostJobs(): void {
   } else {
     console.warn("[Crypto Helper] ETHEREUM_RPC_URL not set — smart watcher disabled");
   }
+  console.log("[Crypto Helper] scheduleCryptoGhostJobs() — done");
 }

@@ -3,6 +3,7 @@ import {
   fetchMoralisNativeBalance,
   fetchMoralisSolanaPortfolio,
   fetchMoralisSolanaSwaps,
+  fetchMoralisWalletCrossChainTokens,
   fetchMoralisWalletDefiPositions,
   fetchMoralisWalletDefiSummary,
   fetchMoralisWalletNetWorth,
@@ -13,6 +14,15 @@ import {
   fetchMoralisWalletTokens,
   fetchMoralisWalletTransactions,
 } from "~/server/crypto-ghost/moralis-api";
+
+/**
+ * Local logger that does NOT pull `sync-logger.ts` (which uses `node:async_hooks`).
+ * `wallet-snapshot.ts` is also imported by client components for pure helpers, so
+ * any top-level Node-only import would break the client bundle.
+ */
+function walletSnapshotLog(msg: string, meta: Record<string, unknown>): void {
+  console.log("[wallet-snapshot]", msg, meta);
+}
 
 export const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -43,10 +53,28 @@ export type WalletPageSnapshot = {
     sentN: number;
     recvN: number;
   } | null;
-  /** Optional: `MORALIS_SYNC_WALLET_DEFI=1` */
+  /**
+   * Universal API v1 — `/v1/wallets/:a/tokens` (cross-chain ERC-20 balances).
+   * One call returns balances on all requested chains with extras: 24h % change,
+   * portfolioPercentage, securityScore, verifiedContract, possibleSpam, nativeToken.
+   * Replaces the per-chain `tokBase` / `tokEth` calls; we still keep those for
+   * back-compat until older snapshots roll over.
+   */
+  tokensCrossChain?: MoralisWalletTokensResult;
+  /**
+   * Optional: `MORALIS_SYNC_WALLET_DEFI=1`
+   * Multi-chain DeFi (Universal API). One call per endpoint covers ethereum + base.
+   * Legacy `defiSummaryBase/Eth` and `defiPositionsBase/Eth` are still read by older snapshots.
+   */
+  defiSummary?: MoralisWalletTokensResult;
+  defiPositions?: MoralisWalletTokensResult;
+  /** @deprecated kept so old snapshots still display until next sync overwrites them. */
   defiSummaryBase?: MoralisWalletTokensResult;
+  /** @deprecated */
   defiSummaryEth?: MoralisWalletTokensResult;
+  /** @deprecated */
   defiPositionsBase?: MoralisWalletTokensResult;
+  /** @deprecated */
   defiPositionsEth?: MoralisWalletTokensResult;
   /** Optional: `MORALIS_SYNC_WALLET_PROFITABILITY_DETAIL=1` (full breakdown vs summary). */
   pnlDetailBase?: MoralisWalletTokensResult;
@@ -230,6 +258,7 @@ async function buildSolanaWalletPageSnapshot(address: string): Promise<WalletPag
   const solNetwork: MoralisSolanaNetwork = netRaw === "devnet" ? "devnet" : "mainnet";
   const solSyncOn = !/^0|false|no$/i.test(String(process.env.MORALIS_SYNC_WALLET_SOLANA ?? "1"));
   const keyOk = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const t0 = Date.now();
 
   let solPortfolio: MoralisWalletTokensResult;
   let solSwaps: MoralisWalletTokensResult;
@@ -246,6 +275,13 @@ async function buildSolanaWalletPageSnapshot(address: string): Promise<WalletPag
       fetchMoralisSolanaSwaps(address, solNetwork, { limit: 50, order: "DESC" }),
     ]);
   }
+  walletSnapshotLog("wallet snapshot built (solana)", {
+    address: `${address.slice(0, 10)}…`,
+    network: solNetwork,
+    ms: Date.now() - t0,
+    portfolioOk: solPortfolio.ok,
+    swapsOk: solSwaps.ok,
+  });
 
   return {
     nw: omit,
@@ -272,6 +308,8 @@ async function buildEvmWalletPageSnapshot(
   options?: WalletSnapshotBuildOptions,
 ): Promise<WalletPageSnapshot> {
   const disabled = options?.disabledApis ?? new Set<string>();
+  const t0 = Date.now();
+  const coreT0 = Date.now();
   const [nw, nwEth, tokBase, tokEth, nfts, txBase, txEth, pnlBase, pnlEth, nativeBase, nativeEth] =
     await Promise.all([
       disabled.has("netWorthEthBase")
@@ -308,30 +346,41 @@ async function buildEvmWalletPageSnapshot(
         ? Promise.resolve(disabledApiStub("nativeEth"))
         : fetchMoralisNativeBalance(address, "eth"),
     ]);
+  const coreMs = Date.now() - coreT0;
 
   const weekBase = txBase.ok ? baseActivityFromTransactions(txBase.data) : null;
   const interactBase = txBase.ok ? interactionStats(txBase.data, address) : null;
 
-  const defiOn = /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_WALLET_DEFI ?? ""));
+  // Cross-chain tokens (Universal API) defaults to ON. Single call replaces 2 per-chain
+  // calls' worth of data and adds 24h %, portfolioPercentage, securityScore. Same total CUs.
+  const crossChainOn = !/^0|false|no$/i.test(String(process.env.MORALIS_SYNC_WALLET_CROSS_CHAIN ?? "1"));
+  // DeFi defaults to ON (no env flag needed) so wallet pages show DeFi snapshot out of the box.
+  const defiOn = !/^0|false|no$/i.test(String(process.env.MORALIS_SYNC_WALLET_DEFI ?? "1"));
   const pnlDetailOn = /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_WALLET_PROFITABILITY_DETAIL ?? ""));
   const approvalsOn = /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_WALLET_APPROVALS ?? ""));
 
-  let defiSummaryBase: MoralisWalletTokensResult | undefined;
-  let defiSummaryEth: MoralisWalletTokensResult | undefined;
-  let defiPositionsBase: MoralisWalletTokensResult | undefined;
-  let defiPositionsEth: MoralisWalletTokensResult | undefined;
+  let tokensCrossChain: MoralisWalletTokensResult | undefined;
+  let defiSummary: MoralisWalletTokensResult | undefined;
+  let defiPositions: MoralisWalletTokensResult | undefined;
   let pnlDetailBase: MoralisWalletTokensResult | undefined;
   let pnlDetailEth: MoralisWalletTokensResult | undefined;
   let approvalsBase: MoralisWalletTokensResult | undefined;
   let approvalsEth: MoralisWalletTokensResult | undefined;
 
   const extra: Promise<MoralisWalletTokensResult>[] = [];
+  if (crossChainOn) {
+    extra.push(
+      fetchMoralisWalletCrossChainTokens(address, ["ethereum", "base"], {
+        limit: 200,
+        excludeSpam: true,
+        excludeUnverifiedContracts: true,
+      }),
+    );
+  }
   if (defiOn) {
     extra.push(
-      fetchMoralisWalletDefiSummary(address, "base"),
-      fetchMoralisWalletDefiSummary(address, "eth"),
-      fetchMoralisWalletDefiPositions(address, "base"),
-      fetchMoralisWalletDefiPositions(address, "eth"),
+      fetchMoralisWalletDefiSummary(address, ["ethereum", "base"]),
+      fetchMoralisWalletDefiPositions(address, ["ethereum", "base"], { limit: 50 }),
     );
   }
   if (pnlDetailOn) {
@@ -341,14 +390,18 @@ async function buildEvmWalletPageSnapshot(
     extra.push(fetchMoralisWalletTokenApprovals(address, "base", 50), fetchMoralisWalletTokenApprovals(address, "eth", 50));
   }
 
+  let extraMs = 0;
   if (extra.length > 0) {
+    const extraT0 = Date.now();
     const results = await Promise.all(extra);
+    extraMs = Date.now() - extraT0;
     let i = 0;
+    if (crossChainOn) {
+      tokensCrossChain = results[i++];
+    }
     if (defiOn) {
-      defiSummaryBase = results[i++];
-      defiSummaryEth = results[i++];
-      defiPositionsBase = results[i++];
-      defiPositionsEth = results[i++];
+      defiSummary = results[i++];
+      defiPositions = results[i++];
     }
     if (pnlDetailOn) {
       pnlDetailBase = results[i++];
@@ -359,6 +412,33 @@ async function buildEvmWalletPageSnapshot(
       approvalsEth = results[i++];
     }
   }
+
+  walletSnapshotLog("wallet snapshot built (evm)", {
+    address: `${address.slice(0, 10)}…`,
+    totalMs: Date.now() - t0,
+    coreMs,
+    extraMs,
+    coreOk: {
+      nw: nw.ok,
+      nwEth: nwEth.ok,
+      tokBase: tokBase.ok,
+      tokEth: tokEth.ok,
+      nfts: nfts.ok,
+      txBase: txBase.ok,
+      txEth: txEth.ok,
+      pnlBase: pnlBase.ok,
+      pnlEth: pnlEth.ok,
+      nativeBase: nativeBase.ok,
+      nativeEth: nativeEth.ok,
+    },
+    extraEnabled: { crossChainOn, defiOn, pnlDetailOn, approvalsOn },
+    extraOk: {
+      tokensCrossChain: tokensCrossChain?.ok,
+      defiSummary: defiSummary?.ok,
+      defiPositions: defiPositions?.ok,
+    },
+    disabledCount: disabled.size,
+  });
 
   return {
     nw,
@@ -374,9 +454,8 @@ async function buildEvmWalletPageSnapshot(
     nativeEth,
     weekBase,
     interactBase,
-    ...(defiOn
-      ? { defiSummaryBase, defiSummaryEth, defiPositionsBase, defiPositionsEth }
-      : {}),
+    ...(crossChainOn ? { tokensCrossChain } : {}),
+    ...(defiOn ? { defiSummary, defiPositions } : {}),
     ...(pnlDetailOn ? { pnlDetailBase, pnlDetailEth } : {}),
     ...(approvalsOn ? { approvalsBase, approvalsEth } : {}),
   };
@@ -409,6 +488,9 @@ export function summarizeWalletSnapshotApiResults(s: WalletPageSnapshot): Record
     nativeBase: s.nativeBase.ok,
     nativeEth: s.nativeEth.ok,
   };
+  if (s.tokensCrossChain !== undefined) base.tokensCrossChain = s.tokensCrossChain.ok;
+  if (s.defiSummary !== undefined) base.defiSummary = s.defiSummary.ok;
+  if (s.defiPositions !== undefined) base.defiPositions = s.defiPositions.ok;
   if (s.defiSummaryBase !== undefined) base.defiSummaryBase = s.defiSummaryBase.ok;
   if (s.defiSummaryEth !== undefined) base.defiSummaryEth = s.defiSummaryEth.ok;
   if (s.defiPositionsBase !== undefined) base.defiPositionsBase = s.defiPositionsBase.ok;
@@ -440,6 +522,82 @@ export function erc20LogoUrl(row: Record<string, unknown>): string | null {
 export function tokenRowsFromMoralis(data: unknown) {
   const tokData = data as { result?: Record<string, unknown>[] } | null;
   return (tokData?.result ?? []).filter((t) => !t?.possible_spam).slice(0, 40);
+}
+
+/** Universal API token row (camelCase). One row per (token, chain) pair. */
+export type CrossChainTokenRow = {
+  tokenAddress: string;
+  chainId: string;
+  name: string | null;
+  symbol: string | null;
+  decimals: number | null;
+  logo: string | null;
+  balance: string | null;
+  balanceRaw: string;
+  usdPrice: number | null;
+  usdValue: number | null;
+  usdPrice24hrPercentChange: number | null;
+  portfolioPercentage: number | null;
+  securityScore: number | null;
+  verifiedContract: boolean;
+  possibleSpam: boolean;
+  nativeToken: boolean;
+};
+
+/** Filter the Universal API tokens payload to a single chain (`base`, `eth`/`ethereum`, …). */
+export function crossChainTokenRowsForChain(
+  data: unknown,
+  chain: "base" | "eth" | "ethereum" | string,
+): CrossChainTokenRow[] {
+  const wantHex =
+    chain === "base" ? "0x2105"
+    : chain === "eth" || chain === "ethereum" ? "0x1"
+    : null;
+  const wantSlug =
+    chain === "base" ? "base"
+    : chain === "eth" || chain === "ethereum" ? "ethereum"
+    : String(chain).toLowerCase();
+
+  const payload = data as { result?: Record<string, unknown>[] } | null;
+  const arr = Array.isArray(payload?.result) ? (payload.result as Record<string, unknown>[]) : [];
+
+  const rows = arr
+    .filter((row) => {
+      const id = String(row.chainId ?? "").toLowerCase();
+      return id === wantHex || id === wantSlug;
+    })
+    .map((row): CrossChainTokenRow => ({
+      tokenAddress: String(row.tokenAddress ?? ""),
+      chainId: String(row.chainId ?? ""),
+      name: row.name == null ? null : String(row.name),
+      symbol: row.symbol == null ? null : String(row.symbol),
+      decimals: typeof row.decimals === "number" ? (row.decimals as number) : null,
+      logo: typeof row.logo === "string" ? (row.logo as string) : null,
+      balance: row.balance == null ? null : String(row.balance),
+      balanceRaw: String(row.balanceRaw ?? ""),
+      usdPrice: typeof row.usdPrice === "number" ? (row.usdPrice as number) : null,
+      usdValue: typeof row.usdValue === "number" ? (row.usdValue as number) : null,
+      usdPrice24hrPercentChange:
+        typeof row.usdPrice24hrPercentChange === "number"
+          ? (row.usdPrice24hrPercentChange as number)
+          : null,
+      portfolioPercentage:
+        typeof row.portfolioPercentage === "number" ? (row.portfolioPercentage as number) : null,
+      securityScore:
+        typeof row.securityScore === "number" ? (row.securityScore as number) : null,
+      verifiedContract: Boolean(row.verifiedContract),
+      possibleSpam: Boolean(row.possibleSpam),
+      nativeToken: Boolean(row.nativeToken),
+    }))
+    .filter((r) => !r.possibleSpam);
+
+  // Sort by USD value desc (largest holdings first), with native promoted.
+  rows.sort((a, b) => {
+    if (a.nativeToken && !b.nativeToken) return -1;
+    if (!a.nativeToken && b.nativeToken) return 1;
+    return (b.usdValue ?? 0) - (a.usdValue ?? 0);
+  });
+  return rows;
 }
 
 export function nftItemsFromMoralis(data: unknown) {

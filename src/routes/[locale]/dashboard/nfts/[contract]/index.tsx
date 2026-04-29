@@ -323,7 +323,7 @@ export default component$(() => {
             {metaRec.floor_price_usd != null ? (
               <div>
                 <dt class="text-slate-500">Floor USD</dt>
-                <dd class="text-[#04E6E6] tabular-nums">${formatTokenUsdPrice(metaRec.floor_price_usd)}</dd>
+                <dd class="text-[#04E6E6] tabular-nums">${formatTokenUsdPrice(metaRec.floor_price_usd as string | number | null | undefined)}</dd>
               </div>
             ) : metaRec.floor_price != null ? (
               <div>
@@ -518,7 +518,7 @@ export default component$(() => {
                   <h3 class="text-sm font-medium leading-snug text-white line-clamp-2">{title}</h3>
                   <p class="mt-1 font-mono text-[10px] text-slate-500">#{tid}</p>
                   {floorUsd != null ? (
-                    <p class="mt-2 text-xs tabular-nums text-[#04E6E6]">Floor ~ ${formatTokenUsdPrice(floorUsd)}</p>
+                    <p class="mt-2 text-xs tabular-nums text-[#04E6E6]">Floor ~ ${formatTokenUsdPrice(floorUsd as string | number | null | undefined)}</p>
                   ) : null}
                   {n.rarity_rank != null ? (
                     <p class="mt-1 text-[10px] text-slate-500">Rarity rank {String(n.rarity_rank)}</p>

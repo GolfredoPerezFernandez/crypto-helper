@@ -109,7 +109,7 @@ export const WatchlistWalletGrid = component$(
       "rounded-lg border border-[#043234] bg-[#000D0E]/90 px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#04E6E6]/50 focus:ring-1 focus:ring-[#04E6E6]/30";
 
     return (
-      <div class="max-w-[1600px]">
+      <div class="w-full max-w-[2200px] mx-auto">
         <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">{props.title}</h1>
         {props.subtitle ? (
           <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">{props.subtitle}</p>
@@ -117,7 +117,7 @@ export const WatchlistWalletGrid = component$(
 
         <div class="mt-6 rounded-xl border border-[#043234]/80 bg-[#001318]/95 p-4 shadow-lg shadow-black/20 backdrop-blur-sm">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div class="relative min-w-0 flex-1 max-w-md">
+            <div class="relative min-w-0 flex-1 max-w-2xl">
               <LuSearch class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <input
                 type="search"
@@ -185,7 +185,7 @@ export const WatchlistWalletGrid = component$(
             No wallets match this filter on the current page.
           </div>
         ) : (
-          <ul class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
             {filtered.value.map((r) => {
               const p = pct(r);
               const roi = roiUsd(r);

@@ -1,10 +1,10 @@
-import { server$, type RequestEvent } from "@builder.io/qwik-city";
+import { server$ } from "@builder.io/qwik-city";
 import { getUserProAccess } from "~/server/crypto-ghost/user-access";
 import { verifyAuth } from "~/utils/auth";
 import { runCryptoGhostDbChat } from "~/server/crypto-ghost/db-chat-agent";
 import { checkDbChatRateLimit } from "~/server/db-chat-rate-limit";
 
-function getRequestClientIp(ev: RequestEvent): string {
+function getRequestClientIp(ev: any): string {
   const fwd = ev.request.headers.get("x-forwarded-for");
   if (fwd) {
     const ip = fwd.split(",")[0]?.trim();
@@ -17,7 +17,7 @@ function getRequestClientIp(ev: RequestEvent): string {
   return ev.clientConn?.ip || "unknown";
 }
 
-export const askCryptoGhostDb = server$(async function (this: RequestEvent, message: string) {
+export const askCryptoGhostDb = server$(async function (this: any, message: string) {
   const ip = getRequestClientIp(this);
   if (!(await verifyAuth(this))) {
     return { ok: false as const, error: "Inicia sesión para usar DB insight." };

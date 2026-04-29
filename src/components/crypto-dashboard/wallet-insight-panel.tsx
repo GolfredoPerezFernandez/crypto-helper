@@ -115,7 +115,7 @@ export const WalletInsightPanel = component$((props: { payload: Record<string, u
       </div>
 
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        {[
+        {([
           ["Edad (días)", p.walletAgeDays],
           ["Días activos", p.activeDays],
           ["Cadenas activas", p.activeChains],
@@ -123,7 +123,7 @@ export const WalletInsightPanel = component$((props: { payload: Record<string, u
           ["Tx involucradas", p.transactionsInvolved],
           ["Tokens únicos", p.uniqueTokensInteracted],
           ["Contratos creados", p.contractsCreated],
-        ].map(([label, val]) => (
+        ] as Array<[string, unknown]>).map(([label, val]) => (
           <div
             key={String(label)}
             class="rounded-lg border border-[#043234] bg-[#000D0E]/70 px-2.5 py-2 shadow-inner shadow-black/20"

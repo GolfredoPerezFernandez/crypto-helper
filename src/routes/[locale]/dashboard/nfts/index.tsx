@@ -309,7 +309,7 @@ export default component$(() => {
         <p class="mt-2 max-w-2xl text-[11px] leading-relaxed text-slate-600">
           A veces el volumen USD aparece como <span class="text-slate-500">Vol $0</span> en caché aunque la colección
           siga en el ranking por <span class="text-slate-500">capitalización</span>. En ese caso mostramos el cap si
-          viene en el snapshot.
+          viene en la caché.
         </p>
         <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topFiltered.value.length === 0 ? (
@@ -356,7 +356,7 @@ export default component$(() => {
                       </p>
                       {topVol != null && topVol <= 0 ? (
                         <p class="text-[10px] leading-snug text-slate-500">
-                          Volumen USD en 0 o no incluido en el snapshot para esta colección.
+                          Volumen USD en 0 o no incluido en los datos para esta colección.
                         </p>
                       ) : null}
                     </div>

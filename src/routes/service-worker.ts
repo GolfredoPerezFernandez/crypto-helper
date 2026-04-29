@@ -57,7 +57,7 @@ sw.addEventListener("pushsubscriptionchange", (event: Event) => {
 
     if (!swPublicVapidKey) return;
 
-    let applicationServerKey: Uint8Array;
+    let applicationServerKey: Uint8Array<ArrayBuffer>;
     try {
       applicationServerKey = urlBase64ToUint8Array(swPublicVapidKey);
     } catch {
@@ -87,7 +87,7 @@ sw.addEventListener("pushsubscriptionchange", (event: Event) => {
       if (!sub) {
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey,
+          applicationServerKey: applicationServerKey as unknown as BufferSource,
         });
       }
       await fetch(new URL("/api/push/subscribe/", base).href, {

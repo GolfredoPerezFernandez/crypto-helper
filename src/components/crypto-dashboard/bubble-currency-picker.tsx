@@ -118,7 +118,7 @@ export const BubbleCurrencyPicker = component$(
                 </div>
               </div>
               <p class="mt-2 border-t border-[#043234]/60 pt-2 text-[10px] text-gray-600 leading-snug">
-                Sizes use stored USD values × exchange rate. Percent change uses the cached USD market snapshot.
+                Sizes use stored USD values × exchange rate. Percent change uses cached USD market data.
               </p>
             </div>
           </>

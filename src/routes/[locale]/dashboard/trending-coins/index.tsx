@@ -25,7 +25,7 @@ export default component$(() => {
       subtitle={
         usedFallback
           ? "Ranking “trending” no disponible en este plan — mostramos los mayores movimientos 7d del board de volumen (mismo dataset)."
-          : "Snapshot de ganadores / perdedores trending."
+          : "Resumen de ganadores / perdedores trending."
       }
       rows={rows as unknown as Record<string, unknown>[]}
       emptyHint={

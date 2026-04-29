@@ -20,8 +20,8 @@ export const useTopWhalesLoader = routeLoader$(async (ev) => {
   const rows = await Promise.all(
     slice.map(async (address) => {
       const snap = await getWalletSnapshotJson(address);
-      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
-      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
+      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin datos disponibles." };
+      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin datos disponibles." };
       return { address, pnl, nw };
     }),
   );
@@ -50,7 +50,7 @@ export default component$(() => {
   const v = data.value;
 
   return (
-    <div class="space-y-12 max-w-[1600px]">
+    <div class="space-y-12 w-full max-w-[2200px] mx-auto">
       <WatchlistWalletGrid
         locale={L}
         title="Top whales"
@@ -85,7 +85,7 @@ export default component$(() => {
         {v.tokenHolders.length === 0 ? (
           <div class="rounded-xl border border-[#043234]/80 bg-[#001318]/95 p-6 text-sm text-slate-400">
             {showSync
-              ? "Aún no hay holders en los snapshots. Ejecutá el sync diario del mercado y asegurate de tener tokens EVM en caché."
+              ? "Aún no hay holders disponibles. Asegurate de tener tokens EVM en caché."
               : "Sin datos de holders en caché todavía."}
           </div>
         ) : (

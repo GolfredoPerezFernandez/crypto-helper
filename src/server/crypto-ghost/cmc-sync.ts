@@ -758,7 +758,7 @@ async function runDailyMarketSyncBody(): Promise<{
       "X-CMC_PRO_API_KEY": apiKey,
     });
 
-    syncLogInfo("phase: CMC global-metrics/quotes/latest");
+    syncLogInfo("phase: CMC global-metrics/quotes/latest [step 1/9]");
     const globalMetricsRes = await timedFetch(
       "CMC global-metrics/quotes/latest",
       `${BASE}/global-metrics/quotes/latest?convert=USD`,
@@ -778,7 +778,7 @@ async function runDailyMarketSyncBody(): Promise<{
       });
     }
 
-    syncLogInfo("phase: CMC listings/latest");
+    syncLogInfo("phase: CMC listings/latest [step 2/9]");
     const latestRes = await timedFetch(
       "CMC cryptocurrency/listings/latest",
       `${BASE}/cryptocurrency/listings/latest?limit=200&convert=USD`,
@@ -792,7 +792,7 @@ async function runDailyMarketSyncBody(): Promise<{
     const latestTokens: any[] = latestJson.data || [];
     syncLogInfo("CMC listings/latest parsed", { count: latestTokens.length });
 
-    syncLogInfo("phase: CMC listings/new");
+    syncLogInfo("phase: CMC listings/new [step 3/9]");
     let newTokens: any[] = [];
     const newRes = await timedFetch(
       "CMC cryptocurrency/listings/new",
@@ -821,7 +821,7 @@ async function runDailyMarketSyncBody(): Promise<{
     const allTokens = [...map.values()];
 
     const ids = allTokens.map((t) => t.id);
-    syncLogInfo("phase: CMC cryptocurrency/info (all listing ids)", { idCount: ids.length });
+    syncLogInfo("phase: CMC cryptocurrency/info (all listing ids) [step 4/9]", { idCount: ids.length });
     const tokenInfo = await fetchInfoMap(headers, ids);
 
     const now = Math.floor(Date.now() / 1000);
@@ -836,35 +836,71 @@ async function runDailyMarketSyncBody(): Promise<{
       }
     }
 
-    syncLogInfo("phase: upsert tag verticals (meme/ai/gaming/mineable)");
+    syncLogInfo("phase: upsert tag verticals (meme/ai/gaming/mineable) [step 5/9]");
+    let tagUpserts = 0;
+    const tagPhaseStart = Date.now();
     for (const token of allTokens) {
       const tagCat = pickTagCategory(token.tags);
       if (!tagCat) continue;
       const id = token.id as number;
       await upsertTracked(tagCat, token, tokenInfo[id], now);
       upserted++;
+      tagUpserts++;
+      if (tagUpserts % 25 === 0) {
+        syncLogInfo("tag verticals progress", {
+          upsertedSoFar: tagUpserts,
+          elapsedMs: Date.now() - tagPhaseStart,
+        });
+      }
     }
+    syncLogInfo("tag verticals done", {
+      total: tagUpserts,
+      ms: Date.now() - tagPhaseStart,
+    });
 
     const earlybirdSource =
       newTokens.length > 0 ? newTokens : earlybirdTokensFromLatest(latestTokens);
-    syncLogInfo("phase: upsert earlybird", { source: newTokens.length > 0 ? "listings/new" : "latest by date_added", rows: earlybirdSource.length });
+    syncLogInfo("phase: upsert earlybird [step 6/9]", {
+      source: newTokens.length > 0 ? "listings/new" : "latest by date_added",
+      rows: earlybirdSource.length,
+    });
+    const earlybirdStart = Date.now();
+    let earlybirdUpserts = 0;
     for (const token of earlybirdSource) {
       const id = token.id as number;
       await upsertTracked("earlybird", token, tokenInfo[id], now);
       upserted++;
+      earlybirdUpserts++;
+      if (earlybirdUpserts % 25 === 0) {
+        syncLogInfo("earlybird progress", {
+          upsertedSoFar: earlybirdUpserts,
+          elapsedMs: Date.now() - earlybirdStart,
+        });
+      }
     }
+    syncLogInfo("earlybird done", { total: earlybirdUpserts, ms: Date.now() - earlybirdStart });
 
-    syncLogInfo("phase: upsert volume (top 150 by 24h vol)");
+    syncLogInfo("phase: upsert volume (top 150 by 24h vol) [step 7/9]");
     const byVol = [...latestTokens].sort(
       (a, b) => (Number(b.quote?.USD?.volume_24h) || 0) - (Number(a.quote?.USD?.volume_24h) || 0),
     );
+    const volumeStart = Date.now();
+    let volumeUpserts = 0;
     for (const token of byVol.slice(0, 150)) {
       const id = token.id as number;
       await upsertTracked("volume", token, tokenInfo[id], now);
       upserted++;
+      volumeUpserts++;
+      if (volumeUpserts % 25 === 0) {
+        syncLogInfo("volume progress", {
+          upsertedSoFar: volumeUpserts,
+          elapsedMs: Date.now() - volumeStart,
+        });
+      }
     }
+    syncLogInfo("volume done", { total: volumeUpserts, ms: Date.now() - volumeStart });
 
-    syncLogInfo("phase: CMC trending/gainers-losers + upsert");
+    syncLogInfo("phase: CMC trending/gainers-losers + upsert [step 8a/9]");
     const trendRes = await timedFetch(
       "CMC cryptocurrency/trending/gainers-losers",
       `${BASE}/cryptocurrency/trending/gainers-losers`,
@@ -885,7 +921,7 @@ async function runDailyMarketSyncBody(): Promise<{
       syncLogWarn("CMC trending/gainers-losers unusable", { bodyPreview: (await trendRes.text()).slice(0, 200) });
     }
 
-    syncLogInfo("phase: CMC trending/most-visited + upsert");
+    syncLogInfo("phase: CMC trending/most-visited + upsert [step 8b/9]");
     const visitRes = await timedFetch(
       "CMC cryptocurrency/trending/most-visited",
       `${BASE}/cryptocurrency/trending/most-visited`,
@@ -906,7 +942,7 @@ async function runDailyMarketSyncBody(): Promise<{
       syncLogWarn("CMC trending/most-visited unusable", { bodyPreview: (await visitRes.text()).slice(0, 200) });
     }
 
-    syncLogInfo("phase: stale row refresh (quotes/latest + info per category)");
+    syncLogInfo("phase: stale row refresh (quotes/latest + info per category) [step 9/9]");
     let staleRefreshed = 0;
     for (const cat of MARKET_CATEGORIES) {
       const processed = processedCmcByCategory.get(cat) ?? new Set<number>();

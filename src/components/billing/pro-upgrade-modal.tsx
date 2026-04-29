@@ -178,9 +178,7 @@ export const ProUpgradeModal = component$(
                 }}
               >
                 {PRO_CHAIN_REGISTRY.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.label} (chain {n.id})
-                  </option>
+                  <option key={n.id} value={n.id}>{`${n.label} (chain ${n.id})`}</option>
                 ))}
               </select>
               <p class="mt-1 text-[10px] text-slate-500">

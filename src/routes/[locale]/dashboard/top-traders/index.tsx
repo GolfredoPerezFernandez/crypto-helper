@@ -14,7 +14,7 @@ export const head: DocumentHead = {
     {
       name: "description",
       content:
-        "Track profitable crypto trader wallets with snapshot-based PnL and net worth insights.",
+        "Track profitable crypto trader wallets with cached PnL and net worth insights.",
     },
   ],
 };
@@ -26,8 +26,8 @@ export const useTopTradersLoader = routeLoader$(async (ev) => {
   const rows = await Promise.all(
     slice.map(async (address) => {
       const snap = await getWalletSnapshotJson(address);
-      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
-      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
+      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin datos disponibles." };
+      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin datos disponibles." };
       return { address, pnl, nw };
     }),
   );

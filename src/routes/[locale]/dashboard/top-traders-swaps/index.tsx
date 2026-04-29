@@ -8,23 +8,28 @@ import {
   GLOBAL_ICARUS_TOP_USERS,
 } from "~/server/crypto-ghost/api-snapshot-sync";
 import type { IcarusTopUser } from "~/server/crypto-ghost/icarus-top-users";
+import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";
 
 export const useSwapsTradersLoader = routeLoader$(async () => {
   const cached = await getGlobalSnapshotJson<{ traders: IcarusTopUser[] } | null>(GLOBAL_ICARUS_TOP_USERS);
   const traders = cached?.traders ?? [];
-  const withAddr = traders
+  let withAddr = traders
     .map((t) => String(t.account || "").toLowerCase())
     .filter((a) => /^0x[a-f0-9]{40}$/.test(a))
     .slice(0, 12);
+  const usingFallback = withAddr.length === 0;
+  if (usingFallback) {
+    withAddr = TRADER_WATCH_WALLETS.slice(0, 12);
+  }
   const rows = await Promise.all(
     withAddr.map(async (address) => {
       const snap = await getWalletSnapshotJson(address);
-      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
-      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin snapshot (sync diario)." };
+      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin datos disponibles." };
+      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin datos disponibles." };
       return { address, pnl, nw };
     }),
   );
-  return { icarusCount: traders.length, rows };
+  return { icarusCount: traders.length, rows, usingFallback };
 });
 
 export default component$(() => {
@@ -44,7 +49,9 @@ export default component$(() => {
         title="Traders by swaps"
         subtitle={
           showSync
-            ? `Datos del último sync (${v.icarusCount} filas en ranking).`
+          ? v.usingFallback
+            ? "Icarus sin filas en este sync; mostrando watchlist base como respaldo."
+            : `Datos del último sync (${v.icarusCount} filas en ranking).`
             : "Ranking desde datos en caché (actualizados periódicamente)."
         }
         rows={v.rows}

@@ -625,6 +625,39 @@ export default component$(() => {
         </article>
       </section>
 
+      <section class="rounded-xl border border-[#0a5b5f] bg-gradient-to-br from-[#001a1c] to-[#000b0c] p-4 2xl:p-6">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p class="text-[10px] uppercase tracking-[0.18em] text-[#7af4f4]/80">New module</p>
+            <h2 class="mt-1 text-lg 2xl:text-xl font-semibold text-white">Cross-chain token supply tracker</h2>
+            <p class="mt-2 max-w-3xl text-sm text-gray-400 leading-relaxed">
+              Estamos agregando al home un tracker para comparar supply y holders por cadena, con datos históricos
+              históricos para ver cambios en el tiempo sin depender de APIs en vivo en el front.
+            </p>
+          </div>
+          <span class="inline-flex h-fit rounded-full border border-[#0a5b5f] bg-[#002629] px-3 py-1 text-[11px] font-medium text-[#7af4f4]">
+            En progreso
+          </span>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {[
+            "Entrada por símbolo o contrato (USDC, USDT, DAI).",
+            "Registro de contratos verificados por cadena EVM.",
+            "Consulta paralela de metadata en Ethereum, Base, Arbitrum, Optimism, Polygon, BNB y Avalanche.",
+            "Supply total agregado y desglose por cadena.",
+            "Holder analytics: total holders y top holders con porcentaje de supply.",
+            "Datos históricos para medir variaciones de supply y holders.",
+            "Comparativa entre cadenas con peso relativo del total.",
+            "Exportación CSV/JSON para reportes.",
+            "UI dark enfocada en visualización de datos.",
+          ].map((item) => (
+            <article key={item} class="rounded-lg border border-[#043234] bg-[#001317]/80 px-3 py-2.5">
+              <p class="text-xs 2xl:text-sm text-gray-300 leading-relaxed">{item}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {showSync && st.syncHistory.length > 0 ? (
         <section class="rounded-xl border border-[#043234] bg-[#001318]/80 overflow-hidden">
           <div class="px-4 py-3 border-b border-[#043234] flex flex-wrap items-center justify-between gap-2">

@@ -30,9 +30,9 @@ export const onPost: RequestHandler = async (event) => {
     return;
   }
 
-  let body: { txHash?: string; chainId?: number };
+  let body: { txHash?: string; chainId?: number | string };
   try {
-    body = (await event.request.json()) as { txHash?: string; chainId?: number };
+    body = (await event.request.json()) as { txHash?: string; chainId?: number | string };
   } catch {
     event.json(400, { ok: false, error: "JSON inválido." });
     return;

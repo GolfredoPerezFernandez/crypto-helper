@@ -30,10 +30,10 @@ export type BubbleQuoteId =
 
 export type BubbleCryptoAnchors = { BTC: number; ETH: number; SOL: number };
 
-const FIAT_IDS = new Set(BUBBLE_QUOTE_FIAT.map((x) => x.id));
+const FIAT_IDS = new Set<string>(BUBBLE_QUOTE_FIAT.map((x) => x.id));
 
 export function isBubbleQuoteId(s: string): s is BubbleQuoteId {
-  return FIAT_IDS.has(s as BubbleQuoteId) || ["BTC", "ETH", "SOL"].includes(s);
+  return FIAT_IDS.has(s) || s === "BTC" || s === "ETH" || s === "SOL";
 }
 
 /** USD -> target: multiply USD amount by this factor (fiat: units per 1 USD; crypto: 1/price_usd). */

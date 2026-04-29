@@ -77,7 +77,7 @@ export async function loadTopTokenHoldersGroups(opts: {
     if (!owners?.ok || owners.data == null) continue;
     const raw = moralisResultRows(owners.data);
     if (!raw.length) continue;
-    const moralisChain = String(snap.moralisChain || "eth").trim() || "eth";
+    const moralisChain = String(snap?.moralisChain || "eth").trim() || "eth";
 
     const holders: TopHolderRow[] = [];
     for (const r of raw.slice(0, maxHoldersPerToken)) {

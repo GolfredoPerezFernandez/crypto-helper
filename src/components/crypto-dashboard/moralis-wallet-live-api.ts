@@ -2,6 +2,8 @@ export type MoralisWalletLiveKind =
   | "history"
   | "erc20"
   | "swaps"
+  | "defiSummary"
+  | "defiPositions"
   | "nftTrades"
   | "verbose"
   | "nativeRaw"
@@ -14,6 +16,8 @@ export const MORALIS_WALLET_LIVE_KINDS: { id: MoralisWalletLiveKind; label: stri
   { id: "history", label: "Wallet history" },
   { id: "erc20", label: "ERC20 por wallet" },
   { id: "swaps", label: "Swaps DEX" },
+  { id: "defiSummary", label: "DeFi resumen" },
+  { id: "defiPositions", label: "DeFi posiciones" },
   { id: "nftTrades", label: "NFT trades" },
   { id: "verbose", label: "Txs nativas decodificadas" },
   { id: "nativeRaw", label: "Txs nativas raw" },
@@ -39,6 +43,10 @@ export function buildMoralisWalletLiveUrl(
       return `${root}/erc20/transfers?chain=${chain}&limit=40&order=DESC`;
     case "swaps":
       return `${root}/swaps?chain=${chain}&limit=20&order=DESC`;
+    case "defiSummary":
+      return `${root}/defi/summary?chain=${chain}`;
+    case "defiPositions":
+      return `${root}/defi/positions?chain=${chain}`;
     case "nftTrades":
       return `${root}/nfts/trades?chain=${chain}&limit=20&nft_metadata=true`;
     case "verbose":

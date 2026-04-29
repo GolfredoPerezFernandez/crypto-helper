@@ -5,6 +5,8 @@
 
 const MORALIS_BASE = "https://deep-index.moralis.io/api/v2.2";
 const MORALIS_SOLANA_BASE = "https://solana-gateway.moralis.io";
+/** Moralis Universal API v1 — multi-chain DeFi/wallet endpoints (per docs.moralis.com). */
+const MORALIS_UNIVERSAL_BASE = "https://api.moralis.com";
 
 export type MoralisWalletTokensResult =
   | { ok: true; data: unknown }
@@ -15,9 +17,27 @@ function moralisNetErr(e: unknown): string {
   return String(e);
 }
 
+/**
+ * Some Moralis endpoints (and their gateways) reply with Express-style HTML when the path is
+ * outdated. We never want to surface that raw markup to the UI, so we collapse it to a short
+ * message that callers can show safely.
+ */
+function condenseErrorBody(body: string, status: number): string {
+  const trimmed = body.trim();
+  if (!trimmed) return `HTTP ${status}`;
+  const lower = trimmed.slice(0, 80).toLowerCase();
+  if (lower.startsWith("<!doctype") || lower.startsWith("<html") || lower.includes("<pre>cannot ")) {
+    const m = trimmed.match(/<pre>([^<]+)<\/pre>/i);
+    const detail = m ? m[1].trim() : "";
+    return `HTTP ${status}${detail ? ` · ${detail}` : " · upstream returned HTML"}`;
+  }
+  return trimmed.length > 280 ? `${trimmed.slice(0, 280)}…` : trimmed;
+}
+
 async function readErrBody(res: Response): Promise<string> {
   try {
-    return await res.text();
+    const raw = await res.text();
+    return condenseErrorBody(raw, res.status);
   } catch {
     return res.statusText || `HTTP ${res.status}`;
   }
@@ -28,6 +48,26 @@ export async function moralisGet(pathWithQuery: string): Promise<MoralisWalletTo
     const key = process.env.MORALIS_API_KEY?.trim();
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_BASE}${pathWithQuery}`;
+    const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    if (!res.ok) return { ok: false, error: await readErrBody(res) };
+    const json = await res.json();
+    return { ok: true, data: json };
+  } catch (e) {
+    return { ok: false, error: moralisNetErr(e) };
+  }
+}
+
+/**
+ * Moralis Universal API v1 — `https://api.moralis.com/v1/...`.
+ * Used for multi-chain endpoints (DeFi summary/positions) per `docs.moralis.com`.
+ */
+export async function moralisUniversalGet(
+  pathWithQuery: string,
+): Promise<MoralisWalletTokensResult> {
+  try {
+    const key = process.env.MORALIS_API_KEY?.trim();
+    if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
+    const url = `${MORALIS_UNIVERSAL_BASE}/v1${pathWithQuery}`;
     const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
@@ -208,47 +248,155 @@ export async function fetchMoralisWalletNetWorth(
 }
 
 /**
- * GET /wallets/{address}/defi/summary — total USD, unclaimed, active protocols (aggregated).
- * ~50 CUs, mainnet per Moralis UI.
+ * Universal API only knows the long chain slugs (`ethereum`, `base`, `arbitrum`, …) or hex chain
+ * ids (`0x1`, `0x2105`, …). Normalize the legacy short names we use elsewhere ("eth", "bsc", …).
+ */
+function normalizeUniversalChain(input: string): string {
+  const v = input.trim().toLowerCase();
+  if (!v) return "ethereum";
+  switch (v) {
+    case "eth":
+      return "ethereum";
+    case "bsc":
+      return "binance";
+    case "matic":
+      return "polygon";
+    case "op":
+      return "optimism";
+    case "arb":
+      return "arbitrum";
+    case "avax":
+      return "avalanche";
+    default:
+      return v;
+  }
+}
+
+/**
+ * Build a `chains=` query for the Universal API (defi endpoints) accepting
+ * either a single chain id (`eth` / `0x1`) or an array. Defaults to `["ethereum","base"]`.
+ */
+function moralisUniversalChainsQuery(chains: string | string[] | undefined): string {
+  let arr: string[];
+  if (chains == null) {
+    arr = ["ethereum", "base"];
+  } else if (Array.isArray(chains)) {
+    arr = chains.map((c) => normalizeUniversalChain(String(c))).filter(Boolean);
+  } else {
+    arr = String(chains)
+      .split(",")
+      .map((c) => normalizeUniversalChain(c))
+      .filter(Boolean);
+  }
+  if (arr.length === 0) arr = ["ethereum", "base"];
+  return arr.map((c) => `chains=${encodeURIComponent(c)}`).join("&");
+}
+
+/**
+ * GET /v1/wallets/{walletAddressOrPublicKey}/tokens — Cross-chain ERC-20 balances.
+ * Universal API multi-chain successor to the legacy `/wallets/:a/tokens?chain=…` endpoint.
+ * 100 CUs per request (single call covers all requested chains). EVM only today.
+ *
+ * Response shape per `docs.moralis.com`:
+ *   { meta, address, addressType, cursor, result: ChainBalanceDto[] }
+ *
+ * `ChainBalanceDto` includes per-token: chainId, balance / balanceRaw, usdPrice,
+ * usdPrice24hrPercentChange, usdValue, portfolioPercentage, securityScore,
+ * verifiedContract, possibleSpam, nativeToken, logo, decimals.
+ */
+export async function fetchMoralisWalletCrossChainTokens(
+  address: string,
+  chains: string | string[] = ["ethereum", "base"],
+  opts?: {
+    limit?: number;
+    cursor?: string;
+    excludeSpam?: boolean;
+    excludeUnverifiedContracts?: boolean;
+    excludeNative?: boolean;
+    maxTokenInactivity?: number;
+    liquidityThreshold?: number;
+    tokenAddresses?: string[];
+  },
+): Promise<MoralisWalletTokensResult> {
+  if (!address) return { ok: false, error: "Missing address" };
+  const qs = moralisUniversalChainsQuery(chains);
+  const lim = Math.max(1, Math.min(1000, Math.floor(Number(opts?.limit) || 200)));
+  const parts: string[] = [qs, `limit=${lim}`];
+  if (opts?.cursor) parts.push(`cursor=${encodeURIComponent(opts.cursor)}`);
+  // Sensible defaults (spam/unverified excluded) match the wallet UI expectations.
+  const excludeSpam = opts?.excludeSpam !== false;
+  const excludeUnverified = opts?.excludeUnverifiedContracts !== false;
+  if (excludeSpam) parts.push("excludeSpam=true");
+  if (excludeUnverified) parts.push("excludeUnverifiedContracts=true");
+  if (opts?.excludeNative) parts.push("excludeNative=true");
+  if (typeof opts?.maxTokenInactivity === "number")
+    parts.push(`maxTokenInactivity=${opts.maxTokenInactivity}`);
+  if (typeof opts?.liquidityThreshold === "number")
+    parts.push(`liquidityThreshold=${opts.liquidityThreshold}`);
+  if (Array.isArray(opts?.tokenAddresses) && opts.tokenAddresses.length > 0) {
+    for (const t of opts.tokenAddresses.slice(0, 50)) {
+      const addr = String(t).trim();
+      if (/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        parts.push(`tokenAddresses=${encodeURIComponent(addr.toLowerCase())}`);
+      }
+    }
+  }
+  return moralisUniversalGet(
+    `/wallets/${encodeURIComponent(address)}/tokens?${parts.join("&")}`,
+  );
+}
+
+/**
+ * GET /v1/wallets/{walletAddress}/defi/summary — DeFi summary across multiple chains.
+ * Universal API (api.moralis.com), 5000 CUs per call, mainnet only.
  */
 export async function fetchMoralisWalletDefiSummary(
   address: string,
-  chain: string = "eth",
+  chains: string | string[] = ["ethereum", "base"],
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
-  const ch = encodeURIComponent(chain);
-  return moralisGet(`/wallets/${encodeURIComponent(address)}/defi/summary?chain=${ch}`);
+  const qs = moralisUniversalChainsQuery(chains);
+  return moralisUniversalGet(
+    `/wallets/${encodeURIComponent(address)}/defi/summary?${qs}`,
+  );
 }
 
 /**
- * GET /wallets/{address}/defi/positions — concise positions across protocols (array in response).
- * ~50 CUs, mainnet per Moralis UI.
+ * GET /v1/wallets/{walletAddress}/defi/positions — DeFi positions (lending, liquidity, staking,
+ * farming, perps, vault, yield, vesting, other) across multiple chains. Universal API.
+ * 5000 CUs per call, mainnet only.
  */
 export async function fetchMoralisWalletDefiPositions(
   address: string,
-  chain: string = "eth",
+  chains: string | string[] = ["ethereum", "base"],
+  opts?: { limit?: number; cursor?: string },
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
-  const ch = encodeURIComponent(chain);
-  return moralisGet(`/wallets/${encodeURIComponent(address)}/defi/positions?chain=${ch}`);
+  const qs = moralisUniversalChainsQuery(chains);
+  const lim = Math.max(1, Math.min(100, Math.floor(Number(opts?.limit) || 50)));
+  let path = `/wallets/${encodeURIComponent(address)}/defi/positions?${qs}&limit=${lim}`;
+  if (opts?.cursor) path += `&cursor=${encodeURIComponent(opts.cursor)}`;
+  return moralisUniversalGet(path);
 }
 
 /**
- * GET /wallets/{address}/defi/{protocol}/positions — detailed positions for one protocol.
- * `protocol`: Moralis slug (e.g. uniswap-v3, aave-v3, pancakeswap-v2). ~15 CUs.
+ * GET /v1/wallets/{walletAddress}/defi/{protocol}/positions — DeFi positions filtered by protocol.
+ * `protocol`: Moralis slug (e.g. aave-v3, uniswap-v3). Universal API, 5000 CUs, mainnet only.
  */
 export async function fetchMoralisWalletDefiPositionsByProtocol(
   address: string,
   protocol: string,
-  chain: string = "eth",
+  chains: string | string[] = ["ethereum", "base"],
+  opts?: { limit?: number; cursor?: string },
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
   const p = String(protocol).trim();
   if (!p) return { ok: false, error: "Missing protocol id" };
-  const ch = encodeURIComponent(chain);
-  return moralisGet(
-    `/wallets/${encodeURIComponent(address)}/defi/${encodeURIComponent(p)}/positions?chain=${ch}`,
-  );
+  const qs = moralisUniversalChainsQuery(chains);
+  const lim = Math.max(1, Math.min(100, Math.floor(Number(opts?.limit) || 50)));
+  let path = `/wallets/${encodeURIComponent(address)}/defi/${encodeURIComponent(p)}/positions?${qs}&limit=${lim}`;
+  if (opts?.cursor) path += `&cursor=${encodeURIComponent(opts.cursor)}`;
+  return moralisUniversalGet(path);
 }
 
 export async function fetchMoralisNftHottestCollections(): Promise<MoralisWalletTokensResult> {

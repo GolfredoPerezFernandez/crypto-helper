@@ -81,6 +81,63 @@ export const WalletMoralisLiveBlock = component$(
           )
         ) : null}
 
+        {whKind === "defiSummary" &&
+        moralisShallowEntries(whPayload).length > 0 ? (
+          <dl class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-lg border border-[#043234] bg-[#000D0E]/40 p-3 sm:grid-cols-2 text-[11px]">
+            {moralisShallowEntries(whPayload).map(([k, val]) => (
+              <div key={k} class="flex flex-wrap gap-2 border-b border-[#043234]/40 py-1 sm:border-0">
+                <dt class="shrink-0 font-medium text-gray-500">{k}</dt>
+                <dd class="min-w-0 break-all text-slate-300">{val}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+
+        {whKind === "defiPositions" && moralisResultArray(whPayload).length > 0 ? (
+          <div class="overflow-x-auto rounded-lg border border-[#043234] bg-[#000D0E]/40">
+            <table class="w-full min-w-[720px] border-collapse text-left text-[11px] text-slate-200">
+              <thead>
+                <tr class="border-b border-[#043234] bg-black/20 text-[10px] uppercase tracking-wide text-gray-500">
+                  <th class="px-2 py-2 font-medium">Protocol</th>
+                  <th class="px-2 py-2 font-medium">Category</th>
+                  <th class="px-2 py-2 font-medium">Label</th>
+                  <th class="px-2 py-2 font-medium text-right">USD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {moralisResultArray(whPayload).map((row, i) => {
+                  const protocol = String(
+                    row.protocol_name ?? row.protocol ?? row.protocolLabel ?? row.protocol_slug ?? "—",
+                  );
+                  const category = String(row.category ?? row.type ?? row.position_type ?? "—");
+                  const label = String(
+                    row.position_label ?? row.label ?? row.name ?? row.market ?? row.pool_name ?? "—",
+                  );
+                  const usdRaw =
+                    row.usd_value ??
+                    row.usdValue ??
+                    row.position_usd ??
+                    row.positionUsd ??
+                    row.total_usd ??
+                    row.totalUsd;
+                  return (
+                    <tr key={`defi-pos-${i}`} class="border-b border-[#043234]/60 hover:bg-[#04E6E6]/5">
+                      <td class="px-2 py-1.5">{protocol}</td>
+                      <td class="px-2 py-1.5 text-slate-400">{category}</td>
+                      <td class="max-w-[280px] truncate px-2 py-1.5 text-slate-300" title={label}>
+                        {label}
+                      </td>
+                      <td class="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
+                        {fmtUsd(usdRaw)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
         {whKind === "erc20" && moralisResultArray(whPayload).length > 0 ? (
           <div class="overflow-x-auto rounded-lg border border-[#043234] bg-[#000D0E]/40">
             <table class="w-full min-w-[640px] border-collapse text-left text-[11px] text-slate-200">

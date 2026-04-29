@@ -632,5 +632,9 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
 
 export default component$(() => {
   const session = useDashboardAuth();
-  return <DashboardShell session={session.value} />;
+  return (
+    <DashboardShell session={session.value}>
+      <Slot />
+    </DashboardShell>
+  );
 });

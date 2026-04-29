@@ -39,7 +39,7 @@ export default component$(() => {
   const dexEmbedUrl = dexScreenerEmbedUrl(String(t.network), String(t.address));
 
   return (
-    <div class="max-w-5xl">
+    <div class="mx-auto w-full max-w-[1400px]">
       <Link href={`/${L}/${segment}/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
         ← Back ({cat})
       </Link>
@@ -72,11 +72,11 @@ export default component$(() => {
         <dl class="mt-6 grid gap-3 text-sm">
           <div>
             <dt class="text-gray-500">Price</dt>
-            <dd class="text-white">${formatTokenUsdPrice(t.price)}</dd>
+            <dd class="text-white">${formatTokenUsdPrice(t.price as string | number | null | undefined)}</dd>
           </div>
           <div>
             <dt class="text-gray-500">Volume</dt>
-            <dd>{formatUsdLiquidity(t.volume)}</dd>
+            <dd>{formatUsdLiquidity(t.volume as string | number | null | undefined)}</dd>
           </div>
         </dl>
         </div>

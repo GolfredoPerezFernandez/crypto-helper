@@ -106,10 +106,17 @@ export async function getWalletSnapshotJson(address: string): Promise<WalletPage
  */
 export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
   const moralisConfigured = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const auxStart = Date.now();
   syncLogInfo("auxiliary API snapshot sync — start", { moralisConfigured });
 
   try {
+    syncLogInfo("aux step 1/4: Icarus top users by swaps");
+    const icaT0 = Date.now();
     const traders = await fetchIcarusTopUsersBySwaps(36, 0);
+    syncLogInfo("aux step 1/4 done — Icarus", {
+      ms: Date.now() - icaT0,
+      tradersFetched: traders.length,
+    });
     await upsertGlobalSnapshot(GLOBAL_ICARUS_TOP_USERS, { traders });
     syncLogInfo("Turso upsert ok", {
       api: "global snapshot",
@@ -119,17 +126,20 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
 
     if (!moralisConfigured) {
       syncLogWarn("MORALIS_API_KEY missing — skip Moralis NFT globals + wallet snapshots");
-      syncLogInfo("auxiliary API snapshot sync — done (Icarus only)");
+      syncLogInfo("auxiliary API snapshot sync — done (Icarus only)", {
+        totalMs: Date.now() - auxStart,
+      });
       return;
     }
 
+    syncLogInfo("aux step 2/4: Moralis NFT market-data batch (hottest + top collections)");
     const nftT0 = Date.now();
     const [hot, top] = await Promise.all([
       fetchMoralisNftHottestCollections(),
       fetchMoralisNftTopCollections(),
     ]);
     const nftMs = Date.now() - nftT0;
-    syncLogInfo("Moralis NFT market-data batch", {
+    syncLogInfo("aux step 2/4 done — Moralis NFT", {
       ms: nftMs,
       hottestOk: hot.ok,
       topOk: top.ok,
@@ -176,9 +186,15 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       );
     }
     if (globalExtras.length > 0) {
+      syncLogInfo("aux step 3/4: optional Moralis global snapshots", { keys: globalKeys });
       const t0 = Date.now();
       await Promise.all(globalExtras);
-      syncLogInfo("Moralis optional global snapshots", { ms: Date.now() - t0, keys: globalKeys });
+      syncLogInfo("aux step 3/4 done — Moralis optional globals", {
+        ms: Date.now() - t0,
+        keys: globalKeys,
+      });
+    } else {
+      syncLogInfo("aux step 3/4 skipped — no optional Moralis globals enabled");
     }
 
     const fromIcarus = new Set<string>();
@@ -204,8 +220,12 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
     }
 
     const list = [...toFetch];
-    syncLogInfo("phase: wallet snapshots (Moralis parallel per wallet)", {
+    const walletPhaseStart = Date.now();
+    syncLogInfo("aux step 4/4: wallet snapshots (Moralis parallel per wallet)", {
       walletCount: list.length,
+      icarusWallets: fromIcarus.size,
+      registeredWallets: registered.length,
+      watchlistWallets: TRADER_WATCH_WALLETS.length,
       verbosePerWallet: process.env.MARKET_SYNC_VERBOSE_WALLETS === "1",
     });
 
@@ -262,15 +282,25 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
           total: list.length,
           ok: okW,
           fail: failW,
+          elapsedMs: Date.now() - walletPhaseStart,
+          disabledApis: disabledApis.size ? [...disabledApis] : undefined,
         });
       }
       if (i % 20 === 19) await new Promise((r) => setTimeout(r, 250));
     }
 
+    syncLogInfo("aux step 4/4 done — wallet snapshots", {
+      walletsOk: okW,
+      walletsFail: failW,
+      total: list.length,
+      ms: Date.now() - walletPhaseStart,
+    });
+
     syncLogInfo("auxiliary API snapshot sync — done", {
       walletsOk: okW,
       walletsFail: failW,
       total: list.length,
+      totalMs: Date.now() - auxStart,
       disabledApis: disabledApis.size ? [...disabledApis] : undefined,
       partialApiFailures: failedApiHits.size
         ? Object.fromEntries(

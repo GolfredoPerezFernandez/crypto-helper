@@ -82,7 +82,7 @@ export default component$(() => {
   const title = String(norm?.name ?? nftData?.name ?? coll?.name ?? "NFT");
 
   return (
-    <div class="max-w-4xl">
+    <div class="mx-auto w-full max-w-[1400px]">
       <Link
         href={`/${L}/nfts/${v.contract}/?${chainQs}`}
         class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block"
@@ -162,7 +162,7 @@ export default component$(() => {
                 {nftData?.floor_price_usd != null ? (
                   <div>
                     <dt class="text-slate-500">Floor colección (USD)</dt>
-                    <dd class="text-[#04E6E6] tabular-nums">${formatTokenUsdPrice(nftData.floor_price_usd)}</dd>
+                    <dd class="text-[#04E6E6] tabular-nums">${formatTokenUsdPrice(nftData.floor_price_usd as string | number | null | undefined)}</dd>
                   </div>
                 ) : null}
                 {nftData?.possible_spam === true ? (
@@ -225,7 +225,7 @@ export default component$(() => {
                   <h2 class="font-semibold text-emerald-300 mb-1">Listado</h2>
                   <p class="text-slate-300">
                     {listPrice.price_usd != null
-                      ? `~ $${formatTokenUsdPrice(listPrice.price_usd)}`
+                      ? `~ $${formatTokenUsdPrice(listPrice.price_usd as string | number | null | undefined)}`
                       : String(listPrice.price ?? "—")}{" "}
                     {listPrice.marketplace ? (
                       <span class="text-slate-500">· {String(listPrice.marketplace)}</span>
