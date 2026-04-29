@@ -1894,4 +1894,4 @@ export default {
       }
     }
   }
-};
+}};

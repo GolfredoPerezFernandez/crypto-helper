@@ -84,7 +84,7 @@ export default component$(() => {
   return (
     <div class="max-w-4xl">
       <Link
-        href={`/${L}/dashboard/nfts/${v.contract}/?${chainQs}`}
+        href={`/${L}/nfts/${v.contract}/?${chainQs}`}
         class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block"
       >
         ← {String(coll?.name ?? "Colección")}
@@ -127,7 +127,7 @@ export default component$(() => {
                     <dt class="text-slate-500">Propietario</dt>
                     <dd>
                       <Link
-                        href={`/${L}/dashboard/wallet/${String(nftData.owner_of).toLowerCase()}/`}
+                        href={`/${L}/wallet/${String(nftData.owner_of).toLowerCase()}/`}
                         class="font-mono text-[11px] text-[#04E6E6] hover:underline break-all"
                       >
                         {String(nftData.owner_of)}

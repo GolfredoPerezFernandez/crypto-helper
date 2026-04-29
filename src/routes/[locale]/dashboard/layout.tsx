@@ -23,10 +23,16 @@ import {
 import { verifyAuth } from "~/utils/auth";
 
 export const useDashboardAuth = routeLoader$(async (ev) => {
-  if (!(await verifyAuth(ev))) {
-    const loc = ev.params.locale || "en-us";
-    const next = encodeURIComponent(ev.url.pathname + ev.url.search);
-    throw ev.redirect(302, `/${loc}/login/?next=${next}&session=required`);
+  const isAuthenticated = await verifyAuth(ev);
+  if (!isAuthenticated) {
+    return {
+      ok: true as const,
+      hasPro: false,
+      isSubscriber: false,
+      isAdmin: false,
+      showSyncDebug: false,
+      canTriggerFullMarketSync: false,
+    };
   }
   const { getUserProAccess } = await import("~/server/crypto-ghost/user-access");
   const pro = await getUserProAccess(ev);
@@ -40,28 +46,35 @@ export const useDashboardAuth = routeLoader$(async (ev) => {
   };
 });
 
-export default component$(() => {
-  const session = useDashboardAuth();
+export type DashboardAccessState = {
+  hasPro: boolean;
+  isSubscriber: boolean;
+  isAdmin: boolean;
+  showSyncDebug: boolean;
+  canTriggerFullMarketSync: boolean;
+};
+
+export const DashboardShell = component$((props: { session: DashboardAccessState }) => {
   const loc = useLocation();
   const nav = useNavigate();
   const L = loc.params.locale || "en-us";
-  const base = `/${L}/dashboard`;
+  const base = `/${L}`;
   const sol = `${base}/solana`;
-  const hasPro = session.value.hasPro;
+  const hasPro = props.session.hasPro;
 
   const chainFamily = useSignal<"evm" | "solana">(
-    loc.url.pathname.includes("/dashboard/solana") ? "solana" : "evm",
+    loc.url.pathname.includes("/solana") ? "solana" : "evm",
   );
   useTask$(({ track }) => {
     const path = track(() => loc.url.pathname);
-    chainFamily.value = path.includes("/dashboard/solana") ? "solana" : "evm";
+    chainFamily.value = path.includes("/solana") ? "solana" : "evm";
   });
 
   const onChainSelect = $((e: Event) => {
     const v = (e.target as HTMLSelectElement).value as "evm" | "solana";
     const locSeg = loc.params.locale || "en-us";
-    if (v === "solana") void nav(`/${locSeg}/dashboard/solana/`);
-    else void nav(`/${locSeg}/dashboard/home/`);
+    if (v === "solana") void nav(`/${locSeg}/solana/`);
+    else void nav(`/${locSeg}/home/`);
   });
 
   const sidebarCollapsed = useSignal(false);
@@ -70,6 +83,7 @@ export default component$(() => {
   const solWalletOpen = useSignal(true);
   const solTokenOpen = useSignal(true);
   const solPriceOpen = useSignal(true);
+  const mobileNavOpen = useSignal(false);
 
   // `dashboard` is already in `speak-config.ts` assets + runtimeAssets — skip useSpeak here to avoid duplicate-runtimeAssets warnings.
   const d = useComputed$(() => {
@@ -175,6 +189,9 @@ export default component$(() => {
   const toggleSolPrice = $(() => {
     solPriceOpen.value = !solPriceOpen.value;
   });
+  const toggleMobileNav = $(() => {
+    mobileNavOpen.value = !mobileNavOpen.value;
+  });
 
   return (
     <div class="min-h-screen bg-[#000D0E] text-white flex flex-col md:flex-row">
@@ -201,7 +218,7 @@ export default component$(() => {
               <span class={collapsed ? "max-md:inline md:hidden" : ""}>{d.value.brand}</span>
             </Link>
             <p class={["text-xs text-gray-500 mt-1", collapsed ? "max-md:block md:hidden" : ""].join(" ")}>
-              {session.value.showSyncDebug ? d.value.subtitleDebug : d.value.subtitle}
+              {props.session.showSyncDebug ? d.value.subtitleDebug : d.value.subtitle}
             </p>
           </div>
           <button
@@ -215,6 +232,19 @@ export default component$(() => {
               <LuChevronRight class="h-4 w-4" />
             ) : (
               <LuChevronLeft class="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick$={toggleMobileNav}
+            class="inline-flex md:hidden shrink-0 rounded-lg border border-[#043234] p-2 text-[#04E6E6] hover:bg-[#043234]/50 transition-colors"
+            aria-label={mobileNavOpen.value ? "Close menu" : "Open menu"}
+            title={mobileNavOpen.value ? "Close menu" : "Open menu"}
+          >
+            {mobileNavOpen.value ? (
+              <LuChevronLeft class="h-4 w-4" />
+            ) : (
+              <LuChevronRight class="h-4 w-4" />
             )}
           </button>
         </div>
@@ -238,11 +268,11 @@ export default component$(() => {
           </select>
         </div>
 
-        <nav class="mt-4 flex flex-col gap-0.5">
+        <nav class={["mt-4 flex flex-col gap-0.5", mobileNavOpen.value ? "block" : "hidden md:flex"].join(" ")}>
           {chainFamily.value === "solana" ? (
             collapsed ? (
               <Link
-                class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/solana")}`}
+                class={`${navClass} ${navClassMdCollapsed} ${active("/solana")}`}
                 href={`${sol}/`}
                 title={d.value.solanaNavTitle}
               >
@@ -253,7 +283,7 @@ export default component$(() => {
               <>
                 <p class="text-[10px] uppercase tracking-wider text-[#04E6E6]/70 mb-1 px-2">{d.value.solana}</p>
                 <Link
-                  class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/solana")}`}
+                  class={`${navClass} ${navClassMdCollapsed} ${active("/solana")}`}
                   href={`${sol}/`}
                   title={d.value.solanaOverview}
                 >
@@ -336,7 +366,7 @@ export default component$(() => {
                 ) : null}
 
                 <Link
-                  class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/solana/nft")}`}
+                  class={`${navClass} ${navClassMdCollapsed} ${active("/solana/nft")}`}
                   href={`${sol}/nft/`}
                   title={d.value.nftApi}
                 >
@@ -377,7 +407,7 @@ export default component$(() => {
               ) : null}
               <div class={collapsed ? "" : "border-l border-[#04E6E6]/25 pl-2 ml-0.5 space-y-0.5"}>
           <Link
-            class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/overview")} ${active("/dashboard/home")}`}
+            class={`${navClass} ${navClassMdCollapsed} ${active("/overview")} ${active("/home")}`}
             href={`${base}/home/`}
             title={d.value.overview}
           >
@@ -385,7 +415,7 @@ export default component$(() => {
             <span class={lbl}>{d.value.overview}</span>
           </Link>
           <Link
-            class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/bubbles")}`}
+            class={`${navClass} ${navClassMdCollapsed} ${active("/bubbles")}`}
             href={`${base}/bubbles/`}
             title={d.value.cryptoBubbles}
           >
@@ -395,7 +425,7 @@ export default component$(() => {
 
           {collapsed ? (
             <Link
-              class={`${navClass} ${navClassMdCollapsed} ${active("/volume-coins")} ${active("/trending-coins")} ${active("/earlybird-coins")} ${active("/meme-coins")} ${active("/ai-coins")} ${active("/gaming-coins")} ${active("/mineable-coins")} ${active("/most-visit-coins")} ${active("/dashboard/tokens")}`}
+              class={`${navClass} ${navClassMdCollapsed} ${active("/volume-coins")} ${active("/trending-coins")} ${active("/earlybird-coins")} ${active("/meme-coins")} ${active("/ai-coins")} ${active("/gaming-coins")} ${active("/mineable-coins")} ${active("/most-visit-coins")} ${active("/tokens")}`}
               href={`${base}/volume-coins/`}
               title={d.value.tokensCollapsedTitle}
             >
@@ -441,7 +471,7 @@ export default component$(() => {
                   <Link class={`${subClass} ${active("/most-visit-coins")}`} href={`${base}/most-visit-coins/`}>
                     {d.value.mostVisited}
                   </Link>
-                  <Link class={`${subClass} ${active("/dashboard/tokens")}`} href={`${base}/tokens/`}>
+                  <Link class={`${subClass} ${active("/tokens")}`} href={`${base}/tokens/`}>
                     {d.value.allTokens}
                   </Link>
                 </div>
@@ -491,7 +521,7 @@ export default component$(() => {
             <LuImage class={iconClass} />
             <span class={lbl}>{d.value.nfts}</span>
           </Link>
-          <Link class={`${navClass} ${navClassMdCollapsed} ${active("/dashboard/block")}`} href={`${base}/block/`} title={d.value.block}>
+          <Link class={`${navClass} ${navClassMdCollapsed} ${active("/block")}`} href={`${base}/block/`} title={d.value.block}>
             <LuLayers class={iconClass} />
             <span class={lbl}>{d.value.block}</span>
           </Link>
@@ -640,4 +670,9 @@ export default component$(() => {
       </main>
     </div>
   );
+});
+
+export default component$(() => {
+  const session = useDashboardAuth();
+  return <DashboardShell session={session.value} />;
 });

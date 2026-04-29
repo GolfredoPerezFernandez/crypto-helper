@@ -12,7 +12,7 @@ export const head: DocumentHead = {
 export default component$(() => {
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
-  const base = `/${L}/dashboard/solana`;
+  const base = `/${L}/solana`;
 
   const copy = useComputed$(() => {
     const tr = inlineTranslate();

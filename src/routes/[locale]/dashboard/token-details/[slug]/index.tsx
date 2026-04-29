@@ -18,7 +18,7 @@ export const useTokenDetailsBySlugLoader = routeLoader$(async (ev) => {
   const slug = decodeURIComponent(ev.params.slug || "").trim();
   if (!slug) throw ev.error(404, { message: "Missing slug" });
   const { getMarketTokenByAddressLoose, getMarketTokenBySlugLoose } = await import(
-    "~/server/crypto-ghost/market-queries",
+    "~/server/crypto-ghost/market-queries"
   );
   const row = isEvmAddress(slug)
     ? await getMarketTokenByAddressLoose(slug)
@@ -40,13 +40,13 @@ export default component$(() => {
 
   return (
     <div class="max-w-5xl">
-      <Link href={`/${L}/dashboard/${segment}/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
+      <Link href={`/${L}/${segment}/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
         ← Back ({cat})
       </Link>
       <p class="text-gray-400 text-sm mb-2">
         URL amigable por slug. Misma ficha que por ID (holders, traders, gráfico):{" "}
-        <Link class="text-[#04E6E6] font-semibold underline" href={`/${L}/dashboard/token/${String(t.id)}/`}>
-          /dashboard/token/{String(t.id)}/
+        <Link class="text-[#04E6E6] font-semibold underline" href={`/${L}/token/${String(t.id)}/`}>
+          /token/{String(t.id)}/
         </Link>
       </p>
       <div class="rounded-xl border border-[#043234] bg-[#001a1c] p-6 flex flex-col gap-4 sm:flex-row sm:items-start">

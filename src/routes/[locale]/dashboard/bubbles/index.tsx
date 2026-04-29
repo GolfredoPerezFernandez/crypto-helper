@@ -1,4 +1,5 @@
 import { component$, useComputed$, useSignal, $, useVisibleTask$ } from "@builder.io/qwik";
+import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { useDashboardAuth } from "../layout";
 import { desc, eq, sql } from "drizzle-orm";
@@ -27,6 +28,17 @@ import {
   parseTokenApiSnapshot,
 } from "~/server/crypto-ghost/market-token-snapshot";
 import { cachedMarketTokens } from "../../../../../drizzle/schema";
+
+export const head: DocumentHead = {
+  title: "Crypto Bubbles Heatmap | Crypto Helper",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Interactive crypto bubbles by market cap, volume, and performance timeframes across top tokens.",
+    },
+  ],
+};
 
 const TIMEFRAMES: { id: BubbleTimeframe; label: string }[] = [
   { id: "1h", label: "Hour" },
@@ -406,7 +418,7 @@ export default component$(() => {
                       {formatBubbleMetricFromUsd(sizeVal, qId, qScale)}
                     </td>
                     <td class="p-3">
-                      <Link href={`/${L}/dashboard/token/${t.id}/`} class="text-[#04E6E6] hover:underline text-xs">
+                      <Link href={`/${L}/token/${t.id}/`} class="text-[#04E6E6] hover:underline text-xs">
                         View
                       </Link>
                     </td>

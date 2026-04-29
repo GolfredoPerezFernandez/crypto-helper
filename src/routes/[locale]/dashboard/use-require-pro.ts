@@ -11,7 +11,7 @@ export const useRequirePro = routeLoader$(async (ev) => {
   }
   const { hasPro } = await getUserProAccess(ev);
   if (!hasPro) {
-    throw ev.redirect(302, `/${L}/dashboard/home/?pro=required`);
+    throw ev.redirect(302, `/${L}/home/?pro=required`);
   }
   return { ok: true as const };
 });

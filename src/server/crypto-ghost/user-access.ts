@@ -20,6 +20,8 @@ export type UserProFlags = {
   isAdmin: boolean;
   isSubscriber: boolean;
   hasPro: boolean;
+  email: string | null;
+  authProvider: string | null;
   /** True for allowlisted emails — sync/API diagnostic UI and raw snapshot errors. */
   showSyncDebug: boolean;
   /** True for allowlisted emails — dashboard “sync completo” (CMC + aux). */
@@ -56,31 +58,47 @@ export async function assertUserMayTriggerFullMarketSync(
 }
 
 export async function getUserProAccess(ev: RequestEventBase): Promise<UserProFlags> {
+  const cacheKey = "__userProAccess";
+  const cached = ev.sharedMap.get(cacheKey) as UserProFlags | undefined;
+  if (cached) return cached;
   const uidStr = getUserId(ev);
   if (!uidStr) {
-    return {
+    const result: UserProFlags = {
       userId: null,
       isAdmin: false,
       isSubscriber: false,
       hasPro: false,
+      email: null,
+      authProvider: null,
       showSyncDebug: false,
       canTriggerFullMarketSync: false,
     };
+    ev.sharedMap.set(cacheKey, result);
+    return result;
   }
   const userId = Number(uidStr);
   if (!Number.isFinite(userId)) {
-    return {
+    const result: UserProFlags = {
       userId: null,
       isAdmin: false,
       isSubscriber: false,
       hasPro: false,
+      email: null,
+      authProvider: null,
       showSyncDebug: false,
       canTriggerFullMarketSync: false,
     };
+    ev.sharedMap.set(cacheKey, result);
+    return result;
   }
   try {
     const row = await db
-      .select({ type: users.type, subscriber: users.subscriber, email: users.email })
+      .select({
+        type: users.type,
+        subscriber: users.subscriber,
+        email: users.email,
+        authProvider: users.authProvider,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .get();
@@ -89,17 +107,32 @@ export async function getUserProAccess(ev: RequestEventBase): Promise<UserProFla
     const hasPro = isAdmin || isSubscriber;
     const showSyncDebug = emailMaySeeSyncDebug(row?.email ?? null);
     const canTriggerFullMarketSync = emailMayTriggerFullMarketSync(row?.email ?? null);
-    return { userId, isAdmin, isSubscriber, hasPro, showSyncDebug, canTriggerFullMarketSync };
+    const result: UserProFlags = {
+      userId,
+      isAdmin,
+      isSubscriber,
+      hasPro,
+      email: row?.email ?? null,
+      authProvider: row?.authProvider ?? null,
+      showSyncDebug,
+      canTriggerFullMarketSync,
+    };
+    ev.sharedMap.set(cacheKey, result);
+    return result;
   } catch (e) {
     console.error("[getUserProAccess] Turso/DB unavailable", e);
-    return {
+    const result: UserProFlags = {
       userId,
       isAdmin: false,
       isSubscriber: false,
       hasPro: false,
+      email: null,
+      authProvider: null,
       showSyncDebug: false,
       canTriggerFullMarketSync: false,
     };
+    ev.sharedMap.set(cacheKey, result);
+    return result;
   }
 }
 

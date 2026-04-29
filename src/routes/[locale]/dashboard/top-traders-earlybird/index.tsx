@@ -4,7 +4,7 @@ import { routeLoader$ } from "@builder.io/qwik-city";
 /** Earlybird traders (legacy route) → new listings board */
 export const useTopTradersEarlybirdAlias = routeLoader$((ev) => {
   const L = ev.params.locale || "en-us";
-  throw ev.redirect(302, `/${L}/dashboard/earlybird-coins/`);
+  throw ev.redirect(302, `/${L}/earlybird-coins/`);
 });
 
 export default component$(() => {

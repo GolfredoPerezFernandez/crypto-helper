@@ -3,7 +3,7 @@ import { routeLoader$ } from "@builder.io/qwik-city";
 
 export const useDashboardIndexRedirect = routeLoader$((ev) => {
   const loc = ev.params.locale || "en-us";
-  throw ev.redirect(302, `/${loc}/dashboard/home/`);
+  throw ev.redirect(302, `/${loc}/home/`);
 });
 
 export default component$(() => {

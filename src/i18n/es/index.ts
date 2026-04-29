@@ -1889,4 +1889,4 @@ export default {
       }
     }
   }
-};
+}};

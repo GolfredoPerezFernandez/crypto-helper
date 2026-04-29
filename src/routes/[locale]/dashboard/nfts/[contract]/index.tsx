@@ -119,7 +119,7 @@ function nftCollectionListUrl(
   if (cur) p.set("cursor", cur);
   if (tc) p.set("traits_cursor", tc);
   if (sd != null && sd !== 7) p.set("sale_days", String(sd));
-  return `/${locale}/dashboard/nfts/${contract}/?${p.toString()}`;
+  return `/${locale}/nfts/${contract}/?${p.toString()}`;
 }
 
 export const useNftCollectionLoader = routeLoader$(async (ev) => {
@@ -259,7 +259,7 @@ export default component$(() => {
 
   return (
     <div class="max-w-[1600px]">
-      <Link href={`/${L}/dashboard/nfts/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
+      <Link href={`/${L}/nfts/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
         ← NFT collections
       </Link>
 
@@ -494,7 +494,7 @@ export default component$(() => {
             const nm = n.normalized_metadata as { name?: string } | undefined;
             const title = String(nm?.name ?? n.name ?? n.symbol ?? `Token #${tid}`);
             const floorUsd = n.floor_price_usd ?? n.floorPriceUsd;
-            const itemHref = `/${L}/dashboard/nfts/${v.contract}/${encodeURIComponent(tid)}/?${chainQs}`;
+            const itemHref = `/${L}/nfts/${v.contract}/${encodeURIComponent(tid)}/?${chainQs}`;
             return (
               <li key={`${v.contract}-${tid}-${i}`}>
                 <Link

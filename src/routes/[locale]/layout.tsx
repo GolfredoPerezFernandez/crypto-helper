@@ -28,7 +28,7 @@ import {
     LuLogOut,
     LuZap,
 } from '@qwikest/icons/lucide';
-import { verifyAuth, getUserId } from '~/utils/auth';
+import { verifyAuth } from '~/utils/auth';
 import { getUserProAccess } from '~/server/crypto-ghost/user-access';
 import { useWallet } from '~/hooks/useWallet';
 import { DemoModeContext } from '~/contexts/demo';
@@ -40,6 +40,8 @@ import { ProUpgradeModal } from '~/components/billing/pro-upgrade-modal';
 import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
+import { DashboardShell, type DashboardAccessState } from './dashboard/layout';
+export { useDashboardAuth } from './dashboard/layout';
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
@@ -62,39 +64,11 @@ export const useLayoutAuthLoader = routeLoader$(async (requestEvent) => {
             return { isAuthenticated: false as const, hasPro: false as const };
         }
         const pro = await getUserProAccess(requestEvent);
-        const uid = getUserId(requestEvent);
-        const idNum = uid != null ? Number(uid) : NaN;
-        if (!Number.isFinite(idNum) || idNum < 1) {
-            return {
-                isAuthenticated: true as const,
-                hasPro: pro.hasPro,
-                sessionEmail: null as string | null,
-                sessionAuthProvider: null as string | null,
-            };
-        }
-        let sessionEmail: string | null = null;
-        let sessionAuthProvider: string | null = null;
-        try {
-            const [{ db }, { users }, { eq }] = await Promise.all([
-                import('~/lib/turso'),
-                import('../../../drizzle/schema'),
-                import('drizzle-orm'),
-            ]);
-            const row = await db
-                .select({ email: users.email, authProvider: users.authProvider })
-                .from(users)
-                .where(eq(users.id, idNum))
-                .get();
-            sessionEmail = row?.email ?? null;
-            sessionAuthProvider = row?.authProvider ?? null;
-        } catch (e) {
-            console.warn('[useLayoutAuthLoader] profile row (Turso)', e);
-        }
         return {
             isAuthenticated: true as const,
             hasPro: pro.hasPro,
-            sessionEmail,
-            sessionAuthProvider,
+            sessionEmail: pro.email,
+            sessionAuthProvider: pro.authProvider,
         };
     } catch {
         return { isAuthenticated: false as const, hasPro: false as const };
@@ -134,6 +108,19 @@ export default component$(() => {
         const loc = location as { isNavigating?: boolean };
         return loc.isNavigating === true;
     });
+    const usePrimarySidebarShell = useComputed$(() => {
+        const p = location.url.pathname.toLowerCase();
+        if (p.includes('/dashboard/')) return false;
+        if (/\/(login|register|privacy|terms)\//.test(p)) return false;
+        return true;
+    });
+    const shellSession = useComputed$<DashboardAccessState>(() => ({
+        hasPro: auth.value?.hasPro === true,
+        isSubscriber: auth.value?.hasPro === true,
+        isAdmin: false,
+        showSyncDebug: false,
+        canTriggerFullMarketSync: false,
+    }));
 
     const L = location.params.locale || 'en-us';
 
@@ -255,7 +242,7 @@ export default component$(() => {
 
     const goNotificationSettings = $(async () => {
         accountMenuOpen.value = false;
-        await nav(`/${L}/dashboard/notifications-settings/`);
+        await nav(`/${L}/notifications-settings/`);
     });
 
     const handleDisconnectWallet = $(async () => {
@@ -474,16 +461,14 @@ export default component$(() => {
                                 {t_homeNav.value}
                             </NavLink>
 
-                            {auth.value?.isAuthenticated ? (
-                                <NavLink
-                                    href={`/${L}/dashboard/home/`}
-                                    activeClass="bg-[#043234] text-[#04E6E6]"
-                                    class="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-[#043234]/70 hover:text-white"
-                                >
-                                    <LuCoins class="h-4 w-4 text-slate-500 group-hover:text-[#04E6E6] group-[.active]:text-[#04E6E6]" />
-                                    {t_dashboardNav.value}
-                                </NavLink>
-                            ) : null}
+                            <NavLink
+                                    href={`/${L}/home/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                <LuCoins class="h-4 w-4 text-slate-500 group-hover:text-[#04E6E6] group-[.active]:text-[#04E6E6]" />
+                                {t_dashboardNav.value}
+                            </NavLink>
 
                             {!auth.value?.isAuthenticated ? (
                                 <>
@@ -625,7 +610,7 @@ export default component$(() => {
                 )}
             </header>
 
-            {isMobileMenuOpen.value && (
+            {isMobileMenuOpen.value ? (
                 <div class="border-b border-[#043234] bg-[#001a1c]/98 px-4 py-3 shadow-lg shadow-black/30 backdrop-blur-md md:hidden">
                     <nav class="flex flex-col gap-0.5">
                         <div class="pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{t_menu.value}</div>
@@ -639,18 +624,16 @@ export default component$(() => {
                             </span>
                             {t_homeNav.value}
                         </NavLink>
-                        {auth.value?.isAuthenticated ? (
-                            <NavLink
-                                href={`/${L}/dashboard/home/`}
-                                activeClass="bg-[#043234] text-[#04E6E6]"
-                                class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
-                            >
-                                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
-                                    <LuCoins class="h-5 w-5" />
-                                </span>
-                                {t_dashboardNav.value}
-                            </NavLink>
-                        ) : null}
+                        <NavLink
+                                href={`/${L}/home/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuCoins class="h-5 w-5" />
+                            </span>
+                            {t_dashboardNav.value}
+                        </NavLink>
                         {auth.value?.isAuthenticated && auth.value?.hasPro === false ? (
                             <button
                                 type="button"
@@ -690,19 +673,25 @@ export default component$(() => {
                         ) : null}
                     </nav>
                 </div>
-            )}
+            ) : null}
 
             {/* MAIN CONTENT SLOT */}
             <main class="flex-1">
-                <div
-                    style={{ viewTransitionName: "cg-main-stage" }}
-                    class="relative isolate cg-vt-main-stage"
-                >
-                    {isSpaNavigating.value && (
-                        <div class="fixed top-0 left-0 z-[60] h-1 w-full animate-pulse bg-gradient-to-r from-[#04E6E6] via-teal-300 to-[#04E6E6]" />
-                    )}
-                    <Slot />
-                </div>
+                {usePrimarySidebarShell.value ? (
+                    <DashboardShell session={shellSession.value}>
+                        <Slot />
+                    </DashboardShell>
+                ) : (
+                    <div
+                        style={{ viewTransitionName: "cg-main-stage" }}
+                        class="relative isolate cg-vt-main-stage"
+                    >
+                        {isSpaNavigating.value && (
+                            <div class="fixed top-0 left-0 z-[60] h-1 w-full animate-pulse bg-gradient-to-r from-[#04E6E6] via-teal-300 to-[#04E6E6]" />
+                        )}
+                        <Slot />
+                    </div>
+                )}
             </main>
 
             <AiChatFab
@@ -714,6 +703,7 @@ export default component$(() => {
                 })}
             />
 
+            {!usePrimarySidebarShell.value ? (
             <footer
                 style={{ viewTransitionName: "cg-chrome-footer" }}
                 class="cg-vt-chrome border-t border-[#043234] bg-[#000D0E]/95 pt-14 pb-8 backdrop-blur-sm"
@@ -737,7 +727,7 @@ export default component$(() => {
                                     <Link href={`/${L}/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_homeNav.value}</Link>
                                 </li>
                                 <li>
-                                    <Link href={`/${L}/dashboard/home/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_dashboardNav.value}</Link>
+                                    <Link href={`/${L}/home/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_dashboardNav.value}</Link>
                                 </li>
                                 {!auth.value?.isAuthenticated ? (
                                     <>
@@ -773,6 +763,7 @@ export default component$(() => {
                     </div>
                 </div>
             </footer>
+            ) : null}
         </div>
     );
 });

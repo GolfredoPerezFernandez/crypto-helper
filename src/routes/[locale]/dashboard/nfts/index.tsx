@@ -1,4 +1,5 @@
 import { component$, useSignal, useComputed$, $ } from "@builder.io/qwik";
+import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { LuSearch, LuX } from "@qwikest/icons/lucide";
 import { useDashboardAuth } from "../layout";
@@ -9,6 +10,17 @@ import {
 } from "~/server/crypto-ghost/api-snapshot-sync";
 import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
 import { formatTokenUsdPrice, formatUsdLiquidity } from "~/utils/format-market";
+
+export const head: DocumentHead = {
+  title: "NFT Collections Dashboard | Crypto Helper",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Browse hottest NFT collections, contract-level details, and token views across supported chains.",
+    },
+  ],
+};
 
 export const useNftsLoader = routeLoader$(async () => {
   const hot = await getGlobalSnapshotJson<MoralisWalletTokensResult | null>(GLOBAL_NFT_HOTTEST);
@@ -214,7 +226,7 @@ export default component$(() => {
               const logoUrl = nftCollectionImageUrl(row);
               const addr = String(c.collection_address || c.token_address || c.address || "").toLowerCase();
               const ch = moralisChainSlug(c);
-              const href = addr.startsWith("0x") ? `/${L}/dashboard/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
+              const href = addr.startsWith("0x") ? `/${L}/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
               const inner = (
                 <>
                   {logoUrl ? (
@@ -312,7 +324,7 @@ export default component$(() => {
               const topCap = nftCollectionMarketCapUsd(row);
               const addr = String(c.collection_address || "").toLowerCase();
               const ch = moralisChainSlug(c);
-              const href = addr.startsWith("0x") ? `/${L}/dashboard/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
+              const href = addr.startsWith("0x") ? `/${L}/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
               const inner = (
                 <>
                   {logoUrl ? (

@@ -52,7 +52,7 @@ export default component$(() => {
         pageSize={pageSize}
         total={n}
         hasMore={false}
-        basePath={`/${L}/dashboard/top-traders-swaps/`}
+        basePath={`/${L}/top-traders-swaps/`}
       />
     </>
   );

@@ -4,7 +4,7 @@ import { routeLoader$ } from "@builder.io/qwik-city";
 /** Legacy path → canonical top-traders-swaps */
 export const useWalletsSwapsAlias = routeLoader$((ev) => {
   const L = ev.params.locale || "en-us";
-  throw ev.redirect(302, `/${L}/dashboard/top-traders-swaps/`);
+  throw ev.redirect(302, `/${L}/top-traders-swaps/`);
 });
 
 export default component$(() => {

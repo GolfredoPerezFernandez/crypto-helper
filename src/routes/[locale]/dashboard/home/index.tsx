@@ -1,4 +1,5 @@
 import { component$, useSignal, $, useVisibleTask$ } from "@builder.io/qwik";
+import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import {
   LuActivity,
@@ -19,6 +20,17 @@ import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
 
+export const head: DocumentHead = {
+  title: "Crypto Dashboard Overview | Crypto Helper",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Explore crypto market overview, token rankings, bubbles, NFT collections, and trader dashboards in Crypto Helper.",
+    },
+  ],
+};
+
 export const useDashboardHomeLoader = routeLoader$(async (ev) => {
   const { loadDashboardHome } = await import("~/server/crypto-ghost/dashboard-home-loader");
   return loadDashboardHome(ev);
@@ -31,7 +43,7 @@ export default component$(() => {
   const data = useDashboardHomeLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
-  const base = `/${L}/dashboard`;
+  const base = `/${L}`;
 
   const syncBusy = useSignal(false);
   const syncError = useSignal("");
@@ -502,7 +514,7 @@ export default component$(() => {
               data.value.topVolume.map((t: any) => (
                 <li key={t.id}>
                   <Link
-                    href={`/${L}/dashboard/token/${t.id}/`}
+                    href={`/${L}/token/${t.id}/`}
                     class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors"
                   >
                     <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={36} />
@@ -544,7 +556,7 @@ export default component$(() => {
               data.value.trending.rows.map((t: any) => (
                 <li key={`${t.id}-trend`}>
                   <Link
-                    href={`/${L}/dashboard/token/${t.id}/`}
+                    href={`/${L}/token/${t.id}/`}
                     class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors"
                   >
                     <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={36} />
@@ -625,7 +637,7 @@ export default component$(() => {
             data.value.meme.map((t: any) => (
               <Link
                 key={t.id}
-                href={`/${L}/dashboard/token/${t.id}/`}
+                href={`/${L}/token/${t.id}/`}
                 class="rounded-xl border border-[#043234] bg-[#001a1c] p-4 flex gap-3 items-center hover:border-[#04E6E6]/40 transition-colors"
               >
                 <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={40} />
@@ -658,7 +670,7 @@ export default component$(() => {
           {data.value.ai.map((t: any) => (
             <Link
               key={t.id}
-              href={`/${L}/dashboard/token/${t.id}/`}
+              href={`/${L}/token/${t.id}/`}
               class="rounded-lg border border-[#043234] bg-[#001a1c] p-3 text-sm flex gap-2 items-center hover:border-[#04E6E6]/40 transition-colors"
             >
               <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={36} />

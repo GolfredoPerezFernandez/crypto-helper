@@ -1,4 +1,5 @@
 import { component$ } from "@builder.io/qwik";
+import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
 import { useDashboardAuth } from "../layout";
@@ -6,6 +7,17 @@ import { getWalletSnapshotJson } from "~/server/crypto-ghost/api-snapshot-sync";
 import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";
 
 const PAGE_SIZE = 8;
+
+export const head: DocumentHead = {
+  title: "Top Crypto Traders Watchlist | Crypto Helper",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Track profitable crypto trader wallets with snapshot-based PnL and net worth insights.",
+    },
+  ],
+};
 
 export const useTopTradersLoader = routeLoader$(async (ev) => {
   const page = Math.max(1, parseInt(ev.query.get("page") || "1", 10) || 1);
@@ -49,7 +61,7 @@ export default component$(() => {
       pageSize={PAGE_SIZE}
       total={v.total}
       hasMore={v.hasMore}
-      basePath={`/${L}/dashboard/top-traders/`}
+      basePath={`/${L}/top-traders/`}
     />
   );
 });

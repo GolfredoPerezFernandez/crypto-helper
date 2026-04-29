@@ -29,7 +29,7 @@ export default component$(() => {
   return (
     <div class="mx-auto max-w-4xl space-y-6">
       <nav class="text-sm">
-        <Link href={`/${L}/dashboard/home/`} class="text-[#04E6E6] hover:underline">
+        <Link href={`/${L}/home/`} class="text-[#04E6E6] hover:underline">
           ← Dashboard
         </Link>
       </nav>

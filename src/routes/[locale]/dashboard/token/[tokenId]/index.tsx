@@ -507,7 +507,7 @@ export default component$(() => {
       ),
     };
   });
-  const back = seg ? `/${L}/dashboard/${seg}/` : `/${L}/dashboard/home/`;
+  const back = seg ? `/${L}/${seg}/` : `/${L}/home/`;
   const tvSymbols = buildTradingViewSymbolCandidates(String(t.symbol ?? ""), String(t.network ?? ""));
   const dexUrl = dexScreenerPathForNetwork(String(t.network), String(t.address));
   const dexEmbedUrl = dexScreenerEmbedUrl(String(t.network), String(t.address));
@@ -665,7 +665,7 @@ export default component$(() => {
           </Link>
           {dash.value.hasPro ? (
             <Link
-              href={`/${L}/dashboard/notifications-settings/?token=${String(t.id ?? "")}`}
+              href={`/${L}/notifications-settings/?token=${String(t.id ?? "")}`}
               class="text-xs font-medium text-amber-100/90 hover:text-amber-50 underline-offset-2 hover:underline"
             >
               Pro · Set price alert

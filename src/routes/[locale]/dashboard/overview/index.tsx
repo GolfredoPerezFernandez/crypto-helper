@@ -3,7 +3,7 @@ import { routeLoader$ } from "@builder.io/qwik-city";
 
 export const useOverviewAlias = routeLoader$((ev) => {
   const L = ev.params.locale || "en-us";
-  throw ev.redirect(302, `/${L}/dashboard/home/`);
+  throw ev.redirect(302, `/${L}/home/`);
 });
 
 export default component$(() => {

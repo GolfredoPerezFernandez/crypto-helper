@@ -292,7 +292,7 @@ export default component$(() => {
   return (
     <div class="max-w-6xl">
       <nav class="mb-4 text-sm" aria-label="Migas de pan">
-        <Link href={`/${L}/dashboard/top-traders/`} class="text-[#04E6E6] hover:underline">
+        <Link href={`/${L}/top-traders/`} class="text-[#04E6E6] hover:underline">
           ← Watchlist de traders
         </Link>
       </nav>
@@ -458,7 +458,7 @@ export default component$(() => {
                 <p class="break-all">
                   <span class="text-gray-500">To (sample):</span>{" "}
                   {v.interactBase.sentPreview.map((a: string) => (
-                    <Link key={a} href={`/${L}/dashboard/wallet/${a}/`} class="text-[#04E6E6] hover:underline mr-1">
+                    <Link key={a} href={`/${L}/wallet/${a}/`} class="text-[#04E6E6] hover:underline mr-1">
                       {a.slice(0, 8)}…
                     </Link>
                   ))}
@@ -625,7 +625,7 @@ export default component$(() => {
               const tid = String(n.token_id ?? "");
               const nftDash =
                 /^0x[a-f0-9]{40}$/.test(ca) && tid
-                  ? `/${L}/dashboard/nfts/${ca}/${encodeURIComponent(tid)}/?chain=base`
+                  ? `/${L}/nfts/${ca}/${encodeURIComponent(tid)}/?chain=base`
                   : null;
               const inner = (
                 <>
@@ -716,7 +716,7 @@ export default component$(() => {
               const floorUsd = c.floor_price_usd != null ? String(c.floor_price_usd) : "";
               const chainQ = nftColChain.value;
               const href =
-                /^0x[a-f0-9]{40}$/.test(ca) ? `/${L}/dashboard/nfts/${ca}/?chain=${chainQ}` : null;
+                /^0x[a-f0-9]{40}$/.test(ca) ? `/${L}/nfts/${ca}/?chain=${chainQ}` : null;
               return (
                 <li
                   key={ca}
@@ -912,7 +912,7 @@ export default component$(() => {
             </ul>
             <div class="mt-4 flex flex-wrap gap-2">
               <Link
-                href={`/${L}/dashboard/overview/`}
+                href={`/${L}/home/`}
                 class="inline-flex items-center rounded-lg bg-[#04E6E6]/20 px-4 py-2 text-xs font-semibold text-[#04E6E6] ring-1 ring-[#04E6E6]/35 hover:bg-[#04E6E6]/30"
               >
                 Ir a Overview · planes Pro →

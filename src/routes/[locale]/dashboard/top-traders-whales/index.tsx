@@ -64,7 +64,7 @@ export default component$(() => {
         pageSize={PAGE_SIZE}
         total={v.total}
         hasMore={v.hasMore}
-        basePath={`/${L}/dashboard/top-traders-whales/`}
+        basePath={`/${L}/top-traders-whales/`}
       />
 
       <section class="space-y-4">
@@ -105,7 +105,7 @@ export default component$(() => {
                     <span class="font-mono text-slate-500">{g.moralisChain}</span>
                     <Link
                       class="text-[#04E6E6] hover:underline"
-                      href={`/${L}/dashboard/token/${g.tokenId}/`}
+                      href={`/${L}/token/${g.tokenId}/`}
                     >
                       Ver token →
                     </Link>
