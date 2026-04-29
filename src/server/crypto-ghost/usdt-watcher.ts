@@ -78,49 +78,89 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
     "event Transfer(address indexed from, address indexed to, uint256 value)",
   );
 
-  const unwatch = client.watchEvent({
-    address: USDT,
-    event: transferEvent,
-    onLogs: async (logs) => {
-      const processedTx = new Set<string>();
-      const balances = new Map<string, bigint>();
-      const analyzed = new Set<string>();
-      const ignored = new Set<string>();
+  const processLogs = async (
+    logs: Array<{ transactionHash: `0x${string}`; args: { to?: `0x${string}` } }>,
+  ) => {
+    const processedTx = new Set<string>();
+    const balances = new Map<string, bigint>();
+    const analyzed = new Set<string>();
+    const ignored = new Set<string>();
 
-      for (const log of logs) {
-        const txHash = log.transactionHash;
-        if (processedTx.has(txHash)) continue;
-        processedTx.add(txHash);
+    for (const log of logs) {
+      const txHash = log.transactionHash;
+      if (processedTx.has(txHash)) continue;
+      processedTx.add(txHash);
 
-        const recipient = log.args.to;
-        if (!recipient) continue;
+      const recipient = log.args.to;
+      if (!recipient) continue;
 
-        try {
-          const fresh = await isFreshWallet(recipient, analyzed, ignored);
-          if (!fresh) continue;
-          incHttp();
-          const balance = await client.getBalance({ address: recipient, blockTag: "latest" });
-          if (balance > 0n) {
-            balances.set(recipient, balance);
-            processedRecipients.add(recipient);
-            const formatted = formatUnits(balance, 18);
-            hourlyBalances.set(recipient, formatted);
-            hourlyRecipients.add(recipient);
-          }
-        } catch (err) {
-          console.error("[USDT watcher] log error", txHash, err);
+      try {
+        const fresh = await isFreshWallet(recipient, analyzed, ignored);
+        if (!fresh) continue;
+        incHttp();
+        const balance = await client.getBalance({ address: recipient, blockTag: "latest" });
+        if (balance > 0n) {
+          balances.set(recipient, balance);
+          processedRecipients.add(recipient);
+          const formatted = formatUnits(balance, 18);
+          hourlyBalances.set(recipient, formatted);
+          hourlyRecipients.add(recipient);
         }
+      } catch (err) {
+        console.error("[USDT watcher] log error", txHash, err);
       }
+    }
 
-      const wei = [...balances.values()].reduce((a, b) => a + b, 0n);
-      const eth = parseFloat(formatUnits(wei, 18));
-      totalBalance += eth;
-      dailyBalance += eth;
-      weeklyBalance += eth;
-      monthlyBalance += eth;
-    },
-    onError: (err) => console.error("[USDT watcher]", err),
-  });
+    const wei = [...balances.values()].reduce((a, b) => a + b, 0n);
+    const eth = parseFloat(formatUnits(wei, 18));
+    totalBalance += eth;
+    dailyBalance += eth;
+    weeklyBalance += eth;
+    monthlyBalance += eth;
+  };
+
+  const pollMs = Number(process.env.USDT_WATCHER_POLL_MS ?? 12_000);
+  const chunkSize = Math.max(1, Number(process.env.USDT_WATCHER_BLOCK_CHUNK ?? 2));
+  const confirmations = Math.max(0, Number(process.env.USDT_WATCHER_CONFIRMATIONS ?? 2));
+  let nextFromBlock: bigint | null = null;
+  let polling = false;
+
+  const pollLogs = async () => {
+    if (polling) return;
+    polling = true;
+    try {
+      const head = await client.getBlockNumber();
+      const safeHead = head > BigInt(confirmations) ? head - BigInt(confirmations) : 0n;
+
+      if (nextFromBlock == null) {
+        nextFromBlock = safeHead;
+        return;
+      }
+      if (nextFromBlock > safeHead) return;
+
+      const toBlock = nextFromBlock + BigInt(chunkSize - 1) > safeHead
+        ? safeHead
+        : nextFromBlock + BigInt(chunkSize - 1);
+
+      const logs = await client.getLogs({
+        address: USDT,
+        event: transferEvent,
+        fromBlock: nextFromBlock,
+        toBlock,
+      });
+      await processLogs(logs as Array<{ transactionHash: `0x${string}`; args: { to?: `0x${string}` } }>);
+      nextFromBlock = toBlock + 1n;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("beyond current head block")) {
+        // RPC head can lag briefly; skip this cycle without noisy stack traces.
+        return;
+      }
+      console.error("[USDT watcher]", err);
+    } finally {
+      polling = false;
+    }
+  };
 
   const intervalMs = Number(process.env.SMART_ALERT_INTERVAL_MS || 10 * 60 * 1000);
 
@@ -176,12 +216,16 @@ export function startUsdtWatcher(smartEmitter: EventEmitter, rpcUrl: string): ()
     hourlyBalances.clear();
   };
 
+  const pollInterval = setInterval(() => {
+    pollLogs().catch((e) => console.error("[USDT watcher] poll", e));
+  }, pollMs);
+
   const interval = setInterval(() => {
     tick().catch((e) => console.error("[USDT watcher] tick", e));
   }, intervalMs);
 
   return () => {
+    clearInterval(pollInterval);
     clearInterval(interval);
-    unwatch();
   };
 }

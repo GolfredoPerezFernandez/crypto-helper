@@ -301,8 +301,9 @@ export default component$(() => {
     const next = Math.max(1, Math.min(totalPages, current + delta));
     listPages.value = { ...listPages.value, [key]: next };
   });
-  const prioritizedQuickLinks = quickLinks.slice(0, 8);
-  const secondaryQuickLinks = quickLinks.slice(8);
+  // On large screens we show a larger default set so the grid looks balanced.
+  const prioritizedQuickLinks = quickLinks.slice(0, 12);
+  const secondaryQuickLinks = quickLinks.slice(12);
   const visibleQuickLinks = showMoreSections.value
     ? [...prioritizedQuickLinks, ...secondaryQuickLinks]
     : prioritizedQuickLinks;
