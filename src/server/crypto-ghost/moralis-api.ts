@@ -69,7 +69,16 @@ export async function moralisUniversalGet(
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_UNIVERSAL_BASE}/v1${pathWithQuery}`;
     const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
-    if (!res.ok) return { ok: false, error: await readErrBody(res) };
+    if (!res.ok) {
+      if (res.status === 403) {
+        return {
+          ok: false,
+          error:
+            "HTTP 403 · Moralis Universal API blocked this request (plan/permissions). DeFi and cross-chain endpoints require paid access.",
+        };
+      }
+      return { ok: false, error: await readErrBody(res) };
+    }
     const json = await res.json();
     return { ok: true, data: json };
   } catch (e) {
@@ -202,9 +211,16 @@ export async function fetchMoralisNativeBalance(
   chain: string = "base",
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
-  return moralisGet(
+  const primary = await moralisGet(
     `/wallets/${encodeURIComponent(address)}/balance?chain=${encodeURIComponent(chain)}`,
   );
+  // Moralis has migrated this endpoint naming in some deployments.
+  if (!primary.ok && /^HTTP 404\b/.test(primary.error)) {
+    return moralisGet(
+      `/wallets/${encodeURIComponent(address)}/native-balance?chain=${encodeURIComponent(chain)}`,
+    );
+  }
+  return primary;
 }
 
 export async function fetchMoralisErc20Metadata(
@@ -974,9 +990,18 @@ export async function fetchMoralisWalletTransactions(
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
   const ch = encodeURIComponent(chain);
-  return moralisGet(
+  const primary = await moralisGet(
     `/wallets/${encodeURIComponent(address)}/transactions?chain=${ch}&order=block_timestamp.DESC&limit=${limit}`,
   );
+  // Fallback to the raw native tx endpoint for workspaces where `/wallets/:a/transactions`
+  // is not available anymore.
+  if (!primary.ok && /^HTTP 404\b/.test(primary.error)) {
+    return fetchMoralisWalletTransactionsRawNative(address, chain, {
+      limit: Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+      order: "DESC",
+    });
+  }
+  return primary;
 }
 
 export async function fetchMoralisErc20TopGainers(
