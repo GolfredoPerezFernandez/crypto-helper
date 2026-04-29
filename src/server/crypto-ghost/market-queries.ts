@@ -29,6 +29,29 @@ async function tursoSafe<T>(label: string, fn: () => Promise<T>, fallback: T): P
 
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 100;
+export type MarketTokenLightRow = Omit<typeof cachedMarketTokens.$inferSelect, "apiSnapshot">;
+export const MARKET_TOKEN_LIGHT_SELECT = {
+  id: cachedMarketTokens.id,
+  category: cachedMarketTokens.category,
+  address: cachedMarketTokens.address,
+  name: cachedMarketTokens.name,
+  symbol: cachedMarketTokens.symbol,
+  decimals: cachedMarketTokens.decimals,
+  logo: cachedMarketTokens.logo,
+  totalSupply: cachedMarketTokens.totalSupply,
+  percentChange1h: cachedMarketTokens.percentChange1h,
+  percentChange24h: cachedMarketTokens.percentChange24h,
+  percentChange7d: cachedMarketTokens.percentChange7d,
+  percentChange30d: cachedMarketTokens.percentChange30d,
+  percentChange90d: cachedMarketTokens.percentChange90d,
+  fullyDilutedValuation: cachedMarketTokens.fullyDilutedValuation,
+  price: cachedMarketTokens.price,
+  volume: cachedMarketTokens.volume,
+  network: cachedMarketTokens.network,
+  slug: cachedMarketTokens.slug,
+  cmcId: cachedMarketTokens.cmcId,
+  updatedAt: cachedMarketTokens.updatedAt,
+} as const;
 
 function dedupeMarketRows<T extends { cmcId?: number | null; slug?: string | null; symbol?: string | null }>(
   rows: T[],
@@ -62,12 +85,12 @@ export async function queryMarketTokens(opts: {
   category?: MarketCategory | null;
   limit: number;
   offset: number;
-}) {
+}): Promise<MarketTokenLightRow[]> {
   return tursoSafe("queryMarketTokens", async () => {
     const { category, limit, offset } = opts;
     if (category) {
       const rows = await db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, category))
         .orderBy(desc(cachedMarketTokens.updatedAt))
@@ -77,7 +100,7 @@ export async function queryMarketTokens(opts: {
       return dedupeMarketRows(rows);
     }
     const rows = await db
-      .select()
+      .select(MARKET_TOKEN_LIGHT_SELECT)
       .from(cachedMarketTokens)
       .orderBy(desc(cachedMarketTokens.updatedAt))
       .limit(limit)
@@ -92,12 +115,12 @@ export async function queryMarketTokens(opts: {
  * Fallback: top weekly movers from the `volume` board (same sync, no extra API).
  */
 export async function queryTrendingOrFallback(limit: number = 300): Promise<{
-  rows: (typeof cachedMarketTokens.$inferSelect)[];
+  rows: MarketTokenLightRow[];
   usedFallback: boolean;
 }> {
   return tursoSafe("queryTrendingOrFallback", async () => {
     const direct = await db
-      .select()
+      .select(MARKET_TOKEN_LIGHT_SELECT)
       .from(cachedMarketTokens)
       .where(eq(cachedMarketTokens.category, "trending"))
       .orderBy(desc(cachedMarketTokens.updatedAt))
@@ -107,7 +130,7 @@ export async function queryTrendingOrFallback(limit: number = 300): Promise<{
       return { rows: dedupeMarketRows(direct), usedFallback: false };
     }
     const rows = await db
-      .select()
+      .select(MARKET_TOKEN_LIGHT_SELECT)
       .from(cachedMarketTokens)
       .where(eq(cachedMarketTokens.category, "volume"))
       .orderBy(desc(sql`cast(${cachedMarketTokens.percentChange7d} as real)`))
@@ -121,12 +144,12 @@ export async function queryTrendingOrFallback(limit: number = 300): Promise<{
  * CMC “trending/most-visited” may be unavailable on free tier. Fallback: highest 24h volume rows.
  */
 export async function queryMostVisitedOrFallback(limit: number = 300): Promise<{
-  rows: (typeof cachedMarketTokens.$inferSelect)[];
+  rows: MarketTokenLightRow[];
   usedFallback: boolean;
 }> {
   return tursoSafe("queryMostVisitedOrFallback", async () => {
     const direct = await db
-      .select()
+      .select(MARKET_TOKEN_LIGHT_SELECT)
       .from(cachedMarketTokens)
       .where(eq(cachedMarketTokens.category, "most-visited"))
       .orderBy(desc(cachedMarketTokens.updatedAt))
@@ -136,7 +159,7 @@ export async function queryMostVisitedOrFallback(limit: number = 300): Promise<{
       return { rows: dedupeMarketRows(direct), usedFallback: false };
     }
     const rows = await db
-      .select()
+      .select(MARKET_TOKEN_LIGHT_SELECT)
       .from(cachedMarketTokens)
       .where(eq(cachedMarketTokens.category, "volume"))
       .orderBy(desc(sql`cast(${cachedMarketTokens.volume} as real)`))

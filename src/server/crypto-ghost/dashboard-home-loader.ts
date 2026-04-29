@@ -14,6 +14,7 @@ import {
 import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
 import {
   getLatestSyncRun,
+  MARKET_TOKEN_LIGHT_SELECT,
   queryMarketTokens,
   queryMostVisitedOrFallback,
   queryRecentSyncRuns,
@@ -68,35 +69,35 @@ export async function loadDashboardHome(ev: RequestEventBase) {
   const [meme, ai, gaming, mineable, earlybird, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, mostVisitedPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap] =
     await Promise.all([
       db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "memes"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
         .limit(30)
         .all(),
       db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "ai-big-data"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
         .limit(30)
         .all(),
       db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "gaming"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
         .limit(30)
         .all(),
       db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "mineable"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
         .limit(30)
         .all(),
       db
-        .select()
+        .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "earlybird"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
