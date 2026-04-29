@@ -1,4 +1,4 @@
-﻿import { component$, $ } from "@builder.io/qwik";
+import { component$, $ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { Link, useLocation } from "@builder.io/qwik-city";
 import {
@@ -49,16 +49,35 @@ export default component$(() => {
   return (
     <div class="min-h-screen bg-[#000D0E] text-slate-100 antialiased selection:bg-[#04E6E6]/30 selection:text-white">
       <div class="pointer-events-none fixed inset-0 overflow-hidden">
-        <div class="absolute -top-40 right-0 h-[420px] w-[420px] rounded-full bg-[#04E6E6]/08 blur-[100px]" />
-        <div class="absolute bottom-0 left-[-10%] h-[380px] w-[480px] rounded-full bg-teal-600/10 blur-[90px]" />
+        {/* Animated Blobs */}
+        <div class="animate-float animate-glow absolute -top-40 right-0 h-[500px] w-[500px] rounded-full bg-[#04E6E6]/10 blur-[100px]" />
+        <div class="animate-float animate-glow absolute bottom-[-10%] left-[-15%] h-[450px] w-[550px] rounded-full bg-teal-600/15 blur-[110px]" style="animation-delay: -5s; animation-duration: 25s;" />
+        <div class="animate-pulse-slow absolute top-[20%] left-[10%] h-[300px] w-[300px] rounded-full bg-[#04E6E6]/05 blur-[80px]" style="animation-delay: -2s;" />
+        
+        {/* Animated Grid */}
         <div
-          class="absolute inset-0 opacity-[0.12]"
+          class="animate-grid-scan absolute inset-0 opacity-[0.15]"
           style={{
-            backgroundImage: `linear-gradient(rgba(4, 230, 230, 0.35) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(4, 230, 230, 0.35) 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(rgba(4, 230, 230, 0.3) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(4, 230, 230, 0.3) 1px, transparent 1px)`,
             backgroundSize: "48px 48px",
           }}
         />
+
+        {/* Flickering Cells / Data Points */}
+        <div class="absolute inset-0">
+            <div class="absolute top-[10%] left-[20%] h-12 w-12 border border-[#04E6E6]/20 bg-[#04E6E6]/05 animate-pulse" style="animation-duration: 3s;" />
+            <div class="absolute top-[45%] left-[65%] h-12 w-12 border border-[#04E6E6]/20 bg-[#04E6E6]/05 animate-pulse" style="animation-duration: 4s; animation-delay: 1s;" />
+            <div class="absolute top-[75%] left-[35%] h-12 w-12 border border-[#04E6E6]/20 bg-[#04E6E6]/05 animate-pulse" style="animation-duration: 5s; animation-delay: 2s;" />
+            <div class="absolute top-[30%] right-[15%] h-12 w-12 border border-[#04E6E6]/20 bg-[#04E6E6]/05 animate-pulse" style="animation-duration: 3.5s; animation-delay: 0.5s;" />
+            
+            {/* Random small glow points */}
+            <div class="absolute top-[15%] right-[25%] h-1 w-1 bg-[#04E6E6] shadow-[0_0_10px_#04E6E6] animate-ping" />
+            <div class="absolute bottom-[25%] left-[45%] h-1 w-1 bg-[#04E6E6] shadow-[0_0_10px_#04E6E6] animate-ping" style="animation-delay: 1.5s;" />
+        </div>
+
+        {/* Moving Scanline */}
+        <div class="scanline" />
       </div>
 
       <div class="relative mx-auto max-w-6xl px-4 pb-24 pt-16 sm:px-6 lg:px-8 lg:pt-24">

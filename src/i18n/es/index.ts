@@ -1,11 +1,11 @@
 export default {
   app: {
-    brand: "KNRT Property",
-    brandHub: "KNRT Property Hub",
-    title: "KNRT App",
+    brand: "Crypto Helper",
+    brandHub: "Crypto Helper Hub",
+    title: "Crypto Helper App",
     header: {
-      marketplace: "Mercado",
-      myNfts: "Mis Propiedades",
+      market: "Explorador",
+      myNfts: "Mis NFTs",
       profile: "Perfil",
       tutorial: "Tutorial",
       docs: "Docs",
@@ -35,9 +35,8 @@ export default {
       resources: "Recursos",
       privacy: "Privacidad",
       terms: "Términos",
-      rights: "© 2026 KNRT Property. Todos los derechos reservados.",
-      description:
-        "Un ecosistema flexible para gestionar propiedades basadas en NFT, ventas, alquileres y delegación de poder.",
+      rights: "© 2026 Crypto Helper. Todos los derechos reservados.",
+      description: "Mercados, señales en vivo y wallets — un solo panel claro.",
       ecosystem: "Ecosistema",
       base: "Red Base",
       chainlink: "Chainlink",
@@ -331,251 +330,7 @@ export default {
         hint: "Android: diálogo del sistema. iPhone: pasos en Safari.",
       },
     },
-    hero: {
-      title: "KNRT Property",
-      subtitle: "Activos del Mundo Real Tokenizados",
-      description:
-        "La plataforma definitiva para tokenizar, intercambiar y gestionar activos del mundo real en la blockchain Base.",
-      cta: "Explorar Mercado",
-      stats: {
-        tvl: "Valor Total Bloqueado",
-        tvlValue: '$4.2M+',
-        assets: "Activos Tokenizados",
-        assetsValue: '1,250+',
-        users: "Usuarios Activos",
-        usersValue: '8.5K+',
-      },
-    },
-    features: {
-      title: "¿Por qué elegir KNRT?",
-      security: {
-        title: "Seguridad Primero",
-        desc: "Contratos inteligentes auditados y procesos de verificación rigurosos.",
-      },
-      transparency: {
-        title: "Transparencia Total",
-        desc: "Todas las transacciones y registros de propiedad están en la cadena.",
-      },
-      liquidity: {
-        title: "Liquidez Instantánea",
-        desc: "Intercambia tus activos 24/7 en nuestro mercado descentralizado.",
-      },
-    },
-    contracts: {
-      title: "Contratos Inteligentes",
-      subtitle:
-        "Arquitectura de seguridad primero para gestionar propiedades NFT con tokens KNRT",
-      realEstate: {
-        title: "RealEstateMarketplace",
-        desc: "Mercado principal para comprar y vender propiedades NFT",
-        capabilities: {
-          title: "Capacidades",
-          list: "Listar propiedades NFT con precios en KNRT",
-          escrow: "Custodia automática del NFT mientras está listado",
-          update:
-            "Los vendedores pueden actualizar o cancelar listados en cualquier momento",
-        },
-        events: {
-          title: "Eventos del contrato",
-          listed: "PropertyListed",
-          sold: "PropertySold",
-          updated: "ListingUpdated",
-          cancelled: "ListingCancelled",
-        },
-      },
-      rental: {
-        title: "PropertyRentalManager",
-        desc: "Gestionar alquileres por tiempo definido",
-        capabilities: {
-          pricing: "Precios en KNRT mensuales con ventanas de duración claras",
-          agreements: "Contratos de alquiler automatizados",
-          payments: "Pagos mensuales más terminación por plazo o mutuo acuerdo",
-        },
-        events: {
-          title: "Eventos del contrato",
-          listed: "PropertyListed",
-          rented: "PropertyRented",
-          paid: "RentPaid",
-          ended: "RentalEnded",
-          mutual: "MutualEnd",
-        },
-      },
-      power: {
-        title: "RightsTransferMarketplace",
-        desc: "Control temporal sobre propiedades NFT",
-        capabilities: {
-          delegate: "Delegar control temporal de NFTs",
-          refund: "Retorno anticipado con reembolso de KNRT",
-          expiration: "Expiración automática del poder delegado",
-        },
-        events: {
-          title: "RightsTransferMarketplace events",
-          listed: "RightsListed",
-          transferred: "RightsTransferred",
-          returned: "RightsReturned",
-          expired: "RightsTransferExpired",
-          settled: "ExpiredSettled",
-        },
-      },
-      powerRecall: {
-        title: "RightsTransfer + Recall",
-        desc: "Control con bloqueo y medidas de recuperación",
-        capabilities: {
-          lock: "Sistema de bloqueo durante la transferencia temporal",
-          recall:
-            "El propietario puede recuperar el activo en cualquier momento",
-          protection: "Protección contra transferencias no autorizadas",
-        },
-        events: {
-          title: "Eventos base + Bloqueo y Recuperación",
-          locked: "NFTLocked",
-          recalled: "NFTRecalled",
-        },
-      },
-      security: {
-        title: "Características de Seguridad",
-        subtitle: "Salvaguardas avanzadas para todo el ecosistema",
-        reentrancy: {
-          title: "Reentrancy Guard",
-          desc: "Protección contra reentrada en cada función crítica",
-        },
-        pausable: {
-          title: "Pausable",
-          desc: "Pausar contratos en emergencias o durante mantenimiento",
-        },
-        access: {
-          title: "Control de Acceso",
-          desc: "Control de acceso basado en roles para administración segura",
-        },
-        automation: {
-          title: "Chainlink Automation",
-          desc: "Expiraciones y pagos automatizados potenciados por Chainlink Automation",
-        },
-        recovery: {
-          title: "Recuperación de Fondos",
-          desc: "Los contratos incluyen funciones de recuperación para errores de transferencia, para que los usuarios nunca pierdan KNRT por fallos técnicos.",
-        },
-      },
-      eventsLabels: {
-        listed: 'PropertyListed',
-        sold: 'PropertySold',
-        updated: 'ListingUpdated',
-        cancelled: 'ListingCancelled',
-        rented: 'PropertyRented',
-        paid: 'RentPaid',
-        ended: 'RentalEnded',
-        mutual: 'MutualEnd',
-        powerListed: 'RightsListed',
-        transferred: 'RightsTransferred',
-        returned: 'RightsReturned',
-        expired: 'RightsTransferExpired',
-        settled: 'ExpiredSettled',
-        baseLocked: 'Eventos base + Bloqueo y Recuperación',
-        locked: 'NFTLocked',
-        recalled: 'NFTRecalled',
-      },
-    },
-    contractFeatures: {
-      marketplace: {
-        label: "Mercado",
-        badge: "Custodia",
-        list: "Listar, comprar, actualizar y cancelar",
-        events: "Eventos: PropertyListed, PropertySold...",
-      },
-      rental: {
-        badge: "Mensual",
-        list: "Listados, acuerdos, pagos",
-        events: "Eventos: PropertyRented, RentPaid...",
-      },
-      power: {
-        badge: "Duración",
-        list: "Compra, devolución temprana, expiración",
-        events: "Eventos: RightsListed, RightsTransferred...",
-      },
-      powerRecall: {
-        badge: "Bloqueo",
-        list: "Bloqueo/Retorno durante la transferencia",
-        events: "Eventos Base + Bloqueo y Retorno",
-      },
-    },
-    create: "Crea tu primer listado",
-    view: "Ver dashboard",
-    dashboard: {
-      title: "Dashboard",
-      automationActive: "Chainlink Automation activo",
-      sales: "Ventas (24h)",
-      trend: "Tendencia",
-      rentals: "Alquileres activos",
-      onTime: "Pagos a tiempo",
-      power: "Acuerdos de derechos activos",
-      expirations: "Expiraciones (próx 7d)",
-      salesValue: '38',
-      rentalsValue: '127',
-      powerValue: '52',
-      events: {
-        title: "Eventos on-chain",
-        last15: "Últimos 15 min",
-        mAgo: "hace {{count}}m",
-        days: "{{count}} días",
-        soldLog: '0xA1b...93F2 | #721 | 12,500 KNRT',
-        paidLog: '0x81e...22A0 | #412 | 900 KNRT',
-        transferredLog: '0xF33...aC7B | #118 | {{duration}}',
-        cancelledLog: '0x9c2...01De | #532',
-      },
-      system: {
-        status: 'Estado del Sistema',
-        operational: 'Operativo',
-        reentrancy: 'Guardia Reentrancia',
-        pause: 'Módulo de Pausa',
-        admin: 'Acceso Admin',
-        recovery: 'Módulo de Recuperación',
-      },
-      quickActions: {
-        title: "Acciones rápidas",
-        sale: "Listar venta",
-        rental: "Listar alquiler",
-        power: "Listar derechos",
-        recall: "Recuperar",
-      },
-    },
-    ctaSection: {
-      title: "Gestiona propiedades NFT con seguridad y control total",
-      subtitle:
-        "Combina ventas, alquileres y poder temporal en un solo flujo con pagos en KNRT.",
-      create: "Crea tu primer listado",
-      view: "Ver dashboard",
-    },
-    footer: {
-      flexibleStack:
-        "Stack flexible para gestionar propiedades basadas en NFT: ventas, alquileres y poder temporal con mecánicas de custodia, bloqueo y recuperación.",
-      product: "Producto",
-      marketplace: "Mercado",
-      rental: "Alquiler",
-      power: "Derechos",
-      dashboard: "Panel de control",
-      resources: "Recursos",
-      docs: "Documentación",
-      sdk: "SDK",
-      support: "Soporte",
-      status: "Estado",
-      allRights: "© 2026 KNRT Property. Todos los derechos reservados.",
-      privacy: "Privacidad",
-      terms: "Términos",
-    },
-    modal: {
-      list: {
-        title: "Listar propiedad NFT",
-        subtitle:
-          "El NFT se traslada al contrato de custodia hasta que se venda.",
-        contractAddress: "Dirección del contrato",
-        tokenId: "ID del Token",
-        price: "Precio (KNRT)",
-        terms: "Términos y condiciones",
-        escrowEnabled: "Custodia habilitada",
-        listNow: "Listar ahora",
-      },
-    },
-  },
+
   tutorial: {
     hero: {
       badge: "Guía Oficial",

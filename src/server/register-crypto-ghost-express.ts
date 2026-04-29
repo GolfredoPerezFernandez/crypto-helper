@@ -44,11 +44,17 @@
  */
 import type { Express, Request, Response } from "express";
 import cron from "node-cron";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { runDailyMarketSync } from "./crypto-ghost/cmc-sync";
 import { handleMoralisStreamWebhook } from "./crypto-ghost/webhook-processor";
 import { expressRequestHasProAccess } from "./crypto-ghost/user-access";
 import { smartEmitter, traderEmitter, whaleEmitter } from "./realtime/emitters";
 import { startUsdtWatcher } from "./crypto-ghost/usdt-watcher";
+import { db } from "~/lib/turso";
+import { syncRuns } from "../../drizzle/schema";
+
+const BOOL_TRUE_RE = /^1|true|yes$/i;
+const DEFAULT_BOOT_SYNC_FRESHNESS_HOURS = 20;
 
 function attachSse(emitter: typeof whaleEmitter, eventName: string) {
   return async (_req: Request, res: Response) => {
@@ -139,17 +145,56 @@ export function registerCryptoGhostRoutes(app: Express): void {
 }
 
 export function scheduleCryptoGhostJobs(): void {
-  const expr = process.env.SYNC_CRON || "0 3 * * *";
+  const expr = process.env.SYNC_CRON || "0 */12 * * *";
   cron.schedule(expr, () => {
     console.log("[Crypto Helper] cron: scheduled market sync starting", new Date().toISOString());
     runDailyMarketSync().catch((e) => console.error("[cron] CMC sync", e));
   });
   console.log(`[Crypto Helper] CMC daily sync scheduled: ${expr}`);
 
-  setTimeout(() => {
-    console.log("[Crypto Helper] delayed initial market sync (45s after boot)", new Date().toISOString());
-    runDailyMarketSync().catch((e) => console.error("[Crypto Helper] delayed initial sync failed", e));
-  }, 45_000);
+  const bootSyncEnabled = BOOL_TRUE_RE.test(String(process.env.SYNC_BOOTSTRAP_ENABLED ?? "1"));
+  if (bootSyncEnabled) {
+    setTimeout(async () => {
+      try {
+        const freshnessHoursRaw = Number(
+          process.env.SYNC_BOOTSTRAP_FRESHNESS_HOURS ?? DEFAULT_BOOT_SYNC_FRESHNESS_HOURS,
+        );
+        const freshnessHours = Number.isFinite(freshnessHoursRaw)
+          ? Math.max(1, Math.floor(freshnessHoursRaw))
+          : DEFAULT_BOOT_SYNC_FRESHNESS_HOURS;
+        const freshnessSeconds = freshnessHours * 60 * 60;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const threshold = nowSec - freshnessSeconds;
+
+        const lastRecentSuccess = await db
+          .select({ id: syncRuns.id, finishedAt: syncRuns.finishedAt })
+          .from(syncRuns)
+          .where(
+            and(
+              eq(syncRuns.source, "daily-market-sync"),
+              eq(syncRuns.status, "success"),
+              gt(syncRuns.finishedAt, threshold),
+            ),
+          )
+          .orderBy(desc(syncRuns.finishedAt))
+          .limit(1);
+
+        if (lastRecentSuccess.length > 0) {
+          console.log(
+            `[Crypto Helper] delayed initial market sync skipped (recent success within ${freshnessHours}h)`,
+          );
+          return;
+        }
+
+        console.log("[Crypto Helper] delayed initial market sync (45s after boot)", new Date().toISOString());
+        await runDailyMarketSync();
+      } catch (e) {
+        console.error("[Crypto Helper] delayed initial sync failed", e);
+      }
+    }, 45_000);
+  } else {
+    console.log("[Crypto Helper] delayed initial market sync disabled via SYNC_BOOTSTRAP_ENABLED");
+  }
 
   const rpc = process.env.ETHEREUM_RPC_URL?.trim();
   if (rpc) {

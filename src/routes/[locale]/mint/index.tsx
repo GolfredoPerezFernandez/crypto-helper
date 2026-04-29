@@ -1,4 +1,4 @@
-﻿// ...existing imports...
+// ...existing imports...
 import { routeAction$ } from '@builder.io/qwik-city';
 import {
   component$,
@@ -1469,7 +1469,7 @@ export default component$(() => {
         </div>
       )}
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div class="absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#c1272d]/15 blur-[150px]" />
+        <div class="absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#04E6E6]/15 blur-[150px]" />
         <div class="absolute bottom-12 right-6 h-[360px] w-[360px] rounded-full bg-[#d13238]/10 blur-[150px]" />
       </div>
 
@@ -1479,13 +1479,13 @@ export default component$(() => {
 
         {/* Wizard Progress Header */}
         {wallet.connected && (
-          <section id="minting-steps-container" class="rounded-3xl border border-white/40 bg-white/90 px-6 py-6 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+          <section id="minting-steps-container" class="rounded-3xl border border-white/40 bg-[#000d0e]/80 text-[#04E6E6] border-[#043234]">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p class="text-xs uppercase tracking-[0.35em] text-[#c1272d]">
+                <p class="text-xs uppercase tracking-[0.35em] text-[#04E6E6]">
                   {t('mint.steps.guidedFlow@@Guided Creation Flow')}
                 </p>
-                <h2 class="text-lg font-semibold text-gray-900">
+                <h2 class="text-lg font-semibold text-white">
                   {t('mint.steps.currentStep@@Step {{current}} of {{total}}', { current: currentStep.value, total: totalSteps.value })}
                 </h2>
               </div>
@@ -1494,7 +1494,7 @@ export default component$(() => {
                   <div
                     key={step}
                     class={`h-2.5 rounded-full transition-all duration-300 ${step === currentStep.value
-                      ? 'w-10 bg-[#c1272d]'
+                      ? 'w-10 bg-[#04E6E6]'
                       : step < currentStep.value
                         ? 'w-6 bg-emerald-400'
                         : 'w-6 bg-gray-200'
@@ -1509,17 +1509,17 @@ export default component$(() => {
         <section class={`grid gap-8 ${wallet.connected ? 'lg:grid-cols-[minmax(0,2.15fr)_minmax(280px,1fr)]' : 'grid-cols-1'}`}>
           <div class="space-y-6">
             {!wallet.connected ? (
-              <Card.Root class="bg-white border border-[#c1272d]/30 rounded-2xl">
+              <Card.Root class="bg-[#000d0e] border-[#043234] rounded-2xl">
                 <Card.Content class="p-10 flex flex-col items-center justify-center">
-                  <LuWallet class="w-16 h-16 text-[#c1272d] mb-4 mt-8" />
+                  <LuWallet class="w-16 h-16 text-[#04E6E6] mb-4 mt-8" />
                   <h2 class="text-2xl font-bold mb-2">{t('mint.connectCard.title')}</h2>
-                  <p class="text-gray-900 mb-6 text-center max-w-md">
+                  <p class="text-white mb-6 text-center max-w-md">
                     {t('mint.connectCard.desc')}
                   </p>
                   <Button
                     onClick$={connect}
                     disabled={isLoading.value}
-                    class="bg-gradient-to-r from-[#c1272d] to-[#d13238] hover:from-[#a91f23] hover:to-[#d13238] text-white"
+                    class="bg-gradient-to-r from-[#04E6E6] to-[#06b6d4] hover:brightness-110 text-white"
                   >
                     <LuWallet class="mr-2 h-4 w-4" />
                     {isLoading.value ? t('mint.connectCard.connecting') : t('mint.connectCard.button')}
@@ -1532,7 +1532,7 @@ export default component$(() => {
                 <Card.Content class="p-10 flex flex-col items-center justify-center text-center">
                   <div class="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#c1272d]"></div>
                   <h2 class="text-xl font-bold mb-2">Initializing Contracts...</h2>
-                  <p class="text-gray-600">Please wait while we connect to the marketplace.</p>
+                  <p class="text-slate-400">Please wait while we connect to the marketplace.</p>
                 </Card.Content>
               </Card.Root>
             ) : contracts.value.error ? (
@@ -1541,40 +1541,40 @@ export default component$(() => {
                 <Card.Content class="p-10 flex flex-col items-center justify-center text-center">
                   <LuX class="w-12 h-12 text-red-500 mb-4" />
                   <h2 class="text-xl font-bold mb-2 text-red-700">Connection Error</h2>
-                  <p class="text-gray-600 mb-4 max-w-md">{contracts.value.error}</p>
+                  <p class="text-slate-400 mb-4 max-w-md">{contracts.value.error}</p>
                   <Button onClick$={() => window.location.reload()} variant="outline">
                     Retry
                   </Button>
                 </Card.Content>
               </Card.Root>
             ) : (
-              <Card.Root class="overflow-hidden bg-white border border-[#c1272d]/30 rounded-2xl">
+              <Card.Root class="overflow-hidden bg-[#000d0e] border-[#043234] rounded-2xl">
                 <Card.Content class="p-0">
                   {/* STEP 1: Details */}
                   <div class={currentStep.value === 1 ? 'block' : 'hidden'}>
                     <div class="space-y-8 bg-gradient-to-b from-white via-white to-gray-50/70 p-8">
-                      <div class="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm">
+                      <div class="rounded-2xl border border-gray-100 bg-[#001214] border-[#043234]">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div class="flex items-center gap-2 text-[#c1272d]">
-                            <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#c1272d]/10">
+                          <div class="flex items-center gap-2 text-[#04E6E6]">
+                            <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#04E6E6]/10">
                               <LuInfo class="h-5 w-5" />
                             </span>
                             <div>
-                              <h2 class="text-2xl font-bold text-gray-900">{t('mint.form.detailsTitle')}</h2>
-                              <p class="text-sm text-gray-600">
+                              <h2 class="text-2xl font-bold text-white">{t('mint.form.detailsTitle')}</h2>
+                              <p class="text-sm text-slate-400">
                                 {t('mint.form.detailsDesc')}
                               </p>
                             </div>
                           </div>
-                          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             {t('mint.form.block1')}
                           </span>
                         </div>
                       </div>
 
-                      <div class="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm space-y-6">
+                      <div class="rounded-2xl border border-gray-100 bg-[#001214] border-[#043234] space-y-6">
                         <div>
-                          <label class="block text-sm font-medium text-gray-700">{t('mint.form.name')}</label>
+                          <label class="block text-sm font-medium text-slate-300">{t('mint.form.name')}</label>
                           <Input
                             value={nftName.value}
                             onInput$={(e) => (nftName.value = (e.target as HTMLInputElement).value)}
@@ -1582,32 +1582,32 @@ export default component$(() => {
                             class={`mt-1 w-full ${formErrors.value.nftName ? 'border-[#c1272d]' : ''}`}
                           />
                           {formErrors.value.nftName && (
-                            <span class="text-xs text-[#c1272d]">{t('mint.form.errorName')}</span>
+                            <span class="text-xs text-[#04E6E6]">{t('mint.form.errorName')}</span>
                           )}
                         </div>
 
                         <div>
-                          <label class="block text-sm font-medium text-gray-700">{t('mint.form.description')}</label>
+                          <label class="block text-sm font-medium text-slate-300">{t('mint.form.description')}</label>
                           <textarea
                             value={nftDescription.value}
                             onInput$={(e) => (nftDescription.value = (e.target as HTMLTextAreaElement).value)}
                             placeholder={t('mint.form.descriptionPlaceholder')}
-                            class={`mt-1 w-full rounded-xl border bg-white/80 px-3 py-3 text-sm text-gray-900 shadow-inner focus:outline-none focus:ring-2 ${formErrors.value.nftDescription ? 'border-[#c1272d]' : 'border-gray-200 focus:ring-[#c1272d]'
+                            class={`mt-1 w-full rounded-xl border bg-[#000d0e] border-[#043234] px-3 py-3 text-sm text-white shadow-inner focus:outline-none focus:ring-2 ${formErrors.value.nftDescription ? 'border-[#04E6E6]' : 'border-[#043234] focus:ring-[#04E6E6]'
                               } min-h-[110px]`}
                           />
                           {formErrors.value.nftDescription && (
-                            <span class="text-xs text-[#c1272d]">{t('mint.form.errorDesc')}</span>
+                            <span class="text-xs text-[#04E6E6]">{t('mint.form.errorDesc')}</span>
                           )}
                         </div>
 
-                        <div class="rounded-2xl border border-dashed border-[#c1272d]/40 bg-white/80 p-4">
-                          <label class="block text-sm font-medium text-gray-700">{t('mint.form.image')}</label>
-                          <p class="text-xs text-gray-500">{t('mint.form.imageHint')}</p>
+                        <div class="rounded-2xl border border-dashed border-[#043234] bg-[#000d0e] p-4">
+                          <label class="block text-sm font-medium text-slate-300">{t('mint.form.image')}</label>
+                          <p class="text-xs text-slate-400">{t('mint.form.imageHint')}</p>
                           <input
                             type="file"
                             accept="image/*"
                             onChange$={handleImageChange}
-                            class="mt-3 block w-full text-sm text-gray-900 file:mr-4 file:cursor-pointer file:rounded-full file:border-0 file:bg-gradient-to-r file:from-[#c1272d] file:to-[#d13238] file:px-5 file:py-2 file:font-semibold file:text-white hover:file:bg-[#a91f23]"
+                            class="mt-3 block w-full text-sm text-white file:mr-4 file:cursor-pointer file:rounded-full file:border-0 file:bg-gradient-to-r file:from-[#c1272d] file:to-[#d13238] file:px-5 file:py-2 file:font-semibold file:text-white hover:file:bg-[#a91f23]"
                           />
                           {imagePreview.value && (
                             <img
@@ -1619,7 +1619,7 @@ export default component$(() => {
                         </div>
                       </div>
 
-                      <div class="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-sm text-gray-600">
+                      <div class="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-sm text-slate-400">
                         <LuCheck class={`h-4 w-4 ${formValid.value ? 'text-emerald-500' : 'text-gray-300'}`} />
                         {formValid.value
                           ? t('mint.form.statusReady')
@@ -1642,20 +1642,20 @@ export default component$(() => {
                   {/* STEP 2: Template & Configuration */}
                   <div class={currentStep.value === 2 ? 'block' : 'hidden'}>
                     <div class="space-y-8 bg-gradient-to-b from-white via-white to-gray-50/70 p-8">
-                      <div class="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm">
+                      <div class="rounded-2xl border border-gray-100 bg-[#001214] border-[#043234]">
                         <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                          <div class="flex items-center gap-2 text-[#c1272d]">
-                            <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#c1272d]/10">
+                          <div class="flex items-center gap-2 text-[#04E6E6]">
+                            <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#04E6E6]/10">
                               <LuFilePlus class="h-5 w-5" />
                             </span>
                             <div>
-                              <h2 class="text-2xl font-bold text-gray-900">{t('mint.templateSection.title')}</h2>
-                              <p class="text-sm text-gray-600">
+                              <h2 class="text-2xl font-bold text-white">{t('mint.templateSection.title')}</h2>
+                              <p class="text-sm text-slate-400">
                                 {t('mint.templateSection.desc')}
                               </p>
                             </div>
                           </div>
-                          <div class="flex items-center gap-3 text-xs font-semibold text-gray-500">
+                          <div class="flex items-center gap-3 text-xs font-semibold text-slate-400">
                             <span class="uppercase tracking-wide">{t('mint.templateSection.block2')}</span>
                           </div>
                         </div>
@@ -1666,16 +1666,16 @@ export default component$(() => {
                     <div class="space-y-5">
                       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <p class="text-xs font-semibold uppercase tracking-[0.35em] text-[#c1272d]/80">
+                          <p class="text-xs font-semibold uppercase tracking-[0.35em] text-[#04E6E6]/80">
                             {t('mint.templateSection.galleryTitle')}
                           </p>
-                          <p class="text-sm text-gray-600">
+                          <p class="text-sm text-slate-400">
                             {t('mint.templateSection.galleryDesc')}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
-                          class="text-xs text-gray-600 hover:text-[#c1272d]"
+                          class="text-xs text-slate-400 hover:text-[#04E6E6]"
                           disabled={!selectedTemplateId.value}
                           onClick$={() => (selectedTemplateId.value = '')}
                         >
@@ -1706,17 +1706,17 @@ export default component$(() => {
                                 >
                                   <Icon class="h-5 w-5 text-white" />
                                 </span>
-                                <span class="text-[11px] font-semibold uppercase tracking-[0.25em] text-gray-500">
+                                <span class="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">
                                   {t(`mint.templates.tags.${meta.tag === 'IoT + Data' ? 'iot' : meta.tag === 'Map + Image' ? 'mapImage' : meta.tag === 'Live Map' ? 'liveMap' : meta.tag === 'Real Estate' ? 'realEstate' : meta.tag === 'Premium' ? 'premium' : 'general'}`) || meta.tag}
                                 </span>
                               </div>
-                              <p class="mt-4 text-base font-semibold text-gray-900">{t(`mint.templates.items.${template.id === 'iot-sensor' ? 'iotSensor' : template.id === 'map-cells' ? 'mapImage' : template.id === 'map-google' ? 'liveMap' : template.id === 'realestate-basic' ? 'realEstate' : template.id === 'realestate-premium' ? 'realEstatePremium' : template.id === 'gaming' ? 'character' : template.id}.name`) || template.name}</p>
-                              <p class="mt-2 text-sm text-gray-600">
+                              <p class="mt-4 text-base font-semibold text-white">{t(`mint.templates.items.${template.id === 'iot-sensor' ? 'iotSensor' : template.id === 'map-cells' ? 'mapImage' : template.id === 'map-google' ? 'liveMap' : template.id === 'realestate-basic' ? 'realEstate' : template.id === 'realestate-premium' ? 'realEstatePremium' : template.id === 'gaming' ? 'character' : template.id}.name`) || template.name}</p>
+                              <p class="mt-2 text-sm text-slate-400">
                                 {t(`mint.templates.items.${template.id === 'iot-sensor' ? 'iotSensor' : template.id === 'map-cells' ? 'mapImage' : template.id === 'map-google' ? 'liveMap' : template.id === 'realestate-basic' ? 'realEstate' : template.id === 'realestate-premium' ? 'realEstatePremium' : template.id === 'gaming' ? 'character' : template.id}.desc`) || template.description}
                               </p>
                               <div class="mt-4 flex items-center justify-between text-xs">
-                                <span class="font-semibold text-gray-900">{attrCount} {t('mint.templateSection.attrs')}</span>
-                                <span class="text-[#c1272d]">{t('mint.templateSection.select')}</span>
+                                <span class="font-semibold text-white">{attrCount} {t('mint.templateSection.attrs')}</span>
+                                <span class="text-[#04E6E6]">{t('mint.templateSection.select')}</span>
                               </div>
                             </button>
                           );
@@ -1729,13 +1729,13 @@ export default component$(() => {
                               <LuSparkles class="h-5 w-5 text-white" />
                             </span>
                             <div>
-                              <p class="text-xs uppercase tracking-wide text-gray-500">{t('mint.templateSection.selectedTitle')}</p>
-                              <h3 class="font-semibold text-gray-900">{selectedTemplate.value.name}</h3>
+                              <p class="text-xs uppercase tracking-wide text-slate-400">{t('mint.templateSection.selectedTitle')}</p>
+                              <h3 class="font-semibold text-white">{selectedTemplate.value.name}</h3>
                             </div>
                           </div>
                         ) : (
-                          <div class="flex flex-col items-center gap-3 text-center text-sm text-gray-500">
-                            <LuSparkles class="h-6 w-6 text-[#c1272d]" />
+                          <div class="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
+                            <LuSparkles class="h-6 w-6 text-[#04E6E6]" />
                             <p>{t('mint.templateSection.emptyHint')}</p>
                           </div>
                         )}
@@ -1744,7 +1744,7 @@ export default component$(() => {
                         <Button
                           onClick$={prevStep}
                           variant="outline"
-                          class="border-gray-200 text-gray-700 hover:bg-gray-50"
+                          class="border-gray-200 text-slate-300 hover:bg-gray-50"
                         >
                           <LuChevronLeft class="mr-2 w-4 h-4" /> {t('mint.steps.back@@Back')}
                         </Button>
@@ -1764,23 +1764,23 @@ export default component$(() => {
                   {isMapTemplate.value && (
                     <div class={currentStep.value === 3 ? 'block' : 'hidden'}>
                       <div class="space-y-8 bg-gradient-to-b from-white via-white to-gray-50/70 p-8">
-                        <div class="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm">
+                        <div class="rounded-2xl border border-gray-100 bg-[#001214] border-[#043234]">
                           <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                            <div class="flex items-center gap-2 text-[#c1272d]">
-                              <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#c1272d]/10">
+                            <div class="flex items-center gap-2 text-[#04E6E6]">
+                              <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#04E6E6]/10">
                                 <LuMap class="h-5 w-5" />
                               </span>
                               <div>
-                                <h2 class="text-2xl font-bold text-gray-900">{t('mint.mapSection.defineCells')}</h2>
-                                <p class="text-sm text-gray-600">
+                                <h2 class="text-2xl font-bold text-white">{t('mint.mapSection.defineCells')}</h2>
+                                <p class="text-sm text-slate-400">
                                   {isImageMapTemplate.value
                                     ? t('mint.mapSection.imageUploaded')
                                     : t('mint.mapSection.leafletReady')}
                                 </p>
                               </div>
                             </div>
-                            <div class="flex items-center gap-3 text-xs font-semibold text-gray-500">
-                              <span class="rounded-full bg-gray-100 px-3 py-1 text-gray-700">
+                            <div class="flex items-center gap-3 text-xs font-semibold text-slate-400">
+                              <span class="rounded-full bg-gray-100 px-3 py-1 text-slate-300">
                                 {availableCells.value.size} {t('mint.mapSection.available')}
                               </span>
                             </div>
@@ -1795,7 +1795,7 @@ export default component$(() => {
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
                               {/* Left: Title & Grid Inputs */}
                               <div class="flex items-center gap-4">
-                                <h3 class="text-sm font-semibold text-gray-900 hidden md:block">{t('mint.mapSection.cellEditor')}</h3>
+                                <h3 class="text-sm font-semibold text-white hidden md:block">{t('mint.mapSection.cellEditor')}</h3>
 
                                 <div class="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2 py-1 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
                                   <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-2">{t('mint.mapSection.rows')}</label>
@@ -1824,7 +1824,7 @@ export default component$(() => {
                                 <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm" title="Grid Line Color">
                                   <div class="w-3.5 h-3.5 rounded-full shadow-inner ring-1 ring-black/5" style={{ backgroundColor: gridLineColor.value }}></div>
                                   <select
-                                    class="bg-transparent border-none text-[10px] uppercase font-bold text-gray-700 focus:ring-0 outline-none cursor-pointer p-0"
+                                    class="bg-transparent border-none text-[10px] uppercase font-bold text-slate-300 focus:ring-0 outline-none cursor-pointer p-0"
                                     value={gridLineColor.value}
                                     onChange$={(e) => gridLineColor.value = (e.target as HTMLSelectElement).value}
                                   >
@@ -1838,7 +1838,7 @@ export default component$(() => {
 
                             {/* Row 2: Map Controls */}
                             <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-200/60">
-                              <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-widest hidden sm:block">Map Tools</h4>
+                              <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-widest hidden sm:block">Map Tools</h4>
                               <div class="flex items-center gap-4">
                                 {/* Map Controls */}
                                 <div class="flex items-center gap-2">
@@ -1846,11 +1846,11 @@ export default component$(() => {
                                     type="button"
                                     onClick$={() => (hideGridSignal.value = !hideGridSignal.value)}
                                     class={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${hideGridSignal.value
-                                      ? 'bg-rose-50 text-[#c1272d] border-2 border-[#c1272d]/40 shadow-inner'
-                                      : 'bg-white text-[#c1272d] border-2 border-[#c1272d]/80 hover:bg-[#c1272d]/5 shadow-sm'
+                                      ? 'bg-rose-50 text-[#04E6E6] border-2 border-[#c1272d]/40 shadow-inner'
+                                      : 'bg-white text-[#04E6E6] border-2 border-[#c1272d]/80 hover:bg-[#04E6E6]/5 shadow-sm'
                                       }`}
                                   >
-                                    <span class={`flex h-[14px] w-[14px] items-center justify-center rounded-[3px] border-[1.5px] transition-colors ${hideGridSignal.value ? 'bg-transparent border-[#c1272d]' : 'bg-[#c1272d] border-[#c1272d]'}`}>
+                                    <span class={`flex h-[14px] w-[14px] items-center justify-center rounded-[3px] border-[1.5px] transition-colors ${hideGridSignal.value ? 'bg-transparent border-[#c1272d]' : 'bg-[#04E6E6] border-[#c1272d]'}`}>
                                       {!hideGridSignal.value && <LuCheck class="h-3 w-3 text-white stroke-[3]" />}
                                     </span>
                                     <span class="text-[11px] uppercase tracking-wide">
@@ -1861,8 +1861,8 @@ export default component$(() => {
                                   </button>
 
                                   <div class="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
-                                    <button type="button" onClick$={zoomOut} class="w-8 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 border-r border-gray-100 hover:bg-gray-50 font-bold">-</button>
-                                    <button type="button" onClick$={zoomIn} class="w-8 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold">+</button>
+                                    <button type="button" onClick$={zoomOut} class="w-8 h-7 flex items-center justify-center text-slate-400 hover:text-white border-r border-gray-100 hover:bg-gray-50 font-bold">-</button>
+                                    <button type="button" onClick$={zoomIn} class="w-8 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-gray-50 font-bold">+</button>
                                   </div>
                                 </div>
 
@@ -1873,14 +1873,14 @@ export default component$(() => {
                                   <button
                                     type="button"
                                     onClick$={() => (mapStyle.value = 'standard')}
-                                    class={`px-4 py-1 text-[11px] font-bold rounded-md transition-all ${mapStyle.value === 'standard' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    class={`px-4 py-1 text-[11px] font-bold rounded-md transition-all ${mapStyle.value === 'standard' ? 'bg-white shadow-sm text-white' : 'text-slate-400 hover:text-slate-300'}`}
                                   >
                                     {t('mint.mapSection.mapView')}
                                   </button>
                                   <button
                                     type="button"
                                     onClick$={() => (mapStyle.value = 'satellite')}
-                                    class={`px-4 py-1 text-[11px] font-bold rounded-md transition-all ${mapStyle.value === 'satellite' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    class={`px-4 py-1 text-[11px] font-bold rounded-md transition-all ${mapStyle.value === 'satellite' ? 'bg-white shadow-sm text-white' : 'text-slate-400 hover:text-slate-300'}`}
                                   >
                                     {t('mint.mapSection.satelliteView')}
                                   </button>
@@ -1897,7 +1897,7 @@ export default component$(() => {
                                   </div>
                                   <input
                                     type="text"
-                                    class="w-full bg-white border border-gray-200 text-gray-900 rounded-l-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#c1272d]/20 focus:border-[#c1272d] text-sm transition-all shadow-sm"
+                                    class="w-full bg-white border border-gray-200 text-white rounded-l-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#c1272d]/20 focus:border-[#c1272d] text-sm transition-all shadow-sm"
                                     placeholder={t('mint.mapSection.searchPlaceholder')}
                                     bind:value={searchQuery}
                                     disabled={isSearching.value}
@@ -1905,7 +1905,7 @@ export default component$(() => {
                                   />
                                   <button
                                     type="submit"
-                                    class="bg-gray-100 hover:bg-rose-50 border border-l-0 border-gray-200 text-gray-700 hover:text-[#c1272d] hover:border-[#c1272d]/30 px-4 py-2 rounded-r-xl text-sm font-bold shrink-0 transition-all shadow-sm"
+                                    class="bg-gray-100 hover:bg-rose-50 border border-l-0 border-gray-200 text-slate-300 hover:text-[#04E6E6] hover:border-[#c1272d]/30 px-4 py-2 rounded-r-xl text-sm font-bold shrink-0 transition-all shadow-sm"
                                     disabled={isSearching.value}
                                   >
                                     {t('mint.mapSection.search')}
@@ -1917,10 +1917,10 @@ export default component$(() => {
                                 <button
                                   type="button"
                                   onClick$={centerOnUserLocation}
-                                  class="flex items-center justify-center px-4 py-2 bg-white border border-gray-200 hover:bg-rose-50 hover:border-[#c1272d]/30 text-gray-700 hover:text-[#c1272d] rounded-xl shadow-sm transition-all shrink-0 font-bold text-sm"
+                                  class="flex items-center justify-center px-4 py-2 bg-white border border-gray-200 hover:bg-rose-50 hover:border-[#c1272d]/30 text-slate-300 hover:text-[#04E6E6] rounded-xl shadow-sm transition-all shrink-0 font-bold text-sm"
                                   title={t('mint.mapSection.locateMe')}
                                 >
-                                  <LuMapPin class="w-4 h-4 text-[#c1272d] mr-2" />
+                                  <LuMapPin class="w-4 h-4 text-[#04E6E6] mr-2" />
                                   <span>{t('mint.mapSection.locateMe@@Locate me')}</span>
                                 </button>
                               </div>
@@ -1981,12 +1981,12 @@ export default component$(() => {
                               <div class="flex flex-wrap items-center gap-3 px-2">
                                 <div class="flex items-center gap-2">
                                   <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                                  <span class="text-xs text-gray-700 font-medium whitespace-nowrap">
-                                    {t('mint.mapSection.available@@Available')}: <span class="font-bold text-gray-900">{availableCells.value.size}</span>
+                                  <span class="text-xs text-slate-300 font-medium whitespace-nowrap">
+                                    {t('mint.mapSection.available@@Available')}: <span class="font-bold text-white">{availableCells.value.size}</span>
                                   </span>
                                 </div>
                                 <div class="hidden sm:block w-[1px] h-4 bg-gray-300"></div>
-                                <span class="text-xs text-gray-500 mr-2 whitespace-nowrap">
+                                <span class="text-xs text-slate-400 mr-2 whitespace-nowrap">
                                   {t('mint.mapSection.null@@Null')}: <span class="font-bold">{gridRows.value * gridCols.value - availableCells.value.size}</span>
                                   <span class="opacity-50 mx-1">/</span>
                                   {gridRows.value * gridCols.value}
@@ -2006,7 +2006,7 @@ export default component$(() => {
                             {isLeafletMapTemplate.value && (
                               <div class="mt-2 rounded-xl border border-gray-200/60 bg-white shadow-sm overflow-hidden">
                                 <div class="px-4 py-2 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                                  <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                  <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <LuMapPin class="w-3.5 h-3.5" />
                                     Advanced Coordinates Setup
                                   </h4>
@@ -2016,13 +2016,13 @@ export default component$(() => {
                                   <div class="flex flex-col gap-2">
                                     <div class="flex items-center justify-between">
                                       <span class="text-[10px] font-bold text-gray-400">{t('mint.mapSection.decimal')}</span>
-                                      <button type="button" onClick$={goToCoords} class="text-[10px] uppercase font-bold text-[#c1272d] hover:text-[#a91f23]">{t('mint.mapSection.syncGo')}</button>
+                                      <button type="button" onClick$={goToCoords} class="text-[10px] uppercase font-bold text-[#04E6E6] hover:text-[#a91f23]">{t('mint.mapSection.syncGo')}</button>
                                     </div>
                                     <div class="flex gap-2">
                                       <div class="relative flex-1">
                                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400">LAT</span>
                                         <input
-                                          type="text" class="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-md pl-9 pr-2 py-1.5 focus:ring-1 focus:ring-blue-500 text-xs font-mono"
+                                          type="text" class="w-full bg-gray-50 border border-gray-200 text-white rounded-md pl-9 pr-2 py-1.5 focus:ring-1 focus:ring-blue-500 text-xs font-mono"
                                           placeholder="0.0000" value={coordLat.value}
                                           onInput$={(e) => {
                                             coordLat.value = (e.target as HTMLInputElement).value;
@@ -2034,7 +2034,7 @@ export default component$(() => {
                                       <div class="relative flex-1">
                                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400">LNG</span>
                                         <input
-                                          type="text" class="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-md pl-9 pr-2 py-1.5 focus:ring-1 focus:ring-blue-500 text-xs font-mono"
+                                          type="text" class="w-full bg-gray-50 border border-gray-200 text-white rounded-md pl-9 pr-2 py-1.5 focus:ring-1 focus:ring-blue-500 text-xs font-mono"
                                           placeholder="0.0000" value={coordLng.value}
                                           onInput$={(e) => {
                                             coordLng.value = (e.target as HTMLInputElement).value;
@@ -2051,7 +2051,7 @@ export default component$(() => {
                                     <div class="hidden md:block absolute -left-2.5 top-1 bottom-1 w-[1px] bg-gray-100"></div>
                                     <div class="flex items-center justify-between md:pl-3">
                                       <span class="text-[10px] font-bold text-gray-400">{t('mint.mapSection.dms')}</span>
-                                      <button type="button" onClick$={goToGmsCoords} class="text-[10px] uppercase font-bold text-[#c1272d] hover:text-[#a91f23]">{t('mint.mapSection.syncGo')}</button>
+                                      <button type="button" onClick$={goToGmsCoords} class="text-[10px] uppercase font-bold text-[#04E6E6] hover:text-[#a91f23]">{t('mint.mapSection.syncGo')}</button>
                                     </div>
                                     <div class="space-y-1.5 md:pl-3">
                                       <div class="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md p-1">
@@ -2096,7 +2096,7 @@ export default component$(() => {
                           <Button
                             onClick$={prevStep}
                             variant="outline"
-                            class="border-gray-200 text-gray-700 hover:bg-gray-50"
+                            class="border-gray-200 text-slate-300 hover:bg-gray-50"
                           >
                             <LuChevronLeft class="mr-2 w-4 h-4" /> {t('mint.steps.back@@Back')}
                           </Button>
@@ -2121,11 +2121,11 @@ export default component$(() => {
                           <>
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                               <div>
-                                <p class="text-xs uppercase tracking-wide text-gray-500">{t('mint.templateSection.selectedTitle')}</p>
-                                <h3 class="text-xl font-semibold text-gray-900">
+                                <p class="text-xs uppercase tracking-wide text-slate-400">{t('mint.templateSection.selectedTitle')}</p>
+                                <h3 class="text-xl font-semibold text-white">
                                   {selectedTemplate.value.name}
                                 </h3>
-                                <p class="text-sm text-gray-600">
+                                <p class="text-sm text-slate-400">
                                   {selectedTemplate.value.description || activeTemplateMeta.value.highlight}
                                 </p>
                               </div>
@@ -2133,7 +2133,7 @@ export default component$(() => {
 
 
                             <div class="mt-6 border-t border-gray-100 pt-6">
-                              <h4 class="text-sm font-semibold text-gray-900 mb-3">{t('mint.templateSection.allAttributes@@All Attributes')} ({customAttributes.value.length})</h4>
+                              <h4 class="text-sm font-semibold text-white mb-3">{t('mint.templateSection.allAttributes@@All Attributes')} ({customAttributes.value.length})</h4>
                               <div class="space-y-3">
                                 {customAttributes.value.map((a: Attr, i: number) => (
                                   <div
@@ -2149,7 +2149,7 @@ export default component$(() => {
                                         next[i] = { ...next[i], trait_type: (e.target as HTMLInputElement).value };
                                         customAttributes.value = next;
                                       }}
-                                      class="w-1/3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#c1272d] focus:outline-none focus:ring-1 focus:ring-[#c1272d]"
+                                      class="w-1/3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-white focus:border-[#c1272d] focus:outline-none focus:ring-1 focus:ring-[#c1272d]"
                                     />
                                     <input
                                       type="text"
@@ -2160,7 +2160,7 @@ export default component$(() => {
                                         next[i] = { ...next[i], value: (e.target as HTMLInputElement).value };
                                         customAttributes.value = next;
                                       }}
-                                      class="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#c1272d] focus:outline-none focus:ring-1 focus:ring-[#c1272d]"
+                                      class="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-white focus:border-[#c1272d] focus:outline-none focus:ring-1 focus:ring-[#c1272d]"
                                     />
                                     <button
                                       type="button"
@@ -2180,8 +2180,8 @@ export default component$(() => {
                               {autoAttrs.value.length > 0 && (
                                 <div class="mt-6 border-t border-gray-100 pt-6">
                                   <div class="flex items-center gap-2 mb-3">
-                                    <h4 class="text-sm font-semibold text-gray-900">{t('mint.templateSection.autoAttributes@@Map & Grid Attributes')}</h4>
-                                    <span class="px-2 py-0.5 rounded-full bg-rose-50 text-[10px] font-bold text-[#c1272d] uppercase tracking-wider border border-[#c1272d]/10">Auto</span>
+                                    <h4 class="text-sm font-semibold text-white">{t('mint.templateSection.autoAttributes@@Map & Grid Attributes')}</h4>
+                                    <span class="px-2 py-0.5 rounded-full bg-rose-50 text-[10px] font-bold text-[#04E6E6] uppercase tracking-wider border border-[#c1272d]/10">Auto</span>
                                   </div>
                                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {autoAttrs.value.map((a: Attr, i: number) => (
@@ -2190,14 +2190,14 @@ export default component$(() => {
                                         class="flex flex-col gap-1 rounded-2xl border border-dashed border-gray-200 bg-gray-50/40 p-3 transition-colors hover:bg-gray-50"
                                       >
                                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{a.trait_type}</span>
-                                        <span class="text-sm font-semibold text-gray-700 truncate" title={a.value}>{a.value}</span>
+                                        <span class="text-sm font-semibold text-slate-300 truncate" title={a.value}>{a.value}</span>
                                       </div>
                                     ))}
                                   </div>
                                 </div>
                               )}
                               {customAttributes.value.length === 0 && (
-                                <p class="text-sm text-gray-500 italic mt-2">{t('mint.steps.attributes.emptyHint@@No custom attributes defined yet.')}</p>
+                                <p class="text-sm text-slate-400 italic mt-2">{t('mint.steps.attributes.emptyHint@@No custom attributes defined yet.')}</p>
                               )}
                               {customAttributes.value.length < MAX_ATTRS && (
                                 <Button
@@ -2205,7 +2205,7 @@ export default component$(() => {
                                   onClick$={() => {
                                     customAttributes.value = [...customAttributes.value, { trait_type: '', value: '' }];
                                   }}
-                                  class="mt-4 border-dashed border-gray-300 text-gray-600 hover:border-[#c1272d] hover:text-[#c1272d] hover:bg-red-50/50 w-full"
+                                  class="mt-4 border-dashed border-gray-300 text-slate-400 hover:border-[#c1272d] hover:text-[#04E6E6] hover:bg-red-50/50 w-full"
                                 >
                                   <LuPlus class="mr-2 h-4 w-4" /> {t('mint.steps.attributes.addBtn@@Add Attribute')}
                                 </Button>
@@ -2213,19 +2213,19 @@ export default component$(() => {
                             </div>
                           </>
                         ) : (
-                          <div class="flex flex-col items-center gap-3 text-center text-sm text-gray-500">
-                            <LuSparkles class="h-6 w-6 text-[#c1272d]" />
+                          <div class="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
+                            <LuSparkles class="h-6 w-6 text-[#04E6E6]" />
                             <p>{t('mint.templateSection.emptyHint')}</p>
                           </div>
                         )}
                       </div>
 
                       {/* Metadata Visibility */}
-                      <div class="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm">
+                      <div class="rounded-2xl border border-gray-100 bg-[#001214] border-[#043234]">
                         <div class="flex items-center justify-between">
                           <div class="flex-1">
-                            <h3 class="text-sm font-medium text-[#c1272d] mb-1">{t('mint.mapSection.metaVisibility')}</h3>
-                            <p class="text-xs text-gray-600">
+                            <h3 class="text-sm font-medium text-[#04E6E6] mb-1">{t('mint.mapSection.metaVisibility')}</h3>
+                            <p class="text-xs text-slate-400">
                               {t('mint.mapSection.metaVisDesc')}
                             </p>
                           </div>
@@ -2238,23 +2238,23 @@ export default component$(() => {
                               }
                               class="sr-only peer"
                             />
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#c1272d] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#c1272d]"></div>
-                            <span class="ml-3 text-sm font-medium text-gray-900">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#c1272d] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#04E6E6]"></div>
+                            <span class="ml-3 text-sm font-medium text-white">
                               {metadataIsPublic.value ? t('mint.mapSection.public') : t('mint.mapSection.private')}
                             </span>
                           </label>
                         </div>
                       </div>
 
-                      <div class="mt-8 flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-                        <div class="text-sm text-gray-600">
+                      <div class="mt-8 flex flex-col gap-4 rounded-2xl border border-gray-100 bg-[#001214] border-[#043234] lg:flex-row lg:items-center lg:justify-between">
+                        <div class="text-sm text-slate-400">
                           {t('mint.steps.readyToMint@@You are ready to mint. Review your details in the sidebar.')}
                         </div>
                         <div class="flex flex-wrap items-center gap-3">
                           <Button
                             onClick$={prevStep}
                             variant="outline"
-                            class="border-gray-200 text-gray-700 hover:bg-gray-50"
+                            class="border-gray-200 text-slate-300 hover:bg-gray-50"
                             disabled={isProcessing.value}
                           >
                             <LuChevronLeft class="mr-2 w-4 h-4" /> {t('mint.steps.back@@Back')}
@@ -2266,7 +2266,7 @@ export default component$(() => {
                               !formValid.value ||
                               (isMapTemplate.value && !mapReady.value)
                             }
-                            class="bg-gradient-to-r from-[#c1272d] to-[#d13238] hover:from-[#a91f23] hover:to-[#d13238] text-white"
+                            class="bg-gradient-to-r from-[#04E6E6] to-[#06b6d4] hover:brightness-110 text-white"
                             title={
                               !formValid.value
                                 ? t('mint.steps.details.notReady')
@@ -2308,23 +2308,23 @@ export default component$(() => {
                 <Card.Content class="space-y-5 p-6">
                   <div class="flex items-center  mt-8 justify-between gap-3">
                     <div>
-                      <p class="text-xs uppercase tracking-wide text-gray-500">{t('mint.summary.sidebar.preview')}</p>
-                      <p class="text-xl font-semibold text-gray-900">
+                      <p class="text-xs uppercase tracking-wide text-slate-400">{t('mint.summary.sidebar.preview')}</p>
+                      <p class="text-xl font-semibold text-white">
                         {nftName.value.trim() || t('mint.summary.sidebar.unnamed@@Unnamed NFT')}
                       </p>
                     </div>
                     <span
-                      class={`rounded-full px-3 py-1 text-xs font-semibold ${metadataIsPublic.value ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-700'
+                      class={`rounded-full px-3 py-1 text-xs font-semibold ${metadataIsPublic.value ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-slate-300'
                         }`}
                     >
                       {metadataIsPublic.value ? t('mint.summary.sidebar.public') : t('mint.summary.sidebar.private')}
                     </span>
                   </div>
-                  <p class="text-sm leading-relaxed text-gray-600">{summaryDescription.value}</p>
-                  <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-sm text-gray-700">
-                    <div class="flex items-center justify-between font-semibold text-gray-900">
+                  <p class="text-sm leading-relaxed text-slate-400">{summaryDescription.value}</p>
+                  <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-sm text-slate-300">
+                    <div class="flex items-center justify-between font-semibold text-white">
                       <span>{t('mint.stats.template.title')}</span>
-                      <span class="text-gray-600">{selectedTemplate.value?.name ?? t('mint.stats.template.notSelected')}</span>
+                      <span class="text-slate-400">{selectedTemplate.value?.name ?? t('mint.stats.template.notSelected')}</span>
                     </div>
                     <div class="mt-2 flex items-center justify-between">
                       <span>{t('mint.summary.sidebar.manual@@Manual attributes')}</span>
@@ -2342,7 +2342,7 @@ export default component$(() => {
                     )}
                   </div>
                   <div>
-                    <p class="text-xs uppercase tracking-wide text-gray-500">{t('mint.summary.sidebar.featured')}</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-400">{t('mint.summary.sidebar.featured')}</p>
                     {previewAttributes.value.length ? (
                       <ul class="mt-3 space-y-2">
                         {previewAttributes.value.map((attr: Attr, i: number) => (
@@ -2350,13 +2350,13 @@ export default component$(() => {
                             key={i}
                             class="flex items-center justify-between rounded-xl border border-white/50 bg-white px-3 py-2 text-sm"
                           >
-                            <span class="text-gray-500">{attr.trait_type}</span>
-                            <span class="font-semibold text-gray-900">{attr.value}</span>
+                            <span class="text-slate-400">{attr.trait_type}</span>
+                            <span class="font-semibold text-white">{attr.value}</span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p class="mt-3 text-sm text-gray-500">
+                      <p class="mt-3 text-sm text-slate-400">
                         {t('mint.mapSection.noManual')}
                       </p>
                     )}
@@ -2367,8 +2367,8 @@ export default component$(() => {
               <Card.Root class="rounded-3xl border border-white/40 bg-white/95 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
                 <Card.Content class="space-y-5 p-6">
                   <div class="flex items-center justify-between">
-                    <p class="text-base font-semibold text-gray-900">{t('mint.summary.sidebar.checklist@@Checklist')}</p>
-                    <span class="text-sm font-semibold text-[#c1272d]">
+                    <p class="text-base font-semibold text-white">{t('mint.summary.sidebar.checklist@@Checklist')}</p>
+                    <span class="text-sm font-semibold text-[#04E6E6]">
                       {t('mint.summary.sidebar.percentReady@@{{score}}% ready', { score: readiness.value.score })}
                     </span>
                   </div>
@@ -2387,7 +2387,7 @@ export default component$(() => {
                         >
                           {item.done ? <LuCheck class="h-3.5 w-3.5" /> : <LuX class="h-3.5 w-3.5" />}
                         </span>
-                        <span class={item.done ? 'text-gray-900' : 'text-gray-500'}>{item.label}</span>
+                        <span class={item.done ? 'text-white' : 'text-slate-400'}>{item.label}</span>
                       </li>
                     ))}
                   </ul>
@@ -2414,15 +2414,15 @@ export default component$(() => {
           <div class="bg-white border border-gray-200 rounded-3xl p-6 lg:p-8 shadow-sm">
             <div class="mb-6">
               <div class="flex items-center gap-3 mb-2">
-                <h2 class="text-2xl font-bold text-gray-900">Quick guide</h2>
+                <h2 class="text-2xl font-bold text-white">Quick guide</h2>
                 {demo?.enabled.value && (
                   <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wider">
                     Free Sandbox
                   </span>
                 )}
               </div>
-              <p class="text-lg font-medium text-[#c1272d]">How to mint in 3 steps</p>
-              <p class="text-gray-600 mt-1">
+              <p class="text-lg font-medium text-[#04E6E6]">How to mint in 3 steps</p>
+              <p class="text-slate-400 mt-1">
                 {demo?.enabled.value
                   ? 'Test the full platform experience without spending real assets or gas.'
                   : 'Keep the same features; we just polished the visual experience.'}
@@ -2441,12 +2441,12 @@ export default component$(() => {
                   document.getElementById('minting-steps-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
               >
-                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#c1272d] shadow-sm transition-colors">
+                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#04E6E6] shadow-sm transition-colors">
                   1
                 </div>
                 <div>
-                  <h3 class="font-bold text-gray-900 mb-1 leading-tight">Complete the details</h3>
-                  <p class="text-[13px] text-gray-600 leading-relaxed">
+                  <h3 class="font-bold text-white mb-1 leading-tight">Complete the details</h3>
+                  <p class="text-[13px] text-slate-400 leading-relaxed">
                     Name, description and optional image. If you will use an image-based map, upload it here.
                   </p>
                 </div>
@@ -2464,12 +2464,12 @@ export default component$(() => {
                   document.getElementById('minting-steps-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
               >
-                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#c1272d] shadow-sm transition-colors">
+                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#04E6E6] shadow-sm transition-colors">
                   2
                 </div>
                 <div>
-                  <h3 class="font-bold text-gray-900 mb-1 leading-tight">Choose template and cells</h3>
-                  <p class="text-[13px] text-gray-600 leading-relaxed">
+                  <h3 class="font-bold text-white mb-1 leading-tight">Choose template and cells</h3>
+                  <p class="text-[13px] text-slate-400 leading-relaxed">
                     Use templates to autofill, open the editor if it's a map and ensure you have at least one available cell.
                   </p>
                 </div>
@@ -2491,12 +2491,12 @@ export default component$(() => {
                   document.getElementById('minting-steps-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
               >
-                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#c1272d] shadow-sm transition-colors">
+                <div class="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-gray-200 group-hover:border-[#c1272d] flex items-center justify-center text-lg font-bold text-gray-400 group-hover:text-[#04E6E6] shadow-sm transition-colors">
                   3
                 </div>
                 <div>
-                  <h3 class="font-bold text-gray-900 mb-1 leading-tight">Sign on Base</h3>
-                  <p class="text-[13px] text-gray-600 leading-relaxed">
+                  <h3 class="font-bold text-white mb-1 leading-tight">Sign on Base</h3>
+                  <p class="text-[13px] text-slate-400 leading-relaxed">
                     {demo?.enabled.value
                       ? 'Simulated signature. Review the summary and press Mint. No real gas or signature required.'
                       : 'Review the summary in the sidebar, confirm visibility and press Mint. You\'ll need gas in your wallet.'}
