@@ -54,6 +54,7 @@ export default component$(() => {
   const syncError = useSignal("");
   const fullSyncBusy = useSignal(false);
   const fullSyncError = useSignal("");
+  const fullSyncSuccess = useSignal("");
   const showMoreSections = useSignal(false);
   const listPages = useSignal<Record<string, number>>({
     topVolume: 1,
@@ -69,10 +70,13 @@ export default component$(() => {
   const runFullMarketSync = $(async () => {
     fullSyncBusy.value = true;
     fullSyncError.value = "";
+    fullSyncSuccess.value = "";
     let willReload = false;
     try {
       const r = await triggerOwnerFullMarketSync();
       if (r.ok) {
+        fullSyncSuccess.value = "Actualizacion completa finalizada con exito. Recargando panel...";
+        await new Promise((resolve) => setTimeout(resolve, 1400));
         willReload = true;
         window.location.reload();
         return;
@@ -410,7 +414,7 @@ export default component$(() => {
             <div class="flex flex-col gap-1 w-full sm:w-auto sm:items-end">
               <button
                 type="button"
-                disabled={fullSyncBusy.value}
+                disabled={anySyncBusy}
                 onClick$={runFullMarketSync}
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 title="Sincronización completa de mercado y datos auxiliares"
@@ -429,6 +433,9 @@ export default component$(() => {
               </button>
               {fullSyncError.value ? (
                 <p class="text-[11px] text-amber-400/95 max-w-xs text-right">{fullSyncError.value}</p>
+              ) : null}
+              {fullSyncSuccess.value ? (
+                <p class="text-[11px] text-emerald-400/95 max-w-xs text-right">{fullSyncSuccess.value}</p>
               ) : null}
             </div>
           ) : null}

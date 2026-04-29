@@ -31,6 +31,18 @@ export const GLOBAL_DISCOVERY_TOP_LOSERS = "moralis_discovery_top_losers";
 export const GLOBAL_LATEST_BLOCKS_EVM = "moralis_latest_blocks_evm";
 export const GLOBAL_CMC_GLOBAL_METRICS = "cmc_global_metrics";
 
+function extractSnapshotApiErrors(snap: WalletPageSnapshot): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(snap as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const v = value as { ok?: unknown; error?: unknown };
+    if (v.ok === false && typeof v.error === "string" && v.error.trim()) {
+      out[key] = v.error.trim();
+    }
+  }
+  return out;
+}
+
 function nowSec() {
   return Math.floor(Date.now() / 1000);
 }
@@ -233,6 +245,7 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
     let failW = 0;
     const failSamples: string[] = [];
     const failedApiHits = new Map<string, number>();
+    const failedApiErrorSamples = new Map<string, string>();
     const disabledApis = new Set<string>();
     const disableAfter = Math.max(5, Number(process.env.MORALIS_WALLET_API_DISABLE_AFTER ?? 25));
     const maxPerWalletWarn = Math.max(5, Number(process.env.MORALIS_WALLET_LOG_MAX_PARTIAL ?? 25));
@@ -246,12 +259,15 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
         await upsertWalletSnapshot(normalizeWalletSnapshotAddress(addr), snap);
         okW++;
         const apis = summarizeWalletSnapshotApiResults(snap);
+        const apiErrors = extractSnapshotApiErrors(snap);
         const failed = Object.entries(apis)
           .filter(([, v]) => !v)
           .map(([k]) => k);
         for (const key of failed) {
           const n = (failedApiHits.get(key) ?? 0) + 1;
           failedApiHits.set(key, n);
+          const err = apiErrors[key];
+          if (err && !failedApiErrorSamples.has(key)) failedApiErrorSamples.set(key, err);
           if (n >= disableAfter) disabledApis.add(key);
         }
         const ms = Date.now() - w0;
@@ -306,6 +322,9 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
         ? Object.fromEntries(
             [...failedApiHits.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
           )
+        : undefined,
+      partialApiErrorSamples: failedApiErrorSamples.size
+        ? Object.fromEntries([...failedApiErrorSamples.entries()].slice(0, 20))
         : undefined,
       errorSamples: failSamples.length ? failSamples : undefined,
     });
