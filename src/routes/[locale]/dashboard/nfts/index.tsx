@@ -236,19 +236,19 @@ export default component$(() => {
                       loading="lazy"
                       decoding="async"
                       referrerPolicy="no-referrer"
-                      class="mb-3 h-12 w-12 rounded-xl object-cover ring-1 ring-[#043234]/60 bg-[#043234]/30"
+                      class="mb-3 h-12 w-12 2xl:h-14 2xl:w-14 rounded-xl object-cover ring-1 ring-[#043234]/60 bg-[#043234]/30"
                     />
                   ) : (
-                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#043234]/50 text-xs font-medium text-slate-500">
+                    <div class="mb-3 flex h-12 w-12 2xl:h-14 2xl:w-14 items-center justify-center rounded-xl bg-[#043234]/50 text-xs font-medium text-slate-500">
                       NFT
                     </div>
                   )}
-                  <h3 class="font-medium leading-snug text-white">{c.name || c.collection_title || "Collection"}</h3>
+                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{c.name || c.collection_title || "Collection"}</h3>
                   <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={c.collection_address || c.token_address}>
                     {c.collection_address || c.token_address || "—"}
                   </p>
                   {c.floor_price_usd != null ? (
-                    <p class="mt-3 text-sm font-semibold tabular-nums text-[#04E6E6]">
+                    <p class="mt-3 text-sm 2xl:text-[15px] font-semibold tabular-nums text-[#04E6E6]">
                       Floor ~ ${formatTokenUsdPrice(c.floor_price_usd)}
                     </p>
                   ) : null}
@@ -259,12 +259,12 @@ export default component$(() => {
                   {href ? (
                     <Link
                       href={href}
-                      class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 shadow-lg ring-1 ring-white/[0.04] transition hover:border-[#04E6E6]/30"
+                      class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 2xl:p-5 shadow-lg ring-1 ring-white/[0.04] transition hover:border-[#04E6E6]/30"
                     >
                       {inner}
                     </Link>
                   ) : (
-                    <article class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 shadow-lg ring-1 ring-white/[0.04]">
+                    <article class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 2xl:p-5 shadow-lg ring-1 ring-white/[0.04]">
                       {inner}
                     </article>
                   )}
@@ -334,24 +334,24 @@ export default component$(() => {
                       loading="lazy"
                       decoding="async"
                       referrerPolicy="no-referrer"
-                      class="mb-3 h-12 w-12 rounded-xl object-cover ring-1 ring-[#043234]/60 bg-[#043234]/30"
+                      class="mb-3 h-12 w-12 2xl:h-14 2xl:w-14 rounded-xl object-cover ring-1 ring-[#043234]/60 bg-[#043234]/30"
                     />
                   ) : (
-                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#043234]/50 text-xs font-medium text-slate-500">
+                    <div class="mb-3 flex h-12 w-12 2xl:h-14 2xl:w-14 items-center justify-center rounded-xl bg-[#043234]/50 text-xs font-medium text-slate-500">
                       NFT
                     </div>
                   )}
-                  <h3 class="font-medium leading-snug text-white">{c.name || c.collection_title || "Collection"}</h3>
+                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{c.name || c.collection_title || "Collection"}</h3>
                   <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={c.collection_address}>
                     {c.collection_address || "—"}
                   </p>
                   {topVol != null && topVol > 0 ? (
-                    <p class="mt-3 text-sm tabular-nums text-slate-300">
+                    <p class="mt-3 text-sm 2xl:text-[15px] tabular-nums text-slate-300">
                       Vol <span class="font-semibold text-[#04E6E6]">{formatUsdLiquidity(topVol)}</span>
                     </p>
                   ) : topCap != null && topCap > 0 ? (
                     <div class="mt-3 space-y-0.5">
-                      <p class="text-sm tabular-nums text-slate-300">
+                      <p class="text-sm 2xl:text-[15px] tabular-nums text-slate-300">
                         Cap <span class="font-semibold text-[#04E6E6]">{formatUsdLiquidity(topCap)}</span>
                       </p>
                       {topVol != null && topVol <= 0 ? (
@@ -361,7 +361,7 @@ export default component$(() => {
                       ) : null}
                     </div>
                   ) : topVol != null ? (
-                    <p class="mt-3 text-sm tabular-nums text-slate-400">
+                    <p class="mt-3 text-sm 2xl:text-[15px] tabular-nums text-slate-400">
                       Vol <span class="font-medium">{formatUsdLiquidity(topVol)}</span>
                     </p>
                   ) : null}
@@ -372,12 +372,12 @@ export default component$(() => {
                   {href ? (
                     <Link
                       href={href}
-                      class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 shadow-lg ring-1 ring-white/[0.04] transition hover:border-[#04E6E6]/30"
+                      class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 2xl:p-5 shadow-lg ring-1 ring-white/[0.04] transition hover:border-[#04E6E6]/30"
                     >
                       {inner}
                     </Link>
                   ) : (
-                    <article class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 shadow-lg ring-1 ring-white/[0.04]">
+                    <article class="flex h-full flex-col rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 2xl:p-5 shadow-lg ring-1 ring-white/[0.04]">
                       {inner}
                     </article>
                   )}

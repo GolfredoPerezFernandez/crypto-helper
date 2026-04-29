@@ -812,39 +812,39 @@ export default component$(() => {
   /* -------------- UI -------------- */
 
   return (
-    <div class="relative isolate px-4 py-12 sm:px-8">
-      {/* Background gradient blobs */}
+    <div class="relative isolate w-full">
+      {/* Background accents — match dashboard shell */}
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div class="absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#c1272d]/15 blur-[150px]" />
-        <div class="absolute bottom-12 right-6 h-[360px] w-[360px] rounded-full bg-[#d13238]/10 blur-[150px]" />
+        <div class="absolute left-1/2 top-0 h-[420px] w-[520px] -translate-x-1/2 rounded-full bg-[#04E6E6]/8 blur-[140px]" />
+        <div class="absolute bottom-0 right-0 h-[320px] w-[380px] rounded-full bg-teal-900/20 blur-[120px]" />
       </div>
 
       <div class="relative mx-auto max-w-6xl space-y-10">
         {/* Header */}
         <section class="space-y-4">
-          <div class="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#c1272d] shadow-sm shadow-[#c1272d]/10">
+          <div class="inline-flex items-center gap-2 rounded-full border border-[#043234] bg-[#001318]/90 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#04E6E6] shadow-sm shadow-[#04E6E6]/10">
             <LuSparkles class="h-3 w-3" />
             <span>{t('profile.badge')}</span>
           </div>
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 class="text-4xl font-semibold leading-tight text-gray-900 sm:text-5xl">
+              <h1 class="text-4xl font-semibold leading-tight text-white sm:text-5xl">
                 {t('profile.title')}
               </h1>
-              <p class="mt-2 max-w-xl text-lg text-gray-700">
+              <p class="mt-2 max-w-xl text-lg text-slate-300">
                 {t('profile.subtitle')}
               </p>
             </div>
             {isConnected.value && (
               <div class="flex items-center gap-3">
-                <span class="rounded-full bg-white/80 px-4 py-2 text-xs font-medium text-gray-700 shadow-sm">
+                <span class="rounded-full border border-[#043234]/80 bg-[#001318]/90 px-4 py-2 text-xs font-medium text-slate-200 shadow-sm">
                   <span class="mr-1 align-middle text-[10px]">●</span>
                   {t('profile.connected')}
                 </span>
                 <Button
                   onClick$={refreshAllData}
                   disabled={isLoadingData.value}
-                  class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="flex items-center gap-2 rounded-full border border-[#043234] bg-[#001318]/95 px-5 py-2 text-sm font-semibold text-slate-200 shadow-sm transition-all hover:bg-[#043234]/50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <LuRefreshCw
                     class={`h-4 w-4 ${isLoadingData.value ? 'animate-spin' : ''
@@ -867,18 +867,18 @@ export default component$(() => {
 
         {!isConnected.value ? (
           /* Connection Prompt */
-          <div class="rounded-3xl border border-white/40 bg-white/90 px-10 py-16 text-center shadow-xl shadow-[#c1272d]/10 backdrop-blur">
-            <LuWallet class="mx-auto mb-5 h-16 w-16 text-[#c1272d]" />
-            <h2 class="text-2xl font-semibold text-gray-900">
+          <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-10 py-16 text-center shadow-lg shadow-black/25 backdrop-blur">
+            <LuWallet class="mx-auto mb-5 h-16 w-16 text-[#04E6E6]" />
+            <h2 class="text-2xl font-semibold text-white">
               {t('profile.connect.title')}
             </h2>
-            <p class="mx-auto mt-3 max-w-md text-gray-600">
+            <p class="mx-auto mt-3 max-w-md text-slate-400">
               {t('profile.connect.hint')}
             </p>
             <Button
               onClick$={connect}
               disabled={isLoading.value}
-              class="mx-auto mt-6 rounded-2xl bg-gradient-to-r from-[#c1272d] to-[#d13238] px-6 py-3 font-semibold text-white shadow-lg shadow-[#c1272d]/30 transition-all hover:shadow-xl hover:shadow-[#c1272d]/50 disabled:cursor-not-allowed disabled:opacity-50"
+              class="mx-auto mt-6 rounded-2xl bg-gradient-to-r from-[#04E6E6] to-teal-600 px-6 py-3 font-semibold text-[#001a1c] shadow-lg shadow-[#04E6E6]/25 transition-all hover:shadow-xl hover:shadow-[#04E6E6]/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LuWallet class="mr-2 inline h-4 w-4" />
               {isLoading.value ? t('profile.connect.connecting') : t('profile.connect.button')}
@@ -889,33 +889,33 @@ export default component$(() => {
             {/* Wallet Overview Cards */}
             <section class="grid gap-4 md:grid-cols-3">
               {/* Address Card */}
-              <div class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+              <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <LuWallet class="h-5 w-5 text-[#c1272d]" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <LuWallet class="h-5 w-5 text-[#04E6E6]" />
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {t('profile.stats.address')}
                     </p>
                   </div>
                   <button
                     onClick$={() => copyToClipboard(userAddress.value)}
-                    class="rounded-lg p-1.5 transition hover:bg-gray-100"
+                    class="rounded-lg p-1.5 transition hover:bg-[#043234]/55"
                   >
                     {isCopied.value ? (
                       <LuCheck class="h-4 w-4 text-emerald-500" />
                     ) : (
-                      <LuCopy class="h-4 w-4 text-gray-400" />
+                      <LuCopy class="h-4 w-4 text-slate-500" />
                     )}
                   </button>
                 </div>
-                <p class="mt-2 font-mono text-sm font-semibold text-gray-900">
+                <p class="mt-2 font-mono text-sm font-semibold text-white">
                   {formatAddress(userAddress.value)}
                 </p>
                 <a
                   href={`https://basescan.org/address/${userAddress.value}`}
                   target="_blank"
                   rel="noreferrer"
-                  class="mt-2 inline-flex items-center gap-1 text-xs text-[#c1272d] hover:underline"
+                  class="mt-2 inline-flex items-center gap-1 text-xs text-[#04E6E6] hover:underline"
                 >
                   {t('profile.stats.viewScan')}
                   <LuExternalLink class="h-3 w-3" />
@@ -923,41 +923,41 @@ export default component$(() => {
               </div>
 
               {/* Network / Stats Card */}
-              <div class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+              <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <LuNetwork class="h-5 w-5 text-[#c1272d]" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <LuNetwork class="h-5 w-5 text-[#04E6E6]" />
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {t('profile.stats.network')}
                     </p>
                   </div>
-                  <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                  <span class="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
                     {t('allNfts.card.mode.active')}
                   </span>
                 </div>
-                <p class="mt-2 text-lg font-semibold text-gray-900">
+                <p class="mt-2 text-lg font-semibold text-white">
                   {networkInfo.value.name}
                 </p>
-                <p class="text-xs text-gray-500">
+                <p class="text-xs text-slate-500">
                   {t('profile.stats.chainId')}: {networkInfo.value.chainId}
                 </p>
                 {(networkInfo.value.txCount !== undefined ||
                   networkInfo.value.nftCount !== undefined ||
                   networkInfo.value.tokenTransferCount !== undefined) && (
-                    <div class="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
+                    <div class="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">
                       {networkInfo.value.txCount !== undefined && (
-                        <span class="rounded-full bg-gray-100 px-2 py-0.5">
+                        <span class="rounded-full bg-[#043234]/55 px-2 py-0.5">
                           {t('profile.stats.tx')}: {networkInfo.value.txCount}
                         </span>
                       )}
                       {networkInfo.value.tokenTransferCount !==
                         undefined && (
-                          <span class="rounded-full bg-gray-100 px-2 py-0.5">
+                          <span class="rounded-full bg-[#043234]/55 px-2 py-0.5">
                             {t('profile.stats.tokenTx')}: {networkInfo.value.tokenTransferCount}
                           </span>
                         )}
                       {networkInfo.value.nftCount !== undefined && (
-                        <span class="rounded-full bg-gray-100 px-2 py-0.5">
+                        <span class="rounded-full bg-[#043234]/55 px-2 py-0.5">
                           {t('profile.stats.nfts')}: {networkInfo.value.nftCount}
                         </span>
                       )}
@@ -966,7 +966,7 @@ export default component$(() => {
               </div>
 
               {/* Total Value Card */}
-              <div class="rounded-3xl border border-white/40 bg-gradient-to-br from-[#c1272d] via-[#d13238] to-[#f97373] px-6 py-5 text-white shadow-xl shadow-[#c1272d]/30 backdrop-blur">
+              <div class="rounded-3xl border border-[#043234] bg-gradient-to-br from-[#001a1c] via-[#043234] to-[#04E6E6]/30 px-6 py-5 text-white shadow-lg shadow-black/30 backdrop-blur">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2">
                     <LuDollarSign class="h-5 w-5" />
@@ -988,17 +988,17 @@ export default component$(() => {
             </section>
 
             {/* NFTs (servidor: Base + Ethereum) */}
-            <section class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+            <section class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
               <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="flex items-start gap-3">
                   <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md">
                     <LuLayers class="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 class="text-lg font-semibold text-gray-900">
+                    <h2 class="text-lg font-semibold text-white">
                       {t('profile.nfts.title@@NFTs en tu wallet')}
                     </h2>
-                    <p class="mt-0.5 text-xs text-gray-500">
+                    <p class="mt-0.5 text-xs text-slate-500">
                       {t(
                         'profile.nfts.subtitle@@Base y Ethereum · metadatos, media, floor, listados, última venta y rareza.',
                       )}
@@ -1006,8 +1006,8 @@ export default component$(() => {
                   </div>
                 </div>
               </div>
-              <p class="flex items-start gap-2 text-[11px] leading-snug text-gray-500">
-                <LuInfo class="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <p class="flex items-start gap-2 text-[11px] leading-snug text-slate-500">
+                <LuInfo class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
                 <span>
                   {t(
                     'profile.nfts.cuNote@@Cada actualización consulta el servidor para NFTs por wallet y transferencias. Puede tardar unos segundos.',
@@ -1020,7 +1020,7 @@ export default component$(() => {
               {!isLoadingData.value &&
               profileNfts.value.length === 0 &&
               !profileNftsError.value ? (
-                <p class="text-sm text-gray-500">
+                <p class="text-sm text-slate-500">
                   {t(
                     'profile.nfts.empty@@No hay NFTs en las primeras páginas de Base/Ethereum, o la API no devolvió datos.',
                   )}
@@ -1029,7 +1029,7 @@ export default component$(() => {
               {isLoadingData.value &&
               profileNfts.value.length === 0 &&
               !profileNftsError.value ? (
-                <p class="text-sm text-gray-500">
+                <p class="text-sm text-slate-500">
                   {t('profile.nfts.loading@@Cargando NFTs…')}
                 </p>
               ) : null}
@@ -1039,9 +1039,9 @@ export default component$(() => {
                     <li key={`${nft.chain}-${nft.contract}-${nft.tokenId}`}>
                       <Link
                         href={`/${loc.params.locale ?? 'en-us'}/dashboard/nfts/${nft.contract}/${encodeURIComponent(nft.tokenId)}/?chain=${encodeURIComponent(nft.chain)}`}
-                        class="block overflow-hidden rounded-2xl border border-gray-100 bg-gray-50/80 shadow-sm transition hover:border-[#c1272d]/40 hover:shadow-md"
+                        class="block overflow-hidden rounded-2xl border border-[#043234]/70 bg-[#043234]/30 shadow-sm transition hover:border-[#04E6E6]/40 hover:shadow-md"
                       >
-                        <div class="aspect-square w-full overflow-hidden bg-gray-200">
+                        <div class="aspect-square w-full overflow-hidden bg-[#043234]/50">
                           {nft.image ? (
                             <img
                               src={nft.image}
@@ -1052,28 +1052,28 @@ export default component$(() => {
                               loading="lazy"
                             />
                           ) : (
-                            <div class="flex h-full w-full items-center justify-center text-[10px] font-medium text-gray-400">
+                            <div class="flex h-full w-full items-center justify-center text-[10px] font-medium text-slate-500">
                               NFT
                             </div>
                           )}
                         </div>
                         <div class="space-y-0.5 p-2">
                           <p
-                            class="truncate text-[11px] font-semibold text-gray-900"
+                            class="truncate text-[11px] font-semibold text-white"
                             title={nft.name}
                           >
                             {nft.name}
                           </p>
                           {nft.symbol ? (
-                            <p class="truncate text-[9px] uppercase tracking-wide text-gray-400">
+                            <p class="truncate text-[9px] uppercase tracking-wide text-slate-500">
                               {nft.symbol}
                             </p>
                           ) : null}
                           <div class="flex flex-wrap items-center gap-1">
-                            <span class="rounded bg-gray-200/80 px-1 py-0.5 text-[9px] font-medium uppercase text-gray-600">
+                            <span class="rounded bg-[#043234]/55 px-1 py-0.5 text-[9px] font-medium uppercase text-slate-400">
                               #{nft.tokenId}
                             </span>
-                            <span class="rounded bg-gray-200/80 px-1 py-0.5 text-[9px] font-medium uppercase text-gray-600">
+                            <span class="rounded bg-[#043234]/55 px-1 py-0.5 text-[9px] font-medium uppercase text-slate-400">
                               {nft.chain === 'base' ? 'Base' : 'ETH'}
                             </span>
                             {nft.contractType ? (
@@ -1082,13 +1082,13 @@ export default component$(() => {
                               </span>
                             ) : null}
                             {nft.amount ? (
-                              <span class="rounded bg-amber-50 px-1 py-0.5 text-[9px] font-medium text-amber-800">
+                              <span class="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-medium text-amber-200">
                                 ×{nft.amount}
                               </span>
                             ) : null}
                             {nft.verifiedCollection ? (
                               <span
-                                class="inline-flex items-center gap-0.5 rounded bg-emerald-50 px-1 py-0.5 text-[9px] font-medium text-emerald-800"
+                                class="inline-flex items-center gap-0.5 rounded bg-emerald-500/20 px-1 py-0.5 text-[9px] font-medium text-emerald-300"
                                 title={t('profile.nfts.verified@@Colección verificada')}
                               >
                                 <LuBadgeCheck class="h-3 w-3" />
@@ -1096,7 +1096,7 @@ export default component$(() => {
                             ) : null}
                           </div>
                           {nft.rarityRank != null || nft.rarityLabel ? (
-                            <p class="line-clamp-2 text-[9px] text-gray-500">
+                            <p class="line-clamp-2 text-[9px] text-slate-500">
                               {nft.rarityRank != null
                                 ? `${t('profile.nfts.rarity@@Rareza')} #${nft.rarityRank}`
                                 : null}
@@ -1105,7 +1105,7 @@ export default component$(() => {
                             </p>
                           ) : null}
                           {nft.floorUsd ? (
-                            <p class="text-[10px] tabular-nums text-[#c1272d]">
+                            <p class="text-[10px] tabular-nums text-[#04E6E6]">
                               {t('profile.nfts.floor@@Floor')}{' '}
                               {nft.floorCurrency
                                 ? `${String(nft.floorCurrency).toUpperCase()} · `
@@ -1114,7 +1114,7 @@ export default component$(() => {
                             </p>
                           ) : null}
                           {nft.listPriceUsd ? (
-                            <p class="line-clamp-2 text-[10px] tabular-nums text-violet-700">
+                            <p class="line-clamp-2 text-[10px] tabular-nums text-violet-400">
                               {t('profile.nfts.listed@@Listado')}
                               {nft.listMarketplace ? ` ${nft.listMarketplace}` : ''}
                               {nft.listCurrency
@@ -1124,7 +1124,7 @@ export default component$(() => {
                             </p>
                           ) : null}
                           {nft.lastSaleUsd || nft.lastSaleNative ? (
-                            <p class="text-[10px] tabular-nums text-gray-500">
+                            <p class="text-[10px] tabular-nums text-slate-500">
                               {t('profile.nfts.lastSale@@Últ. venta')}
                               {nft.lastSaleNative && nft.lastSalePaySymbol
                                 ? ` ${nft.lastSaleNative} ${nft.lastSalePaySymbol}`
@@ -1141,16 +1141,16 @@ export default component$(() => {
             </section>
 
             {/* NFT transfers */}
-            <section class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+            <section class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
               <div class="mb-4 flex items-start gap-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-md">
                   <LuArrowLeftRight class="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 class="text-lg font-semibold text-gray-900">
+                  <h2 class="text-lg font-semibold text-white">
                     {t('profile.nftTransfers.title@@Transferencias NFT recientes')}
                   </h2>
-                  <p class="mt-0.5 text-xs text-gray-500">
+                  <p class="mt-0.5 text-xs text-slate-500">
                     {t(
                       'profile.nftTransfers.subtitle@@Base y Ethereum · entradas, salidas y movimientos internos.',
                     )}
@@ -1160,16 +1160,16 @@ export default component$(() => {
               {!isLoadingData.value &&
               profileNftTransfers.value.length === 0 &&
               !profileNftsError.value ? (
-                <p class="text-sm text-gray-500">
+                <p class="text-sm text-slate-500">
                   {t(
                     'profile.nftTransfers.empty@@No hay transferencias recientes en estas redes o la API no devolvió filas.',
                   )}
                 </p>
               ) : null}
               {profileNftTransfers.value.length > 0 ? (
-                <div class="overflow-x-auto rounded-2xl border border-gray-100">
-                  <table class="w-full min-w-[640px] text-left text-xs text-gray-700">
-                    <thead class="border-b border-gray-100 bg-gray-50/90 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                <div class="overflow-x-auto rounded-2xl border border-[#043234]/70">
+                  <table class="w-full min-w-[640px] text-left text-xs text-slate-300">
+                    <thead class="border-b border-[#043234]/70 bg-[#001a1c]/95 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                       <tr>
                         <th class="px-3 py-2">{t('profile.nftTransfers.colTime@@Fecha')}</th>
                         <th class="px-3 py-2">{t('profile.nftTransfers.colDir@@Tipo')}</th>
@@ -1181,19 +1181,19 @@ export default component$(() => {
                       {profileNftTransfers.value.map((tr, idx) => (
                         <tr
                           key={`${tr.chain}-${tr.txHash}-${tr.tokenId}-${idx}`}
-                          class="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                          class="border-b border-[#043234]/45 last:border-0 hover:bg-[#043234]/40"
                         >
-                          <td class="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">
+                          <td class="whitespace-nowrap px-3 py-2 tabular-nums text-slate-400">
                             {tr.ts ? formatTimestamp(tr.ts) : '—'}
                           </td>
                           <td class="px-3 py-2">
                             <span
                               class={
                                 tr.direction === 'in'
-                                  ? 'rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800'
+                                  ? 'rounded-full bg-emerald-500/25 px-2 py-0.5 text-[10px] font-semibold text-emerald-300'
                                   : tr.direction === 'out'
-                                    ? 'rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-800'
-                                    : 'rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700'
+                                    ? 'rounded-full bg-rose-500/25 px-2 py-0.5 text-[10px] font-semibold text-rose-300'
+                                    : 'rounded-full bg-[#043234]/55 px-2 py-0.5 text-[10px] font-semibold text-slate-300'
                               }
                             >
                               {tr.direction === 'in'
@@ -1202,18 +1202,18 @@ export default component$(() => {
                                   ? t('profile.nftTransfers.out@@Salida')
                                   : t('profile.nftTransfers.other@@Otro')}
                             </span>
-                            <span class="ml-1.5 text-[10px] font-medium uppercase text-gray-400">
+                            <span class="ml-1.5 text-[10px] font-medium uppercase text-slate-500">
                               {tr.chain === 'base' ? 'Base' : 'ETH'}
                             </span>
                           </td>
                           <td class="max-w-[220px] px-3 py-2">
                             <Link
                               href={`/${loc.params.locale ?? 'en-us'}/dashboard/nfts/${tr.contract}/${encodeURIComponent(tr.tokenId)}/?chain=${encodeURIComponent(tr.chain)}`}
-                              class="block font-medium text-[#c1272d] hover:underline"
+                              class="block font-medium text-[#04E6E6] hover:underline"
                             >
                               <span class="line-clamp-2">{tr.label}</span>
                             </Link>
-                            <p class="mt-0.5 font-mono text-[10px] text-gray-400">
+                            <p class="mt-0.5 font-mono text-[10px] text-slate-500">
                               #{tr.tokenId}
                               {tr.amount ? ` ×${tr.amount}` : ''}
                               {tr.contractType
@@ -1226,7 +1226,7 @@ export default component$(() => {
                               href={profileTxExplorerUrl(tr.chain, tr.txHash)}
                               target="_blank"
                               rel="noreferrer"
-                              class="inline-flex items-center gap-1 font-mono text-[10px] text-gray-600 hover:text-[#c1272d]"
+                              class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400 hover:text-[#04E6E6]"
                             >
                               {formatAddress(tr.txHash)}
                               <LuExternalLink class="h-3 w-3 shrink-0" />
@@ -1252,31 +1252,31 @@ export default component$(() => {
               {/* Left: PnL Summary + Breakdown */}
               <div class="space-y-4">
                 {/* PnL Summary Card */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                       <div class="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
                         <LuBarChart3 class="h-5 w-5" />
                       </div>
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                           {t('profile.pnl.title')}
                         </p>
-                        <p class="text-sm text-gray-700">
+                        <p class="text-sm text-slate-300">
                           {t('profile.pnl.subtitle')}
                         </p>
                       </div>
                     </div>
                     {/* Range selector */}
-                    <div class="flex items-center gap-1 rounded-full bg-gray-100 p-1 text-[11px] font-medium text-gray-600">
+                    <div class="flex items-center gap-1 rounded-full bg-[#043234]/55 p-1 text-[11px] font-medium text-slate-400">
                       {(['7', '30', '90', 'all'] as const).map((d) => (
                         <button
                           key={d}
                           type="button"
                           onClick$={() => (pnlDays.value = d)}
                           class={`rounded-full px-2.5 py-1 transition ${pnlDays.value === d
-                            ? 'bg-white text-[#c1272d] shadow-sm'
-                            : 'hover:bg-white/60'
+                            ? 'bg-[#043234] text-[#04E6E6] shadow-sm'
+                            : 'hover:bg-[#043234]/50'
                             }`}
                         >
                           {d === 'all' ? t('allNfts.filters.marketOptions.all') : `${d}d`}
@@ -1290,7 +1290,7 @@ export default component$(() => {
                       <div class="grid gap-4 md:grid-cols-[1.2fr_1fr] md:items-center">
                         {/* Big profit number */}
                         <div>
-                          <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             {t('profile.pnl.realized')}
                           </p>
                           <div class="mt-1 flex items-center gap-2">
@@ -1299,8 +1299,8 @@ export default component$(() => {
                                 pnlSummary.value
                                   ?.total_realized_profit_usd ?? 0,
                               ) >= 0
-                                ? 'text-emerald-600'
-                                : 'text-red-600'
+                                ? 'text-emerald-400'
+                                : 'text-rose-400'
                                 }`}
                             >
                               {formatUSD(
@@ -1313,8 +1313,8 @@ export default component$(() => {
                                 pnlSummary.value
                                   ?.total_realized_profit_percentage ?? 0,
                               ) >= 0
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-red-50 text-red-700'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-rose-500/20 text-rose-300'
                                 }`}
                             >
                               {Number(
@@ -1331,30 +1331,30 @@ export default component$(() => {
                               )}
                             </span>
                           </div>
-                          <p class="mt-1 text-xs text-gray-500">
+                          <p class="mt-1 text-xs text-slate-500">
                             {t('profile.pnl.realizedDesc')}
                           </p>
                         </div>
 
                         {/* Small stats */}
-                        <div class="grid gap-2 text-xs text-gray-600">
-                          <div class="flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2">
+                        <div class="grid gap-2 text-xs text-slate-400">
+                          <div class="flex items-center justify-between rounded-2xl bg-[#043234]/35 px-3 py-2">
                             <span>{t('profile.pnl.trades')}</span>
-                            <span class="font-semibold text-gray-900">
+                            <span class="font-semibold text-white">
                               {pnlSummary.value?.total_count_of_trades ??
                                 0}
                             </span>
                           </div>
-                          <div class="flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2">
+                          <div class="flex items-center justify-between rounded-2xl bg-[#043234]/35 px-3 py-2">
                             <span>{t('profile.pnl.buysSells')}</span>
-                            <span class="font-semibold text-gray-900">
+                            <span class="font-semibold text-white">
                               {pnlSummary.value?.total_buys ?? 0} /{' '}
                               {pnlSummary.value?.total_sells ?? 0}
                             </span>
                           </div>
-                          <div class="flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2">
+                          <div class="flex items-center justify-between rounded-2xl bg-[#043234]/35 px-3 py-2">
                             <span>{t('profile.pnl.volume')}</span>
-                            <span class="font-semibold text-gray-900">
+                            <span class="font-semibold text-white">
                               {formatUSD(
                                 pnlSummary.value
                                   ?.total_trade_volume ?? 0,
@@ -1365,16 +1365,16 @@ export default component$(() => {
                       </div>
                     </>
                   ) : (
-                    <div class="flex items-center justify-between rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-4 text-sm text-gray-600">
+                    <div class="flex items-center justify-between rounded-2xl bg-gradient-to-r from-[#001318] to-[#001a1c] px-4 py-4 text-sm text-slate-400">
                       <div class="flex items-center gap-3">
-                        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-full border border-[#043234] bg-[#001318] text-slate-400 shadow-sm">
                           <LuActivity class="h-5 w-5" />
                         </div>
                         <div>
-                          <p class="font-semibold text-gray-800">
+                          <p class="font-semibold text-slate-200">
                             {t('profile.pnl.emptyTitle')}
                           </p>
-                          <p class="text-xs text-gray-500">
+                          <p class="text-xs text-slate-500">
                             {t('profile.pnl.emptyDesc')}
                           </p>
                         </div>
@@ -1383,13 +1383,13 @@ export default component$(() => {
                   )}
 
                   {/* PnL Breakdown (Top tokens) */}
-                  <div class="mt-5 border-t border-gray-100 pt-4">
+                  <div class="mt-5 border-t border-[#043234]/70 pt-4">
                     <div class="mb-2 flex items-center justify-between">
-                      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {t('profile.pnl.breakdown')}
                       </p>
                       {pnlBreakdown.value.length > 0 && (
-                        <span class="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                        <span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
                           {t('profile.pnl.topTokens', { count: Math.min(pnlBreakdown.value.length, 5) })}
                           <LuChevronRight class="h-3 w-3" />
                         </span>
@@ -1397,7 +1397,7 @@ export default component$(() => {
                     </div>
 
                     {pnlBreakdown.value.length === 0 ? (
-                      <p class="text-xs text-gray-500">
+                      <p class="text-xs text-slate-500">
                         {t('profile.pnl.noData')}
                       </p>
                     ) : (
@@ -1405,25 +1405,25 @@ export default component$(() => {
                         {pnlBreakdown.value.slice(0, 5).map((token) => (
                           <div
                             key={token.tokenAddress || token.symbol}
-                            class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white/90 px-3 py-2.5 text-xs"
+                            class="flex items-center justify-between rounded-2xl border border-[#043234]/70 bg-[#001318]/92 px-3 py-2.5 text-xs"
                           >
                             <div class="flex items-center gap-3">
                               {token.logo ? (
                                 <img
                                   src={token.logo}
                                   alt={token.symbol}
-                                  class="h-7 w-7 rounded-full border border-gray-200 object-cover"
+                                  class="h-7 w-7 rounded-full border border-[#043234] object-cover"
                                 />
                               ) : (
-                                <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                                <div class="flex h-7 w-7 items-center justify-center rounded-full bg-[#043234]/55 text-slate-500">
                                   <LuCoins class="h-4 w-4" />
                                 </div>
                               )}
                               <div>
-                                <p class="text-sm font-semibold text-gray-900">
+                                <p class="text-sm font-semibold text-white">
                                   {token.symbol || 'TOKEN'}
                                 </p>
-                                <p class="text-[11px] text-gray-500">
+                                <p class="text-[11px] text-slate-500">
                                   {token.name || token.tokenAddress}
                                 </p>
                               </div>
@@ -1431,13 +1431,13 @@ export default component$(() => {
                             <div class="text-right">
                               <p
                                 class={`text-sm font-semibold ${token.realizedProfitUsd >= 0
-                                  ? 'text-emerald-600'
-                                  : 'text-red-600'
+                                  ? 'text-emerald-400'
+                                  : 'text-rose-400'
                                   }`}
                               >
                                 {formatUSD(token.realizedProfitUsd)}
                               </p>
-                              <p class="text-[11px] text-gray-500">
+                              <p class="text-[11px] text-slate-500">
                                 {formatPercent(
                                   token.realizedProfitPercentage,
                                 )}{' '}
@@ -1455,28 +1455,28 @@ export default component$(() => {
               {/* Right: Chain Activity + Swaps mini-panel */}
               <div class="space-y-4">
                 {/* Chain Activity */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-5 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-5 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
                       <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
                         <LuGlobe2 class="h-4 w-4" />
                       </div>
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                           {t('profile.chain.title')}
                         </p>
-                        <p class="text-xs text-gray-600">
+                        <p class="text-xs text-slate-400">
                           {t('profile.chain.subtitle')}
                         </p>
                       </div>
                     </div>
-                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                    <span class="rounded-full bg-[#043234]/55 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                       {chainsActivity.value.length || 0} {t('profile.chain.chains')}
                     </span>
                   </div>
 
                   {chainsActivity.value.length === 0 ? (
-                    <p class="py-3 text-xs text-gray-500">
+                    <p class="py-3 text-xs text-slate-500">
                       {t('profile.chain.empty')}
                     </p>
                   ) : (
@@ -1484,16 +1484,16 @@ export default component$(() => {
                       {chainsActivity.value.map((c) => (
                         <div
                           key={`${c.chain}-${c.chainId}`}
-                          class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white/90 px-3 py-2.5 text-xs"
+                          class="flex items-center justify-between rounded-2xl border border-[#043234]/70 bg-[#001318]/92 px-3 py-2.5 text-xs"
                         >
                           <div>
-                            <p class="text-sm font-semibold text-gray-900">
+                            <p class="text-sm font-semibold text-white">
                               {(c.chain || '').toUpperCase()}{' '}
-                              <span class="ml-1 text-[11px] text-gray-500">
+                              <span class="ml-1 text-[11px] text-slate-500">
                                 ({c.chainId})
                               </span>
                             </p>
-                            <p class="mt-0.5 text-[11px] text-gray-500">
+                            <p class="mt-0.5 text-[11px] text-slate-500">
                               {t('profile.chain.first')}{' '}
                               {c.firstTransaction
                                 ? formatTimestamp(
@@ -1515,17 +1515,17 @@ export default component$(() => {
                 </div>
 
                 {/* Swaps mini-panel */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-5 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-5 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
                       <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-600 text-white">
                         <LuActivity class="h-4 w-4" />
                       </div>
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                           {t('profile.swaps.title')}
                         </p>
-                        <p class="text-xs text-gray-600">
+                        <p class="text-xs text-slate-400">
                           {t('profile.swaps.subtitle')}
                         </p>
                       </div>
@@ -1533,7 +1533,7 @@ export default component$(() => {
                   </div>
 
                   {swaps.value.length === 0 ? (
-                    <p class="py-2 text-xs text-gray-500">
+                    <p class="py-2 text-xs text-slate-500">
                       {t('profile.swaps.empty')}
                     </p>
                   ) : (
@@ -1544,31 +1544,31 @@ export default component$(() => {
                           href={`https://basescan.org/tx/${s.transactionHash}`}
                           target="_blank"
                           rel="noreferrer"
-                          class="block rounded-2xl border border-gray-100 bg-white/90 px-3 py-2 transition hover:border-gray-200 hover:bg-white"
+                          class="block rounded-2xl border border-[#043234]/70 bg-[#001318]/92 px-3 py-2 transition hover:border-[#043234] hover:bg-[#043234]/55"
                         >
                           <div class="flex items-start justify-between gap-2">
                             <div>
-                              <p class="text-[11px] font-semibold text-gray-900">
+                              <p class="text-[11px] font-semibold text-white">
                                 {s.transactionType === 'buy'
                                   ? t('profile.swaps.bought')
                                   : t('profile.swaps.sold')}{' '}
-                                <span class="text-gray-600">
+                                <span class="text-slate-400">
                                   {s.pairLabel || ''}
                                 </span>
                               </p>
-                              <p class="text-[11px] text-gray-500">
+                              <p class="text-[11px] text-slate-500">
                                 {s.exchangeName || ''} ·{' '}
                                 {formatTimestamp(s.blockTimestamp)}
                               </p>
                             </div>
                             <div class="text-right text-[11px]">
                               {s.totalValueUsd !== undefined && (
-                                <p class="font-semibold text-gray-900">
+                                <p class="font-semibold text-white">
                                   {formatUSD(s.totalValueUsd)}
                                 </p>
                               )}
                               {s.baseQuotePrice && (
-                                <p class="text-gray-500">
+                                <p class="text-slate-500">
                                   {t('profile.swaps.price')}: {s.baseQuotePrice}
                                 </p>
                               )}
@@ -1587,13 +1587,13 @@ export default component$(() => {
               {/* Left: Native & Token Balances */}
               <div class="space-y-4">
                 <div class="flex items-center justify-between">
-                  <h2 class="text-xl font-semibold text-gray-900">
+                  <h2 class="text-xl font-semibold text-white">
                     {t('profile.balances.title')}
                   </h2>
                   <Button
                     onClick$={refreshAllData}
                     disabled={isLoadingData.value}
-                    class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                    class="flex items-center gap-2 rounded-xl border border-[#043234] bg-[#001318]/95 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-[#043234]/35 disabled:opacity-50"
                   >
                     <LuRefreshCw
                       class={`h-4 w-4 ${isLoadingData.value ? 'animate-spin' : ''
@@ -1604,26 +1604,26 @@ export default component$(() => {
                 </div>
 
                 {/* Native Balance (Base ETH) */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-6 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-6 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                       <div class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                         <span class="text-lg font-bold">Ξ</span>
                       </div>
                       <div>
-                        <p class="font-semibold text-gray-900">
+                        <p class="font-semibold text-white">
                           {t('profile.balances.native')}
                         </p>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-xs text-slate-500">
                           {t('profile.balances.nativeDesc')}
                         </p>
                       </div>
                     </div>
                     <div class="text-right">
-                      <p class="text-lg font-semibold text-gray-900">
+                      <p class="text-lg font-semibold text-white">
                         {formatBalance(nativeBalance.value, 18)}
                       </p>
-                      <p class="text-xs text-gray-500">
+                      <p class="text-xs text-slate-500">
                         {formatUSD(nativeValueUSD.value)}
                       </p>
                     </div>
@@ -1636,7 +1636,7 @@ export default component$(() => {
                     {tokenBalances.value.map((token) => (
                       <div
                         key={token.address}
-                        class="rounded-2xl border border-white/40 bg-white/90 px-5 py-4 shadow-sm backdrop-blur"
+                        class="rounded-2xl border border-[#043234] bg-[#001318]/95 px-5 py-4 shadow-sm backdrop-blur"
                       >
                         <div class="flex items-center justify-between gap-3">
                           <div class="flex items-center gap-3">
@@ -1644,39 +1644,39 @@ export default component$(() => {
                               <img
                                 src={token.logo}
                                 alt={token.symbol}
-                                class="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                                class="h-10 w-10 rounded-full border border-[#043234] object-cover"
                               />
                             ) : (
-                              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600">
+                              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#043234]/60 to-[#001a1c] text-slate-400">
                                 <LuCoins class="h-5 w-5" />
                               </div>
                             )}
                             <div>
-                              <p class="font-semibold text-gray-900">
+                              <p class="font-semibold text-white">
                                 {token.name || token.symbol || 'Token'}
                               </p>
-                              <p class="text-xs text-gray-500">
+                              <p class="text-xs text-slate-500">
                                 {token.symbol}
                               </p>
                             </div>
                           </div>
                           <div class="text-right">
-                            <p class="font-semibold text-gray-900">
+                            <p class="font-semibold text-white">
                               {formatBalance(
                                 token.balance,
                                 token.decimals,
                               )}
                             </p>
                             {token.valueUSD !== undefined && (
-                              <p class="text-xs text-gray-500">
+                              <p class="text-xs text-slate-500">
                                 {formatUSD(token.valueUSD)}
                               </p>
                             )}
                             {token.priceChange24h !== undefined && (
                               <p
                                 class={`mt-0.5 text-[11px] ${token.priceChange24h >= 0
-                                  ? 'text-emerald-600'
-                                  : 'text-red-600'
+                                  ? 'text-emerald-400'
+                                  : 'text-rose-400'
                                   }`}
                               >
                                 {formatPercent(token.priceChange24h)} {t('myNfts.profile.relativeTimes.daysAgo', { count: 1 }).replace('1', '24h')}
@@ -1688,9 +1688,9 @@ export default component$(() => {
                     ))}
                   </div>
                 ) : (
-                  <div class="rounded-2xl border border-gray-200 bg-white/50 px-6 py-8 text-center backdrop-blur">
-                    <LuCoins class="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                    <p class="text-sm text-gray-500">
+                  <div class="rounded-2xl border border-[#043234] bg-[#001318]/75 px-6 py-8 text-center backdrop-blur">
+                    <LuCoins class="mx-auto mb-3 h-10 w-10 text-slate-600" />
+                    <p class="text-sm text-slate-500">
                       {t('profile.balances.emptyToken')}
                     </p>
                   </div>
@@ -1700,12 +1700,12 @@ export default component$(() => {
               {/* Right: Recent Activity + Deployments */}
               <div class="space-y-4">
                 {/* Recent Activity */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-5 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-5 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="mb-3 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-gray-900">
+                    <h2 class="text-sm font-semibold text-white">
                       {t('profile.history.title')}
                     </h2>
-                    <span class="text-[11px] text-gray-500">
+                    <span class="text-[11px] text-slate-500">
                       {t('profile.history.lastEntries', { count: recentTransactions.value.length })}
                     </span>
                   </div>
@@ -1718,16 +1718,16 @@ export default component$(() => {
                           href={`https://basescan.org/tx/${tx.hash}`}
                           target="_blank"
                           rel="noreferrer"
-                          class="block rounded-xl border border-gray-100 bg-white/60 px-4 py-3 text-xs transition hover:border-gray-200 hover:bg-white"
+                          class="block rounded-xl border border-[#043234]/70 bg-[#001a1c]/85 px-4 py-3 text-xs transition hover:border-[#043234] hover:bg-[#043234]/55"
                         >
                           <div class="flex items-start justify-between gap-2">
                             <div class="flex items-start gap-3">
                               <div
                                 class={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${tx.type === 'receive'
-                                  ? 'bg-emerald-100 text-emerald-600'
+                                  ? 'bg-emerald-500/25 text-emerald-300'
                                   : tx.type === 'send'
-                                    ? 'bg-blue-100 text-blue-600'
-                                    : 'bg-gray-100 text-gray-600'
+                                    ? 'bg-sky-500/25 text-sky-300'
+                                    : 'bg-[#043234]/55 text-slate-400'
                                   }`}
                               >
                                 {tx.type === 'receive' ? (
@@ -1739,32 +1739,32 @@ export default component$(() => {
                                 )}
                               </div>
                               <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-gray-900">
+                                <p class="text-sm font-semibold text-white">
                                   {tx.type === 'receive'
                                     ? t('profile.history.received')
                                     : tx.type === 'send'
                                       ? t('profile.history.sent')
                                       : t('profile.history.contract')}
                                 </p>
-                                <p class="truncate text-[11px] text-gray-500">
+                                <p class="truncate text-[11px] text-slate-500">
                                   {tx.type === 'receive'
                                     ? `${t('profile.history.from')} ${formatAddress(tx.from)}`
                                     : `${t('profile.history.to')} ${formatAddress(tx.to)}`}
                                 </p>
-                                <p class="mt-0.5 text-[11px] text-gray-400">
+                                <p class="mt-0.5 text-[11px] text-slate-500">
                                   {tx.hash.slice(0, 10)}…
                                 </p>
                               </div>
                             </div>
                             <div class="text-right text-[11px]">
-                              <p class="font-semibold text-gray-900">
+                              <p class="font-semibold text-white">
                                 {formatBalance(
                                   tx.value,
                                   tx.tokenDecimals ?? 18,
                                 )}{' '}
                                 {tx.tokenSymbol || 'ETH'}
                               </p>
-                              <p class="text-gray-500">
+                              <p class="text-slate-500">
                                 {formatTimestamp(tx.timestamp)}
                               </p>
                             </div>
@@ -1774,8 +1774,8 @@ export default component$(() => {
                     </div>
                   ) : (
                     <div class="py-8 text-center">
-                      <LuActivity class="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                      <p class="text-sm text-gray-500">
+                      <LuActivity class="mx-auto mb-3 h-10 w-10 text-slate-600" />
+                      <p class="text-sm text-slate-500">
                         {t('profile.history.empty')}
                       </p>
                     </div>
@@ -1783,23 +1783,23 @@ export default component$(() => {
                 </div>
 
                 {/* Contract Deployments */}
-                <div class="rounded-3xl border border-white/40 bg-white/90 px-5 py-5 shadow-xl shadow-[#c1272d]/10 backdrop-blur">
+                <div class="rounded-3xl border border-[#043234] bg-[#001318]/95 px-5 py-5 shadow-lg shadow-black/25 backdrop-blur">
                   <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
                       <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                         <LuLayers class="h-4 w-4" />
                       </div>
-                      <h2 class="text-sm font-semibold text-gray-900">
+                      <h2 class="text-sm font-semibold text-white">
                         {t('profile.deployments.title')}
                       </h2>
                     </div>
-                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                    <span class="rounded-full bg-[#043234]/55 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                       {contractDeployments.value.length}
                     </span>
                   </div>
 
                   {contractDeployments.value.length === 0 ? (
-                    <p class="py-2 text-xs text-gray-500">
+                    <p class="py-2 text-xs text-slate-500">
                       {t('profile.deployments.empty')}
                     </p>
                   ) : (
@@ -1810,7 +1810,7 @@ export default component$(() => {
                           href={`https://basescan.org/tx/${d.txHash}`}
                           target="_blank"
                           rel="noreferrer"
-                          class="block rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-xs transition hover:border-gray-200 hover:bg-white"
+                          class="block rounded-2xl border border-[#043234]/70 bg-[#001318]/92 px-4 py-3 text-xs transition hover:border-[#043234] hover:bg-[#043234]/55"
                         >
                           <div class="flex items-start justify-between gap-2">
                             <div class="flex items-start gap-3">
@@ -1818,19 +1818,19 @@ export default component$(() => {
                                 <LuFileCode2 class="h-4 w-4" />
                               </div>
                               <div>
-                                <p class="text-xs font-semibold text-gray-900">
+                                <p class="text-xs font-semibold text-white">
                                   {t('profile.deployments.deployed')}
                                 </p>
-                                <p class="text-[11px] text-gray-500">
+                                <p class="text-[11px] text-slate-500">
                                   {formatAddress(d.contractAddress)}
                                 </p>
-                                <p class="mt-0.5 text-[11px] text-gray-400">
+                                <p class="mt-0.5 text-[11px] text-slate-500">
                                   {t('profile.deployments.block')} {d.blockNumber} ·{' '}
                                   {formatTimestamp(d.timestamp)}
                                 </p>
                               </div>
                             </div>
-                            <div class="text-right text-[11px] text-gray-500">
+                            <div class="text-right text-[11px] text-slate-500">
                               {d.txFee !== undefined && (
                                 <p>
                                   {t('profile.deployments.fee')}{' '}
@@ -1854,12 +1854,12 @@ export default component$(() => {
             </section>
 
             {/* Footer */}
-            <footer class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/40 pt-4 text-[11px] text-gray-500">
+            <footer class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#043234] pt-4 text-[11px] text-slate-500">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="font-semibold text-gray-700">
+                <span class="font-semibold text-slate-300">
                   KNRT Property
                 </span>
-                <span class="hidden text-gray-400 sm:inline">·</span>
+                <span class="hidden text-slate-500 sm:inline">·</span>
                 <span>{t('profile.footer.desc')}</span>
               </div>
               <div class="flex flex-wrap items-center gap-3">
