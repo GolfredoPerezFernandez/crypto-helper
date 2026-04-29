@@ -595,36 +595,56 @@ async function upsertMarketCategory(
     apiSnapshot,
   };
 
-  // Canonical key is (category + cmcId). Address can change between snapshots
-  // (e.g. non-EVM fallback slug vs later real contract), so update by cmcId first.
-  const updated = await db
-    .update(cachedMarketTokens)
-    .set({
-      address: row.address,
-      name: row.name,
-      symbol: row.symbol,
-      decimals: row.decimals,
-      logo: row.logo,
-      totalSupply: row.totalSupply,
-      percentChange1h: row.percentChange1h,
-      percentChange24h: row.percentChange24h,
-      percentChange7d: row.percentChange7d,
-      percentChange30d: row.percentChange30d,
-      percentChange90d: row.percentChange90d,
-      fullyDilutedValuation: row.fullyDilutedValuation,
-      price: row.price,
-      volume: row.volume,
-      network: row.network,
-      slug: row.slug,
-      cmcId: row.cmcId,
-      updatedAt: now,
-      apiSnapshot: row.apiSnapshot,
-    })
-    .where(and(eq(cachedMarketTokens.category, category), eq(cachedMarketTokens.cmcId, id)))
-    .returning({ id: cachedMarketTokens.id });
+  // Canonical key is (category + cmcId). Address can change between snapshots,
+  // so we resolve/merge conflicting rows before writing to avoid unique(cat,address) collisions.
+  const [byCmc, byAddress] = await Promise.all([
+    db
+      .select({ id: cachedMarketTokens.id })
+      .from(cachedMarketTokens)
+      .where(and(eq(cachedMarketTokens.category, category), eq(cachedMarketTokens.cmcId, id)))
+      .limit(1)
+      .get(),
+    db
+      .select({ id: cachedMarketTokens.id, cmcId: cachedMarketTokens.cmcId })
+      .from(cachedMarketTokens)
+      .where(and(eq(cachedMarketTokens.category, category), eq(cachedMarketTokens.address, row.address)))
+      .limit(1)
+      .get(),
+  ]);
 
-  if (updated.length > 0) {
-    const keepId = updated[0]!.id;
+  const keepId = byCmc?.id ?? byAddress?.id ?? null;
+  if (keepId != null) {
+    // If the incoming address is currently held by another row, remove it first.
+    if (byAddress?.id != null && byAddress.id !== keepId) {
+      await db.delete(cachedMarketTokens).where(eq(cachedMarketTokens.id, byAddress.id));
+    }
+
+    await db
+      .update(cachedMarketTokens)
+      .set({
+        address: row.address,
+        name: row.name,
+        symbol: row.symbol,
+        decimals: row.decimals,
+        logo: row.logo,
+        totalSupply: row.totalSupply,
+        percentChange1h: row.percentChange1h,
+        percentChange24h: row.percentChange24h,
+        percentChange7d: row.percentChange7d,
+        percentChange30d: row.percentChange30d,
+        percentChange90d: row.percentChange90d,
+        fullyDilutedValuation: row.fullyDilutedValuation,
+        price: row.price,
+        volume: row.volume,
+        network: row.network,
+        slug: row.slug,
+        cmcId: row.cmcId,
+        updatedAt: now,
+        apiSnapshot: row.apiSnapshot,
+      })
+      .where(eq(cachedMarketTokens.id, keepId));
+
+    // Cleanup duplicate rows with same canonical key.
     await db
       .delete(cachedMarketTokens)
       .where(

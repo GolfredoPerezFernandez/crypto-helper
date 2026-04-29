@@ -358,7 +358,7 @@ export default component$(() => {
           </div>
         </div>
       ) : null}
-      <div class="max-w-[1800px] mx-auto space-y-10 2xl:space-y-12">
+      <div class="w-full max-w-[2200px] mx-auto space-y-10 2xl:space-y-12 px-1 2xl:px-3">
       <header class="flex flex-col gap-4 2xl:gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-xs font-medium uppercase tracking-wider text-[#04E6E6]/80">Crypto Helper</p>
@@ -435,7 +435,7 @@ export default component$(() => {
       </header>
 
       <div class="space-y-3 2xl:space-y-4">
-        <section class="grid gap-3 2xl:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <section class="grid gap-3 2xl:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
           {visibleQuickLinks.map((q) => {
             const Icon = q.icon ?? LuLayers;
           const locked = q.requiresPro && !hasPro;
@@ -723,7 +723,7 @@ export default component$(() => {
         </div>
       ) : null}
 
-      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">
@@ -857,7 +857,7 @@ export default component$(() => {
         </section>
       ) : null}
 
-      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">
@@ -951,7 +951,7 @@ export default component$(() => {
         </section>
       </div>
 
-      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">New listings</h2>
@@ -1021,7 +1021,7 @@ export default component$(() => {
         </section>
       </div>
 
-      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">Gaming</h2>
