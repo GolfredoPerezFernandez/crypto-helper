@@ -20,8 +20,6 @@ import {
   LuWaves,
   LuZap,
 } from "@qwikest/icons/lucide";
-import { useDashboardAuth } from "./layout";
-
 export type DashboardAccessState = {
   hasPro: boolean;
   isSubscriber: boolean;
@@ -627,14 +625,5 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
         </footer>
       </main>
     </div>
-  );
-});
-
-export default component$(() => {
-  const session = useDashboardAuth();
-  return (
-    <DashboardShell session={session.value}>
-      <Slot />
-    </DashboardShell>
   );
 });

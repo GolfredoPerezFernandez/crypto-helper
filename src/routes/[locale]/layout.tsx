@@ -40,7 +40,7 @@ import { ProUpgradeModal } from '~/components/billing/pro-upgrade-modal';
 import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
-import { DashboardShell, type DashboardAccessState } from './dashboard-shell';
+import { DashboardShell, type DashboardAccessState } from '~/components/layout/dashboard-shell';
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
