@@ -30,6 +30,24 @@ async function tursoSafe<T>(label: string, fn: () => Promise<T>, fallback: T): P
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 100;
 
+function dedupeMarketRows<T extends { cmcId?: number | null; slug?: string | null; symbol?: string | null }>(
+  rows: T[],
+): T[] {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const cmc = row.cmcId;
+    const key =
+      cmc != null && Number.isFinite(cmc)
+        ? `cmc:${cmc}`
+        : `slug:${String(row.slug ?? "").toLowerCase()}|sym:${String(row.symbol ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
 export function clampLimit(n: number | undefined, def: number = DEFAULT_LIMIT): number {
   if (n == null || !Number.isFinite(n)) return def;
   return Math.min(Math.max(1, Math.floor(n)), MAX_LIMIT);
@@ -48,7 +66,7 @@ export async function queryMarketTokens(opts: {
   return tursoSafe("queryMarketTokens", async () => {
     const { category, limit, offset } = opts;
     if (category) {
-      return db
+      const rows = await db
         .select()
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, category))
@@ -56,14 +74,16 @@ export async function queryMarketTokens(opts: {
         .limit(limit)
         .offset(offset)
         .all();
+      return dedupeMarketRows(rows);
     }
-    return db
+    const rows = await db
       .select()
       .from(cachedMarketTokens)
       .orderBy(desc(cachedMarketTokens.updatedAt))
       .limit(limit)
       .offset(offset)
       .all();
+    return dedupeMarketRows(rows);
   }, []);
 }
 
@@ -84,7 +104,7 @@ export async function queryTrendingOrFallback(limit: number = 300): Promise<{
       .limit(limit)
       .all();
     if (direct.length > 0) {
-      return { rows: direct, usedFallback: false };
+      return { rows: dedupeMarketRows(direct), usedFallback: false };
     }
     const rows = await db
       .select()
@@ -93,7 +113,7 @@ export async function queryTrendingOrFallback(limit: number = 300): Promise<{
       .orderBy(desc(sql`cast(${cachedMarketTokens.percentChange7d} as real)`))
       .limit(limit)
       .all();
-    return { rows, usedFallback: true };
+    return { rows: dedupeMarketRows(rows), usedFallback: true };
   }, { rows: [], usedFallback: true });
 }
 
@@ -113,7 +133,7 @@ export async function queryMostVisitedOrFallback(limit: number = 300): Promise<{
       .limit(limit)
       .all();
     if (direct.length > 0) {
-      return { rows: direct, usedFallback: false };
+      return { rows: dedupeMarketRows(direct), usedFallback: false };
     }
     const rows = await db
       .select()
@@ -122,7 +142,7 @@ export async function queryMostVisitedOrFallback(limit: number = 300): Promise<{
       .orderBy(desc(sql`cast(${cachedMarketTokens.volume} as real)`))
       .limit(limit)
       .all();
-    return { rows, usedFallback: true };
+    return { rows: dedupeMarketRows(rows), usedFallback: true };
   }, { rows: [], usedFallback: true });
 }
 

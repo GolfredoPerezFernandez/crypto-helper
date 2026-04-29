@@ -386,7 +386,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     throw ev.error(404, { message: "Invalid token id" });
   }
   /** Dynamic import keeps Turso/libsql out of the client SPA chunk (see Neon / drizzle-orm_libsql in browser). */
-  const [{ db }, schema, { eq }] = await Promise.all([
+  const [{ db }, schema, { and, desc, eq, ne }] = await Promise.all([
     import("~/lib/turso"),
     import("../../../../../../drizzle/schema"),
     import("drizzle-orm"),
@@ -401,6 +401,26 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
   }
   if (!row) {
     throw ev.error(404, { message: "Token no encontrado — ejecuta la sincronización o vuelve más tarde." });
+  }
+
+  // If duplicate rows exist for the same CMC asset in the same category, always use the newest one.
+  if (row.cmcId != null && Number.isFinite(Number(row.cmcId))) {
+    const canonical = await db
+      .select({ id: cachedMarketTokens.id })
+      .from(cachedMarketTokens)
+      .where(
+        and(
+          eq(cachedMarketTokens.category, row.category),
+          eq(cachedMarketTokens.cmcId, Number(row.cmcId)),
+          ne(cachedMarketTokens.id, row.id),
+        ),
+      )
+      .orderBy(desc(cachedMarketTokens.updatedAt), desc(cachedMarketTokens.id))
+      .limit(1)
+      .get();
+    if (canonical?.id) {
+      throw ev.redirect(302, `/${ev.params.locale}/token/${canonical.id}/`);
+    }
   }
 
   const snap = parseTokenApiSnapshot(row.apiSnapshot ?? null);

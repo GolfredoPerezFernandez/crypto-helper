@@ -95,7 +95,7 @@ export const AiChatFab = component$((props: AiChatFabProps) => {
 
   return (
     <div
-      class="pointer-events-none fixed bottom-0 right-0 z-[170] flex flex-col items-end gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pr-[max(1rem,env(safe-area-inset-right))]"
+      class="pointer-events-none fixed bottom-0 right-0 z-[170] flex flex-col items-end gap-3 p-4 pb-[max(5.5rem,env(safe-area-inset-bottom))] pr-[max(1rem,env(safe-area-inset-right))] md:bottom-10 md:pb-[max(2.25rem,env(safe-area-inset-bottom))]"
       aria-live="polite"
     >
       {showTeaser ? (

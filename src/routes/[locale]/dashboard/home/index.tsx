@@ -6,6 +6,9 @@ import {
   LuArrowRight,
   LuBarChart3,
   LuBell,
+  LuBot,
+  LuCoins,
+  LuDollarSign,
   LuImage,
   LuLayers,
   LuLoader2,
@@ -13,6 +16,7 @@ import {
   LuRadio,
   LuRefreshCw,
   LuSparkles,
+  LuWaves,
 } from "@qwikest/icons/lucide";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypto-ghost-actions";
@@ -50,6 +54,17 @@ export default component$(() => {
   const syncError = useSignal("");
   const fullSyncBusy = useSignal(false);
   const fullSyncError = useSignal("");
+  const showMoreSections = useSignal(false);
+  const listPages = useSignal<Record<string, number>>({
+    topVolume: 1,
+    trending: 1,
+    meme: 1,
+    ai: 1,
+    earlybird: 1,
+    mostVisited: 1,
+    gaming: 1,
+    mineable: 1,
+  });
 
   const runFullMarketSync = $(async () => {
     fullSyncBusy.value = true;
@@ -87,6 +102,10 @@ export default component$(() => {
     } finally {
       if (!willReload) syncBusy.value = false;
     }
+  });
+  const goProOffer = $(() => {
+    const el = document.getElementById("pro-offer");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   const w = data.value.wallet;
@@ -147,7 +166,7 @@ export default component$(() => {
     {
       href: `${base}/volume-coins/`,
       title: "Top volume",
-      desc: showSync ? "Ranking 24h desde datos de mercado sincronizados." : "Ranking 24h por volumen.",
+      desc: "Ranking 24h por volumen.",
       icon: LuActivity,
     },
     {
@@ -157,11 +176,45 @@ export default component$(() => {
       icon: LuSparkles,
     },
     {
+      href: `${base}/earlybird-coins/`,
+      title: "New listings",
+      desc: "Nuevas monedas listadas recientemente.",
+      icon: LuSparkles,
+    },
+    {
+      href: `${base}/meme-coins/`,
+      title: "Meme",
+      desc: "Monedas meme destacadas.",
+      icon: LuCoins,
+    },
+    {
+      href: `${base}/ai-coins/`,
+      title: "AI & big data",
+      desc: "Monedas de inteligencia artificial y datos.",
+      icon: LuBot,
+    },
+    {
+      href: `${base}/gaming-coins/`,
+      title: "Gaming",
+      desc: "Monedas del ecosistema gaming.",
+      icon: LuActivity,
+    },
+    {
+      href: `${base}/mineable-coins/`,
+      title: "Mineable",
+      desc: "Monedas minables.",
+      icon: LuLayers,
+    },
+    {
+      href: `${base}/most-visit-coins/`,
+      title: "Most visited",
+      desc: "Monedas más visitadas por usuarios.",
+      icon: LuRadar,
+    },
+    {
       href: `${base}/tokens/`,
       title: "Todos los tokens",
-      desc: showSync
-        ? `${st.totalTokens.toLocaleString()} tokens disponibles ahora.`
-        : `${st.totalTokens.toLocaleString()} tokens disponibles.`,
+      desc: `${st.totalTokens.toLocaleString()} tokens disponibles.`,
       icon: LuLayers,
     },
     {
@@ -180,23 +233,101 @@ export default component$(() => {
       icon: LuRadar,
     },
     {
+      href: `${base}/top-traders-swaps/`,
+      title: "By swap activity",
+      desc: "Ranking de traders por actividad de swaps.",
+      icon: LuActivity,
+    },
+    {
+      href: `${base}/top-traders-whales/`,
+      title: "Top whales",
+      desc: "Monitoreo de wallets ballena.",
+      icon: LuWaves,
+    },
+    {
+      href: `${base}/block/`,
+      title: "Block",
+      desc: "Señales y actividad on-chain reciente.",
+      icon: LuLayers,
+    },
+    {
       href: `${base}/notifications-settings/`,
       title: "Notificaciones",
       desc: "Push y preferencias de señales.",
       icon: LuBell,
     },
+    {
+      href: `${base}/db-insight/`,
+      title: "DB insight",
+      desc: "Análisis asistido para usuarios Pro.",
+      icon: LuBot,
+      requiresPro: true,
+    },
+    {
+      href: `${base}/traders-signals/`,
+      title: "Smart money",
+      desc: "Señales en vivo de smart money.",
+      icon: LuSparkles,
+      requiresPro: true,
+    },
+    {
+      href: `${base}/whales-signals/`,
+      title: "Whale alerts",
+      desc: "Alertas en vivo de ballenas.",
+      icon: LuWaves,
+      requiresPro: true,
+    },
+    {
+      href: `${base}/smart-signals/`,
+      title: "USDT smart",
+      desc: "Alertas inteligentes de USDT.",
+      icon: LuDollarSign,
+      requiresPro: true,
+    },
   ];
 
   const anySyncBusy = fullSyncBusy.value || syncBusy.value;
-  const HelpTip = (text: string) => (
-    <span class="absolute right-2 top-2 z-10 group">
+  const PAGE_SIZE = 10;
+  const pageOf = (key: string) => Math.max(1, listPages.value[key] ?? 1);
+  const totalPagesFor = (rows: any[]) => Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pagedRows = (key: string, rows: any[]) => {
+    const page = Math.min(pageOf(key), totalPagesFor(rows));
+    const start = (page - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  };
+  const changePage = $((key: string, totalRows: number, delta: number) => {
+    const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+    const current = Math.max(1, listPages.value[key] ?? 1);
+    const next = Math.max(1, Math.min(totalPages, current + delta));
+    listPages.value = { ...listPages.value, [key]: next };
+  });
+  const prioritizedQuickLinks = quickLinks.slice(0, 8);
+  const secondaryQuickLinks = quickLinks.slice(8);
+  const visibleQuickLinks = showMoreSections.value
+    ? [...prioritizedQuickLinks, ...secondaryQuickLinks]
+    : prioritizedQuickLinks;
+  const HelpTip = (text: string, positionClass: string = "right-2 top-2") => (
+    <span class={`pointer-events-none absolute z-10 group ${positionClass}`}>
+      <span
+        class="pointer-events-auto inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#0a5b5f] bg-[#002629] text-[11px] font-bold text-[#7af4f4] shadow-sm shadow-black/30"
+        aria-label="Más información"
+      >
+        ?
+      </span>
+      <span class="pointer-events-none absolute right-0 top-6 w-52 rounded-md border border-[#0a5b5f] bg-[#001a1c] px-2.5 py-2 text-[11px] leading-relaxed text-gray-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
+  const InlineHelpTip = (text: string) => (
+    <span class="relative group inline-flex align-middle ml-2">
       <span
         class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#0a5b5f] bg-[#002629] text-[11px] font-bold text-[#7af4f4] shadow-sm shadow-black/30"
         aria-label="Más información"
       >
         ?
       </span>
-      <span class="pointer-events-none absolute right-0 top-6 w-52 rounded-md border border-[#0a5b5f] bg-[#001a1c] px-2.5 py-2 text-[11px] leading-relaxed text-gray-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
+      <span class="pointer-events-none absolute left-1/2 top-6 z-20 w-52 -translate-x-1/2 rounded-md border border-[#0a5b5f] bg-[#001a1c] px-2.5 py-2 text-[11px] leading-relaxed text-gray-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
         {text}
       </span>
     </span>
@@ -227,12 +358,12 @@ export default component$(() => {
           </div>
         </div>
       ) : null}
-      <div class="max-w-6xl mx-auto space-y-10">
-      <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div class="max-w-[1800px] mx-auto space-y-10 2xl:space-y-12">
+      <header class="flex flex-col gap-4 2xl:gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-xs font-medium uppercase tracking-wider text-[#04E6E6]/80">Crypto Helper</p>
-          <h1 class="text-3xl font-bold text-white mt-1">Overview</h1>
-          <p class="text-gray-400 text-sm mt-2 max-w-xl leading-relaxed">
+          <h1 class="text-3xl 2xl:text-4xl font-bold text-white mt-1">Overview</h1>
+          <p class="text-gray-400 text-sm 2xl:text-base mt-2 max-w-xl 2xl:max-w-2xl leading-relaxed">
             {showSync ? (
               <>
                 Mercado <strong class="text-gray-300">agregado</strong> (precio, pares DEX, analytics y swaps en ficha
@@ -303,6 +434,64 @@ export default component$(() => {
         </div>
       </header>
 
+      <div class="space-y-3 2xl:space-y-4">
+        <section class="grid gap-3 2xl:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {visibleQuickLinks.map((q) => {
+            const Icon = q.icon ?? LuLayers;
+          const locked = q.requiresPro && !hasPro;
+          return locked ? (
+            <button
+              key={q.href}
+              type="button"
+              onClick$={goProOffer}
+                class="group relative w-full text-left rounded-xl border border-amber-500/35 bg-amber-950/10 p-4 2xl:p-5 transition hover:border-amber-400/50 hover:bg-amber-950/20"
+            >
+              {HelpTip("Esta sección es Pro. Suscríbete para desbloquearla.")}
+              <div class="flex items-start justify-between gap-2 pr-8">
+                <span class="rounded-lg bg-amber-500/20 p-2 text-amber-300">
+                  <Icon class="h-5 w-5" />
+                </span>
+                <span class="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                  PRO
+                </span>
+              </div>
+              <h3 class="font-semibold text-white mt-3">{q.title}</h3>
+              <p class="pr-7 text-xs text-amber-100/75 mt-1 leading-relaxed">Disponible con suscripción Pro.</p>
+            </button>
+          ) : (
+            <Link
+              key={q.href}
+              href={q.href}
+                class="group relative rounded-xl border border-[#043234] bg-[#001a1c]/60 p-4 2xl:p-5 transition hover:border-[#04E6E6]/35 hover:bg-[#001a1c]"
+            >
+              {HelpTip(q.desc)}
+              <div class="flex items-start justify-between gap-2 pr-8">
+                <span class="rounded-lg bg-[#04E6E6]/10 p-2 text-[#04E6E6]">
+                  <Icon class="h-5 w-5" />
+                </span>
+              </div>
+              <h3 class="font-semibold text-white mt-3">{q.title}</h3>
+              <p class="pr-7 text-xs text-gray-500 mt-1 leading-relaxed">{q.desc}</p>
+              <LuArrowRight class="absolute bottom-4 right-4 h-4 w-4 text-gray-600 transition-colors group-hover:text-[#04E6E6]" />
+            </Link>
+          );
+          })}
+        </section>
+        {secondaryQuickLinks.length > 0 ? (
+          <div class="flex justify-center">
+            <button
+              type="button"
+              onClick$={() => {
+                showMoreSections.value = !showMoreSections.value;
+              }}
+              class="rounded-lg border border-[#043234] bg-[#001a1c]/70 px-3 py-1.5 text-xs font-medium text-[#04E6E6] transition hover:border-[#04E6E6]/40 hover:bg-[#043234]/40"
+            >
+              {showMoreSections.value ? "Ver menos secciones" : `Ver más secciones (${secondaryQuickLinks.length})`}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       <section class="overflow-x-auto pb-1">
         <div class={`grid gap-3 ${showBtcDominance ? "min-w-[980px] grid-cols-5" : "min-w-[780px] grid-cols-4"}`}>
           <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-3">
@@ -367,8 +556,8 @@ export default component$(() => {
         </div>
       </section>
 
-      <section class="grid gap-3 md:grid-cols-3">
-        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
+      <section class="grid gap-3 2xl:gap-4 md:grid-cols-3">
+        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Indicador de ánimo del mercado basado en movimiento reciente de precios.")}
           <p class="text-sm font-semibold text-white">Fear &amp; Greed</p>
           <div class="mt-2 flex justify-center">
@@ -388,7 +577,7 @@ export default component$(() => {
           </div>
         </article>
 
-        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
+        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Mide si las altcoins están rindiendo mejor que Bitcoin.")}
           <p class="text-sm font-semibold text-white">Altcoin Season</p>
           <div class="mt-3 flex items-end justify-between">
@@ -412,7 +601,7 @@ export default component$(() => {
           </div>
         </article>
 
-        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
+        <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Muestra si el mercado está en zona de sobrecompra o sobreventa.")}
           <p class="text-sm font-semibold text-white">Average Crypto RSI</p>
           <div class="mt-3 flex items-center justify-between">
@@ -498,114 +687,6 @@ export default component$(() => {
         </div>
       ) : null}
 
-      <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <div class="relative rounded-xl border border-[#043234] bg-gradient-to-br from-[#001a1c] to-[#000D0E] p-4">
-          {HelpTip("Cantidad total de monedas disponibles en la app.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">Monedas disponibles</p>
-          <p class="text-2xl font-semibold text-white mt-1 tabular-nums">{st.totalTokens.toLocaleString()}</p>
-          <p class="text-xs text-gray-500 mt-2">
-            {showSync ? "Total de monedas en todas las categorías." : "Total de monedas en todas las categorías."}
-          </p>
-        </div>
-        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
-          {HelpTip("Cantidad de colecciones NFT destacadas ahora mismo.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">NFT hottest (sample)</p>
-          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">
-            {data.value.nftGlobal.ok ? data.value.nftGlobal.hottestCount : "—"}
-          </p>
-          <p class="text-xs text-gray-500 mt-2">
-            {showSync ? (
-              <Link href={`${base}/nfts/`} class="text-[#04E6E6]/90 hover:underline">
-                Abrir NFTs →
-              </Link>
-            ) : (
-              "Colecciones disponibles."
-            )}
-          </p>
-        </div>
-        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
-          {HelpTip("Cantidad de señales de ballenas registradas en las últimas 24 horas.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">Whale alerts (24h)</p>
-          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.whales}</p>
-          <p class="text-xs text-gray-500 mt-2">{showSync ? "Señales guardadas en el servidor." : "Señales en tiempo casi real."}</p>
-        </div>
-        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
-          {HelpTip("Cantidad de señales de traders detectadas en las últimas 24 horas.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">Trader signals (24h)</p>
-          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.traders}</p>
-          <p class="text-xs text-gray-500 mt-2">Smart money / traders.</p>
-        </div>
-        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4">
-          {HelpTip("Señales smart de USDT generadas en el último día.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">USDT smart (24h)</p>
-          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.smart}</p>
-          <p class="text-xs text-gray-500 mt-2">
-            {showSync ? "Watcher + análisis on-chain." : "Análisis on-chain."}
-          </p>
-        </div>
-      </section>
-
-      <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {quickLinks.map((q) => {
-          const Icon = q.icon ?? LuLayers;
-          return (
-            <Link
-              key={q.href}
-              href={q.href}
-              class="group relative rounded-xl border border-[#043234] bg-[#001a1c]/60 p-4 transition hover:border-[#04E6E6]/35 hover:bg-[#001a1c]"
-            >
-              {HelpTip(q.desc)}
-              <div class="flex items-start justify-between gap-2 pr-8">
-                <span class="rounded-lg bg-[#04E6E6]/10 p-2 text-[#04E6E6]">
-                  <Icon class="h-5 w-5" />
-                </span>
-              </div>
-              <h3 class="font-semibold text-white mt-3">{q.title}</h3>
-              <p class="pr-7 text-xs text-gray-500 mt-1 leading-relaxed">{q.desc}</p>
-              <LuArrowRight class="absolute bottom-4 right-4 h-4 w-4 text-gray-600 transition-colors group-hover:text-[#04E6E6]" />
-            </Link>
-          );
-        })}
-      </section>
-
-      {!hasPro ? (
-        <section
-          id="pro-offer"
-          class="rounded-2xl border border-amber-500/30 bg-[#1a1408]/50 p-6 md:p-8 scroll-mt-24"
-        >
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div class="flex gap-4">
-              <span class="rounded-xl bg-amber-500/15 p-3 text-amber-300 h-fit">
-                <LuRadio class="h-6 w-6" />
-              </span>
-              <div>
-                <h2 class="text-xl font-bold text-white">Crypto Helper Pro</h2>
-                <p class="text-sm text-gray-400 mt-2 max-w-lg leading-relaxed">
-                  Con Pro obtienes <strong class="text-gray-300">DB insight (IA)</strong> sobre datos agregados en el
-                  servidor, <strong class="text-gray-300">señales en vivo</strong> (smart money y ballenas) y{" "}
-                  <strong class="text-gray-300">alertas smart USDT</strong> en los paneles del menú. Para activarlo{" "}
-                  <strong class="text-gray-300">debes enviar USDT</strong>: importe, red y dirección de tesorería salen en
-                  el modal; luego verificas la transacción ahí mismo — no sustituye abrir las{" "}
-                  <strong class="text-gray-300">notificaciones push</strong> del menú: esas solo registran tu dispositivo y
-                  preferencias; el acceso Pro depende del pago verificado.
-                </p>
-              </div>
-            </div>
-            <div class="text-sm text-gray-400 md:text-right shrink-0 max-w-xs md:max-w-sm">
-              <p class="text-amber-200/90 font-medium">Cómo activar Pro</p>
-              <p class="mt-1 leading-relaxed">
-                Inicia sesión, abre <strong class="text-gray-300">Upgrade Pro</strong> en la barra (menú de cuenta),
-                elige red, envía el USDT indicado y completa la verificación en el modal. Tras acreditarse, tu cuenta
-                pasa a Pro automáticamente.
-              </p>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section class="rounded-xl border border-[#04E6E6]/25 bg-[#04E6E6]/5 px-4 py-3 text-sm text-[#04E6E6]/95">
-          Plan <strong>Pro</strong> activo — DB insight, señales en vivo y alertas USDT desbloqueados (pago verificado).
-        </section>
-      )}
 
       {cacheEmpty ? (
         <div class="flex flex-wrap items-center gap-3 rounded-xl border border-[#043234] bg-[#001a1c]/80 px-4 py-3">
@@ -642,11 +723,13 @@ export default component$(() => {
         </div>
       ) : null}
 
-      <div class="grid gap-8 lg:grid-cols-2">
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
-          {HelpTip("Monedas con mayor volumen de trading en 24h.")}
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
-            <h2 class="text-sm font-semibold text-white">Top volumen (24h)</h2>
+            <h2 class="text-sm font-semibold text-white">
+              Top volumen (24h)
+              {InlineHelpTip("Monedas con mayor volumen de trading en 24h.")}
+            </h2>
             <Link href={`${base}/volume-coins/`} class="text-xs text-[#04E6E6] hover:underline">
               Ver tabla
             </Link>
@@ -657,7 +740,7 @@ export default component$(() => {
               {showSync ? "Sin datos por ahora. Vuelve a intentar en unos minutos." : "Sin datos todavía."}
             </li>
             ) : (
-              data.value.topVolume.map((t: any) => (
+              pagedRows("topVolume", data.value.topVolume).map((t: any) => (
                 <li key={t.id}>
                   <Link
                     href={`/${L}/token/${t.id}/`}
@@ -679,28 +762,32 @@ export default component$(() => {
               ))
             )}
           </ul>
+          {data.value.topVolume.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("topVolume")} / {totalPagesFor(data.value.topVolume)}</span>
+              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
         </section>
 
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
-          {HelpTip("Monedas que más se movieron en los últimos 7 días.")}
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
-            <h2 class="text-sm font-semibold text-white">Trending · movers 7d</h2>
+            <h2 class="text-sm font-semibold text-white">
+              Trending · movers 7d
+              {InlineHelpTip("Monedas que más se movieron en los últimos 7 días.")}
+            </h2>
             <Link href={`${base}/trending-coins/`} class="text-xs text-[#04E6E6] hover:underline">
               Ver tabla
             </Link>
           </div>
-          {data.value.trending.usedFallback ? (
-            <p class="px-4 py-2 text-[11px] text-gray-500 border-b border-[#043234]/60">
-              Ranking calculado con los datos disponibles.
-            </p>
-          ) : null}
           <ul class="divide-y divide-[#043234]/80">
             {data.value.trending.rows.length === 0 ? (
               <li class="px-4 py-6 text-sm text-gray-500">
               {showSync ? "Sin datos por ahora. Vuelve a intentar en unos minutos." : "Sin datos todavía."}
             </li>
             ) : (
-              data.value.trending.rows.map((t: any) => (
+              pagedRows("trending", data.value.trending.rows).map((t: any) => (
                 <li key={`${t.id}-trend`}>
                   <Link
                     href={`/${L}/token/${t.id}/`}
@@ -721,6 +808,13 @@ export default component$(() => {
               ))
             )}
           </ul>
+          {data.value.trending.rows.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("trending")} / {totalPagesFor(data.value.trending.rows)}</span>
+              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -763,77 +857,323 @@ export default component$(() => {
         </section>
       ) : null}
 
-      <section class="relative">
-        {HelpTip("Monedas meme con su precio y red principal.")}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold">Meme</h2>
-          <Link href={`${base}/meme-coins/`} class="text-sm text-[#04E6E6] hover:underline">
-            Ver vertical →
-          </Link>
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">
+              Meme
+              {InlineHelpTip("Monedas meme con su precio y red principal.")}
+            </h2>
+            <Link href={`${base}/meme-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.meme.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">
+                {showSync
+                  ? "Aún no hay datos en esta sección. Vuelve en unos minutos."
+                  : "Sin datos todavía."}
+              </li>
+            ) : (
+              pagedRows("meme", data.value.meme).map((t: any) => (
+                <li key={`${t.id}-meme`}>
+                  <Link
+                    href={`/${L}/token/${t.id}/`}
+                    class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors"
+                  >
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">
+                        {t.name} <span class="text-gray-500 text-sm">({t.symbol})</span>
+                      </div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.meme.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("meme")} / {totalPagesFor(data.value.meme)}</span>
+              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">
+              AI &amp; big data
+              {InlineHelpTip("Monedas de IA y big data con precios actualizados.")}
+            </h2>
+            <Link href={`${base}/ai-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.ai.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">
+                {showSync
+                  ? "Aún no hay datos en esta sección. Vuelve en unos minutos."
+                  : "Sin datos todavía."}
+              </li>
+            ) : (
+              pagedRows("ai", data.value.ai).map((t: any) => (
+                <li key={`${t.id}-ai`}>
+                  <Link
+                    href={`/${L}/token/${t.id}/`}
+                    class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors"
+                  >
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">
+                        {t.name} <span class="text-gray-500 text-sm">({t.symbol})</span>
+                      </div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.ai.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("ai")} / {totalPagesFor(data.value.ai)}</span>
+              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">New listings</h2>
+            <Link href={`${base}/earlybird-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.earlybird.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
+            ) : (
+              pagedRows("earlybird", data.value.earlybird).map((t: any) => (
+                <li key={`${t.id}-early`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors">
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">{t.name} <span class="text-gray-500 text-sm">({t.symbol})</span></div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.earlybird.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("earlybird")} / {totalPagesFor(data.value.earlybird)}</span>
+              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">Most visited</h2>
+            <Link href={`${base}/most-visit-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.mostVisited.rows.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
+            ) : (
+              pagedRows("mostVisited", data.value.mostVisited.rows).map((t: any) => (
+                <li key={`${t.id}-mv`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors">
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">{t.name} <span class="text-gray-500 text-sm">({t.symbol})</span></div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.mostVisited.rows.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("mostVisited")} / {totalPagesFor(data.value.mostVisited.rows)}</span>
+              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:grid-cols-3">
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">Gaming</h2>
+            <Link href={`${base}/gaming-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.gaming.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
+            ) : (
+              pagedRows("gaming", data.value.gaming).map((t: any) => (
+                <li key={`${t.id}-gaming`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors">
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">{t.name} <span class="text-gray-500 text-sm">({t.symbol})</span></div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.gaming.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("gaming")} / {totalPagesFor(data.value.gaming)}</span>
+              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+
+        <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
+            <h2 class="text-sm font-semibold text-white">Mineable</h2>
+            <Link href={`${base}/mineable-coins/`} class="text-xs text-[#04E6E6] hover:underline">
+              Ver tabla
+            </Link>
+          </div>
+          <ul class="divide-y divide-[#043234]/80">
+            {data.value.mineable.length === 0 ? (
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
+            ) : (
+              pagedRows("mineable", data.value.mineable).map((t: any) => (
+                <li key={`${t.id}-mineable`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center gap-3 px-4 py-3 hover:bg-[#001a1c]/90 transition-colors">
+                    <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={30} />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-white truncate">{t.name} <span class="text-gray-500 text-sm">({t.symbol})</span></div>
+                      <div class="text-xs text-gray-500 truncate">{t.network}</div>
+                    </div>
+                    <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+          {data.value.mineable.length > PAGE_SIZE ? (
+            <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
+              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <span>Página {pageOf("mineable")} / {totalPagesFor(data.value.mineable)}</span>
+              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <section class="grid gap-3 2xl:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="relative rounded-xl border border-[#043234] bg-gradient-to-br from-[#001a1c] to-[#000D0E] p-4 2xl:p-5">
+          {HelpTip("Cantidad total de monedas disponibles en la app.")}
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">Monedas disponibles</p>
+          <p class="text-2xl font-semibold text-white mt-1 tabular-nums">{st.totalTokens.toLocaleString()}</p>
+          <p class="text-xs text-gray-500 mt-2">Total de monedas en todas las categorías.</p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.value.meme.length === 0 ? (
-            <p class="text-gray-500 col-span-full text-sm">
-              {showSync ? (
-                <>
-                  Aún no hay memes en la base. Ejecuta la sincronización desde arriba o espera al job diario.
-                </>
-              ) : (
-                "Aún no hay memes en la base."
-              )}
-            </p>
-          ) : (
-            data.value.meme.map((t: any) => (
-              <Link
-                key={t.id}
-                href={`/${L}/token/${t.id}/`}
-                class="rounded-xl border border-[#043234] bg-[#001a1c] p-4 flex gap-3 items-center hover:border-[#04E6E6]/40 transition-colors"
-              >
-                <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={40} />
-                <div class="min-w-0">
-                  <div class="font-medium truncate">
-                    {t.name} <span class="text-gray-500 text-sm">({t.symbol})</span>
-                  </div>
-                  <div class="text-sm text-[#04E6E6]">${formatTokenUsdPrice(t.price)}</div>
-                  <div class="text-xs text-gray-500 truncate">{t.network}</div>
-                </div>
+        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
+          {HelpTip("Cantidad de colecciones NFT destacadas ahora mismo.")}
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">NFT hottest (sample)</p>
+          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">
+            {data.value.nftGlobal.ok ? data.value.nftGlobal.hottestCount : "—"}
+          </p>
+          <p class="text-xs text-gray-500 mt-2">
+            {showSync ? (
+              <Link href={`${base}/nfts/`} class="text-[#04E6E6]/90 hover:underline">
+                Abrir NFTs →
               </Link>
-            ))
-          )}
+            ) : (
+              "Colecciones disponibles."
+            )}
+          </p>
+        </div>
+        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
+          {HelpTip("Cantidad de señales de ballenas registradas en las últimas 24 horas.")}
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">Whale alerts (24h)</p>
+          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.whales}</p>
+          <p class="text-xs text-gray-500 mt-2">{showSync ? "Señales guardadas en el servidor." : "Señales en tiempo casi real."}</p>
+        </div>
+        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
+          {HelpTip("Cantidad de señales de traders detectadas en las últimas 24 horas.")}
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">Trader signals (24h)</p>
+          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.traders}</p>
+          <p class="text-xs text-gray-500 mt-2">Smart money / traders.</p>
+        </div>
+        <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
+          {HelpTip("Señales smart de USDT generadas en el último día.")}
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">USDT smart (24h)</p>
+          <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.smart}</p>
+          <p class="text-xs text-gray-500 mt-2">
+            {showSync ? "Watcher + análisis on-chain." : "Análisis on-chain."}
+          </p>
         </div>
       </section>
 
-      <section class="relative">
-        {HelpTip("Monedas de IA y big data con precios actualizados.")}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold">AI &amp; big data</h2>
-          <Link href={`${base}/ai-coins/`} class="text-sm text-[#04E6E6] hover:underline">
-            Ver vertical →
-          </Link>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {data.value.ai.length === 0 ? (
-            <p class="text-gray-500 col-span-full text-sm">
-              {showSync ? "Aún no hay monedas en esta sección. Vuelve en unos minutos." : "Sin monedas en esta sección todavía."}
-            </p>
-          ) : null}
-          {data.value.ai.map((t: any) => (
-            <Link
-              key={t.id}
-              href={`/${L}/token/${t.id}/`}
-              class="rounded-lg border border-[#043234] bg-[#001a1c] p-3 text-sm flex gap-2 items-center hover:border-[#04E6E6]/40 transition-colors"
-            >
-              <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={36} />
-              <div class="min-w-0 flex-1">
-                <div class="font-medium truncate">
-                  {t.name} <span class="text-gray-500">({t.symbol})</span>
-                </div>
-                <div class="text-[#04E6E6]">${formatTokenUsdPrice(t.price)}</div>
+      {!hasPro ? (
+        <section
+          id="pro-offer"
+          class="rounded-2xl border border-amber-500/30 bg-[#1a1408]/50 p-6 md:p-8 scroll-mt-24"
+        >
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div class="flex gap-4">
+              <span class="rounded-xl bg-amber-500/15 p-3 text-amber-300 h-fit">
+                <LuRadio class="h-6 w-6" />
+              </span>
+              <div>
+                <h2 class="text-xl font-bold text-white">Crypto Helper Pro</h2>
+                <p class="text-sm text-gray-400 mt-2 max-w-lg leading-relaxed">
+                  Con Pro obtienes <strong class="text-gray-300">DB insight (IA)</strong> sobre datos agregados en el
+                  servidor, <strong class="text-gray-300">señales en vivo</strong> (smart money y ballenas) y{" "}
+                  <strong class="text-gray-300">alertas smart USDT</strong> en los paneles del menú. Para activarlo{" "}
+                  <strong class="text-gray-300">debes enviar USDT</strong>: importe, red y dirección de tesorería salen en
+                  el modal; luego verificas la transacción ahí mismo — no sustituye abrir las{" "}
+                  <strong class="text-gray-300">notificaciones push</strong> del menú: esas solo registran tu dispositivo y
+                  preferencias; el acceso Pro depende del pago verificado.
+                </p>
               </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+            </div>
+            <div class="text-sm text-gray-400 md:text-right shrink-0 max-w-xs md:max-w-sm">
+              <p class="text-amber-200/90 font-medium">Cómo activar Pro</p>
+              <p class="mt-1 leading-relaxed">
+                Inicia sesión, abre <strong class="text-gray-300">Upgrade Pro</strong> en la barra (menú de cuenta),
+                elige red, envía el USDT indicado y completa la verificación en el modal. Tras acreditarse, tu cuenta
+                pasa a Pro automáticamente.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section class="rounded-xl border border-[#04E6E6]/25 bg-[#04E6E6]/5 px-4 py-3 text-sm text-[#04E6E6]/95">
+          Plan <strong>Pro</strong> activo — DB insight, señales en vivo y alertas USDT desbloqueados (pago verificado).
+        </section>
+      )}
 
     </div>
     </>

@@ -462,9 +462,9 @@ export default component$(() => {
             <header style={{ viewTransitionName: "cg-chrome-header" }}
                 class="cg-vt-chrome sticky top-0 z-50 w-full border-b border-[#043234] bg-[#001a1c]/92 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] transition-all duration-300"
             >
-                <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                <div class="mx-auto flex h-16 w-full max-w-[1700px] items-center px-3 sm:px-4 lg:px-6">
                     {/* Logo + Brand */}
-                    <div class="flex min-w-0 flex-1 items-center gap-2">
+                    <div class="flex min-w-0 items-center gap-3">
                         <NavLink href={`/${L}/`} class="flex min-w-0 items-center gap-2 transition-transform hover:scale-[1.02]">
                             <div class="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#04E6E6] to-teal-600 shadow-lg shadow-[#04E6E6]/25">
                                 <LuRadar class="h-5 w-5 text-[#001a1c]" />
@@ -473,20 +473,71 @@ export default component$(() => {
                             <span class="truncate text-lg font-bold tracking-tight text-white">{t_cryptoBrand.value}</span>
                         </NavLink>
 
-                        <nav class="hidden min-w-0 md:ml-6 md:flex md:items-center md:gap-0.5">
+                        <nav class="hidden min-w-0 md:ml-4 md:flex md:items-center md:gap-0.5 lg:gap-1">
                             <NavLink
-                                href={`/${L}/`}
+                                href={`/${L}/tokens/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
-                                class="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-[#043234]/70 hover:text-white"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                <LuHome class="h-4 w-4 text-slate-500 group-hover:text-[#04E6E6] group-[.active]:text-[#04E6E6]" />
-                                {t_homeNav.value}
+                                Cryptocurrencies
                             </NavLink>
-
+                            <NavLink
+                                href={`/${L}/home/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                Dashboard
+                            </NavLink>
+                            <NavLink
+                                href={`/${L}/top-traders-swaps/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                DexScan
+                            </NavLink>
+                            <NavLink
+                                href={`/${L}/volume-coins/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                Exchanges
+                            </NavLink>
+                            <NavLink
+                                href={`/${L}/top-traders/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                Community
+                            </NavLink>
+                            <NavLink
+                                href={`/${L}/documentation/`}
+                                activeClass="bg-[#043234] text-[#04E6E6]"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                Products
+                            </NavLink>
+                            <a
+                                href="/api/crypto/health"
+                                class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
+                            >
+                                API
+                            </a>
                         </nav>
                     </div>
 
-                    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+                    <div class="ml-auto hidden xl:flex items-center gap-2 text-xs text-slate-400 mr-3">
+                        <NavLink href={`/${L}/top-traders/`} class="rounded-lg px-2 py-1 hover:text-white transition">
+                            Portfolio
+                        </NavLink>
+                        <NavLink href={`/${L}/notifications-settings/`} class="rounded-lg px-2 py-1 hover:text-white transition">
+                            Watchlist
+                        </NavLink>
+                        <div class="w-40 rounded-lg border border-[#043234] bg-[#001318] px-3 py-1.5 text-slate-500">
+                            Search
+                        </div>
+                    </div>
+
+                    <div class="ml-2 flex shrink-0 items-center gap-2 sm:gap-2.5">
                         {auth.value?.isAuthenticated && auth.value?.hasPro === false ? (
                             <button
                                 type="button"
@@ -638,6 +689,75 @@ export default component$(() => {
                             </span>
                             {t_homeNav.value}
                         </NavLink>
+                        <NavLink
+                            href={`/${L}/home/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuRadar class="h-5 w-5" />
+                            </span>
+                            Dashboard
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/tokens/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuCoins class="h-5 w-5" />
+                            </span>
+                            Cryptocurrencies
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/bubbles/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuRadar class="h-5 w-5" />
+                            </span>
+                            Markets
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/top-traders-swaps/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuCoins class="h-5 w-5" />
+                            </span>
+                            DexScan
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/top-traders/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuWallet class="h-5 w-5" />
+                            </span>
+                            Community
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/documentation/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuMenu class="h-5 w-5" />
+                            </span>
+                            Products
+                        </NavLink>
+                        <a
+                            href="/api/crypto/health"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400">
+                                <LuZap class="h-5 w-5" />
+                            </span>
+                            API
+                        </a>
                         {auth.value?.isAuthenticated && auth.value?.hasPro === false ? (
                             <button
                                 type="button"

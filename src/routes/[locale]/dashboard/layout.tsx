@@ -158,7 +158,7 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       <aside
         style={{ viewTransitionName: "cg-dash-sidebar" }}
         class={[
-          "cg-vt-dash-sidebar w-full shrink-0 border-b md:border-b-0 md:border-r border-[#043234] md:max-h-screen md:overflow-y-auto md:transition-[width] md:duration-200 md:ease-out",
+          "cg-vt-dash-sidebar w-full shrink-0 border-b md:border-b-0 md:border-r border-[#043234] md:sticky md:top-16 md:self-start md:h-[calc(100vh-4rem)] md:overflow-y-auto md:transition-[width] md:duration-200 md:ease-out",
           collapsed ? "p-4 md:w-[3.25rem] md:px-1.5 md:py-4" : "p-4 md:w-64",
         ].join(" ")}
       >
@@ -605,9 +605,26 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       </aside>
       <main
         style={{ viewTransitionName: "cg-dash-stage" }}
-        class="cg-vt-dash-stage flex-1 p-4 md:p-8 overflow-auto border-t md:border-t-0 border-[#043234]/50"
+        class="cg-vt-dash-stage flex-1 p-4 md:p-8 border-t md:border-t-0 border-[#043234]/50"
       >
         <Slot />
+        <footer class="mt-12 rounded-2xl border border-[#043234] bg-gradient-to-r from-[#001318] via-[#001a1c] to-[#001318] px-5 py-4">
+          <div class="flex flex-col items-center justify-center gap-2 text-center">
+            <div>
+              <p class="text-sm font-semibold text-[#04E6E6]">Crypto Helper</p>
+              <p class="text-xs text-slate-400">Mercado, señales y análisis en tiempo real.</p>
+            </div>
+            <div class="flex items-center justify-center gap-4 text-xs">
+              <Link href={`/${L}/privacy/`} class="text-slate-400 transition hover:text-[#04E6E6]">
+                Privacy
+              </Link>
+              <Link href={`/${L}/terms/`} class="text-slate-400 transition hover:text-[#04E6E6]">
+                Terms
+              </Link>
+              <span class="text-slate-500">© {new Date().getFullYear()}</span>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );

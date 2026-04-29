@@ -15,6 +15,7 @@ import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-ap
 import {
   getLatestSyncRun,
   queryMarketTokens,
+  queryMostVisitedOrFallback,
   queryRecentSyncRuns,
   queryTrendingOrFallback,
 } from "~/server/crypto-ghost/market-queries";
@@ -42,31 +43,71 @@ function normalizeMoralisTokenList(raw: unknown): unknown[] {
   return [];
 }
 
+function dedupeRows<T extends { cmcId?: number | null; slug?: string | null; symbol?: string | null }>(
+  rows: T[],
+): T[] {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const cmc = row.cmcId;
+    const key =
+      cmc != null && Number.isFinite(Number(cmc))
+        ? `cmc:${Number(cmc)}`
+        : `slug:${String(row.slug ?? "").toLowerCase()}|sym:${String(row.symbol ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
 export async function loadDashboardHome(ev: RequestEventBase) {
   try {
   const since24h = Math.floor(Date.now() / 1000) - 86_400;
 
-  const [meme, ai, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap] =
+  const [meme, ai, gaming, mineable, earlybird, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, mostVisitedPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap] =
     await Promise.all([
       db
         .select()
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "memes"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
-        .limit(12)
+        .limit(30)
         .all(),
       db
         .select()
         .from(cachedMarketTokens)
         .where(eq(cachedMarketTokens.category, "ai-big-data"))
         .orderBy(desc(cachedMarketTokens.updatedAt))
-        .limit(8)
+        .limit(30)
+        .all(),
+      db
+        .select()
+        .from(cachedMarketTokens)
+        .where(eq(cachedMarketTokens.category, "gaming"))
+        .orderBy(desc(cachedMarketTokens.updatedAt))
+        .limit(30)
+        .all(),
+      db
+        .select()
+        .from(cachedMarketTokens)
+        .where(eq(cachedMarketTokens.category, "mineable"))
+        .orderBy(desc(cachedMarketTokens.updatedAt))
+        .limit(30)
+        .all(),
+      db
+        .select()
+        .from(cachedMarketTokens)
+        .where(eq(cachedMarketTokens.category, "earlybird"))
+        .orderBy(desc(cachedMarketTokens.updatedAt))
+        .limit(30)
         .all(),
       db.select({ n: count() }).from(cachedMarketTokens).get(),
       getLatestSyncRun(),
-      queryMarketTokens({ category: "volume", limit: 6, offset: 0 }),
+      queryMarketTokens({ category: "volume", limit: 30, offset: 0 }),
       queryMarketTokens({ category: "volume", limit: 120, offset: 0 }),
-      queryTrendingOrFallback(6),
+      queryTrendingOrFallback(30),
+      queryMostVisitedOrFallback(30),
       db
         .select({ n: count() })
         .from(signalWhales)
@@ -200,8 +241,11 @@ export async function loadDashboardHome(ev: RequestEventBase) {
   }
 
   return {
-    meme,
-    ai,
+    meme: dedupeRows(meme),
+    ai: dedupeRows(ai),
+    gaming: dedupeRows(gaming),
+    mineable: dedupeRows(mineable),
+    earlybird: dedupeRows(earlybird),
     wallet,
     stats: {
       totalTokens: totalRow?.n ?? 0,
@@ -213,7 +257,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         smart: smart24?.n ?? 0,
       },
     },
-    topVolume,
+    topVolume: dedupeRows(topVolume),
     marketPulse: {
       sampleSize: topVolumeForPulse.length,
       marketCap,
@@ -228,7 +272,8 @@ export async function loadDashboardHome(ev: RequestEventBase) {
       altcoinSeason,
       avgRsi,
     },
-    trending: trendingPack,
+    trending: { ...trendingPack, rows: dedupeRows(trendingPack.rows) },
+    mostVisited: { ...mostVisitedPack, rows: dedupeRows(mostVisitedPack.rows) },
     access: pro,
     nftGlobal: {
       hottestCount: nftHottestCount,
@@ -247,6 +292,9 @@ export async function loadDashboardHome(ev: RequestEventBase) {
     return {
       meme: [],
       ai: [],
+      gaming: [],
+      mineable: [],
+      earlybird: [],
       wallet: { address: null, authProvider: null, tokens: [] },
       stats: {
         totalTokens: 0,
@@ -270,6 +318,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         avgRsi: 50,
       },
       trending: { rows: [], usedFallback: true },
+      mostVisited: { rows: [], usedFallback: true },
       access: pro,
       nftGlobal: {
         hottestCount: 0,

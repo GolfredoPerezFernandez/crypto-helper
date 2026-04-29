@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, ne } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens, cmcSyncLease, syncRuns } from "../../../drizzle/schema";
 import {
@@ -594,6 +594,48 @@ async function upsertMarketCategory(
     updatedAt: now,
     apiSnapshot,
   };
+
+  // Canonical key is (category + cmcId). Address can change between snapshots
+  // (e.g. non-EVM fallback slug vs later real contract), so update by cmcId first.
+  const updated = await db
+    .update(cachedMarketTokens)
+    .set({
+      address: row.address,
+      name: row.name,
+      symbol: row.symbol,
+      decimals: row.decimals,
+      logo: row.logo,
+      totalSupply: row.totalSupply,
+      percentChange1h: row.percentChange1h,
+      percentChange24h: row.percentChange24h,
+      percentChange7d: row.percentChange7d,
+      percentChange30d: row.percentChange30d,
+      percentChange90d: row.percentChange90d,
+      fullyDilutedValuation: row.fullyDilutedValuation,
+      price: row.price,
+      volume: row.volume,
+      network: row.network,
+      slug: row.slug,
+      cmcId: row.cmcId,
+      updatedAt: now,
+      apiSnapshot: row.apiSnapshot,
+    })
+    .where(and(eq(cachedMarketTokens.category, category), eq(cachedMarketTokens.cmcId, id)))
+    .returning({ id: cachedMarketTokens.id });
+
+  if (updated.length > 0) {
+    const keepId = updated[0]!.id;
+    await db
+      .delete(cachedMarketTokens)
+      .where(
+        and(
+          eq(cachedMarketTokens.category, category),
+          eq(cachedMarketTokens.cmcId, id),
+          ne(cachedMarketTokens.id, keepId),
+        ),
+      );
+    return;
+  }
 
   await db
     .insert(cachedMarketTokens)
