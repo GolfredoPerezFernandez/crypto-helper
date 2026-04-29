@@ -258,12 +258,12 @@ export default component$(() => {
       : null;
 
   return (
-    <div class="max-w-[1600px]">
+    <div class="mx-auto w-full max-w-[1700px] 2xl:max-w-[1900px] px-1 2xl:px-3">
       <Link href={`/${L}/nfts/`} class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block">
         ← NFT collections
       </Link>
 
-      <div class="rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-5 sm:p-6 mb-8">
+      <div class="rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-5 sm:p-6 2xl:p-7 mb-8">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
           {metaRec?.collection_logo || metaRec?.collection_banner_image ? (
             <img
@@ -487,7 +487,7 @@ export default component$(() => {
           Sin ítems en esta página (la colección puede estar vacía o sin indexar aún).
         </p>
       ) : (
-        <ul class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <ul class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {rows.map((n, i) => {
             const tid = String(n.token_id ?? n.tokenId ?? i);
             const img = nftImage(n);

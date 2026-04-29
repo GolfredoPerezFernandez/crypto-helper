@@ -82,7 +82,7 @@ export default component$(() => {
   const title = String(norm?.name ?? nftData?.name ?? coll?.name ?? "NFT");
 
   return (
-    <div class="mx-auto w-full max-w-[1400px]">
+    <div class="mx-auto w-full max-w-[1600px] 2xl:max-w-[1760px] px-1 2xl:px-3">
       <Link
         href={`/${L}/nfts/${v.contract}/?${chainQs}`}
         class="text-sm text-[#04E6E6] hover:underline mb-4 inline-block"
@@ -103,19 +103,19 @@ export default component$(() => {
         ) : !v.nft.ok ? (
           <p class="text-sm text-rose-400/90">{v.nft.error}</p>
         ) : (
-          <div class="grid gap-6 sm:grid-cols-[minmax(0,280px)_1fr]">
+          <div class="grid gap-6 xl:grid-cols-[minmax(0,340px)_1fr]">
             <div>
               {img ? (
-                <img
+                    <img
                   src={img}
                   alt=""
-                  class="w-full max-w-[280px] rounded-xl object-cover ring-1 ring-[#043234]/60"
+                      class="w-full max-w-[340px] rounded-xl object-cover ring-1 ring-[#043234]/60"
                   width={280}
                   height={280}
                   loading="eager"
                 />
               ) : (
-                <div class="flex aspect-square max-w-[280px] items-center justify-center rounded-xl bg-[#043234]/40 text-slate-500">
+                    <div class="flex aspect-square max-w-[340px] items-center justify-center rounded-xl bg-[#043234]/40 text-slate-500">
                   Sin imagen
                 </div>
               )}

@@ -169,7 +169,7 @@ export default component$(() => {
     "w-full rounded-lg border border-[#043234] bg-[#000D0E]/90 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-slate-600 outline-none focus:border-[#04E6E6]/50";
 
   return (
-    <div class="max-w-[1600px]">
+    <div class="mx-auto w-full max-w-[1700px] 2xl:max-w-[1900px] px-1 2xl:px-3">
       <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">NFT collections</h1>
       <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
         {showSync
@@ -215,7 +215,7 @@ export default component$(() => {
         <p class="mt-2 text-xs text-slate-500">
           Showing <span class="font-semibold text-slate-300">{hotFiltered.value.length}</span> collections
         </p>
-        <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {hotFiltered.value.length === 0 ? (
             <li class="col-span-full rounded-2xl border border-[#043234]/80 bg-[#001318]/40 p-10 text-center text-sm text-slate-500">
               Sin datos o sin coincidencias.
@@ -311,7 +311,7 @@ export default component$(() => {
           siga en el ranking por <span class="text-slate-500">capitalización</span>. En ese caso mostramos el cap si
           viene en la caché.
         </p>
-        <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {topFiltered.value.length === 0 ? (
             <li class="col-span-full rounded-2xl border border-[#043234]/80 bg-[#001318]/40 p-10 text-center text-sm text-slate-500">
               No rows or no matches.
