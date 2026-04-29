@@ -106,16 +106,16 @@ export default component$(() => {
     // Synchronize speakState.locale with [locale] param during SPA navigation
     useTask$(({ track }) => {
         const lang = track(() => location.params.locale);
-        if (lang) {
-            console.log(`[Layout SPA] Synchronizing locale: ${lang}`);
-            const newLocale = speakState.config.supportedLocales.find(
-                (l: any) => l.lang.toLowerCase() === lang.toLowerCase()
-            );
-            if (newLocale && newLocale.lang !== speakState.locale.lang) {
-                console.log(`[Layout SPA] Updating speakState to: ${newLocale.lang}`);
-                // Update the speakState (which is a store)
-                Object.assign(speakState.locale, newLocale);
-            }
+        if (!lang) return;
+        // Ignore bogus locale-like values coming from static asset navigations (e.g. "favicon.ico").
+        if (lang.includes(".")) return;
+        const newLocale = speakState.config.supportedLocales.find(
+            (l: any) => l.lang.toLowerCase() === lang.toLowerCase()
+        );
+        if (!newLocale) return;
+        if (newLocale.lang !== speakState.locale.lang) {
+            // Update the speakState (which is a store)
+            Object.assign(speakState.locale, newLocale);
         }
     });
 
