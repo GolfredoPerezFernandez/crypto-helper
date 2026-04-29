@@ -212,18 +212,28 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
     let okW = 0;
     let failW = 0;
     const failSamples: string[] = [];
+    const failedApiHits = new Map<string, number>();
+    const disabledApis = new Set<string>();
+    const disableAfter = Math.max(5, Number(process.env.MORALIS_WALLET_API_DISABLE_AFTER ?? 25));
+    const maxPerWalletWarn = Math.max(5, Number(process.env.MORALIS_WALLET_LOG_MAX_PARTIAL ?? 25));
+    let partialWarns = 0;
 
     for (let i = 0; i < list.length; i++) {
       const addr = list[i];
       const w0 = Date.now();
       try {
-        const snap = await buildWalletPageSnapshot(addr);
+        const snap = await buildWalletPageSnapshot(addr, { disabledApis });
         await upsertWalletSnapshot(normalizeWalletSnapshotAddress(addr), snap);
         okW++;
         const apis = summarizeWalletSnapshotApiResults(snap);
         const failed = Object.entries(apis)
           .filter(([, v]) => !v)
           .map(([k]) => k);
+        for (const key of failed) {
+          const n = (failedApiHits.get(key) ?? 0) + 1;
+          failedApiHits.set(key, n);
+          if (n >= disableAfter) disabledApis.add(key);
+        }
         const ms = Date.now() - w0;
         if (process.env.MARKET_SYNC_VERBOSE_WALLETS === "1") {
           syncLogInfo("wallet snapshot", {
@@ -232,12 +242,13 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
             allApisOk: failed.length === 0,
             failedApis: failed.length ? failed : undefined,
           });
-        } else if (failed.length > 0) {
+        } else if (failed.length > 0 && partialWarns < maxPerWalletWarn) {
           syncLogWarn("wallet snapshot partial Moralis failures", {
             address: `${addr.slice(0, 10)}…`,
             ms,
             failedApis: failed,
           });
+          partialWarns++;
         }
       } catch (e: unknown) {
         failW++;
@@ -260,6 +271,12 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       walletsOk: okW,
       walletsFail: failW,
       total: list.length,
+      disabledApis: disabledApis.size ? [...disabledApis] : undefined,
+      partialApiFailures: failedApiHits.size
+        ? Object.fromEntries(
+            [...failedApiHits.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
+          )
+        : undefined,
       errorSamples: failSamples.length ? failSamples : undefined,
     });
   } catch (e: unknown) {

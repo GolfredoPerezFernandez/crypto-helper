@@ -153,7 +153,7 @@ export const CategoryTokenTable = component$(
       "w-full min-w-0 rounded-lg border border-[#043234] bg-[#000D0E]/90 px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-[#04E6E6]/50 focus:ring-1 focus:ring-[#04E6E6]/30 sm:w-auto sm:min-w-[10.5rem]";
 
     return (
-      <div class="max-w-[1600px]">
+      <div class="w-full max-w-[2200px] mx-auto">
         <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">{props.title}</h1>
         {props.subtitle ? (
           <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">{props.subtitle}</p>
@@ -161,7 +161,7 @@ export const CategoryTokenTable = component$(
 
         <div class={`${filterBarClass} mt-6 space-y-4`}>
           <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div class="relative min-w-0 flex-1 max-w-xl">
+            <div class="relative min-w-0 flex-1 max-w-2xl">
               <LuSearch class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <input
                 type="search"
@@ -295,7 +295,7 @@ export const CategoryTokenTable = component$(
             </button>
           </div>
         ) : (
-          <ul class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
             {filtered.value.map((t) => {
               const id = String(t.id);
               const cat = String(t.category ?? "");

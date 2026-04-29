@@ -403,7 +403,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     throw ev.error(404, { message: "Token no encontrado — ejecuta la sincronización o vuelve más tarde." });
   }
 
-  // If duplicate rows exist for the same CMC asset in the same category, always use the newest one.
+  // If duplicate rows exist for the same CMC asset in the same category, always use one canonical id.
   if (row.cmcId != null && Number.isFinite(Number(row.cmcId))) {
     const canonical = await db
       .select({ id: cachedMarketTokens.id })
@@ -412,13 +412,12 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
         and(
           eq(cachedMarketTokens.category, row.category),
           eq(cachedMarketTokens.cmcId, Number(row.cmcId)),
-          ne(cachedMarketTokens.id, row.id),
         ),
       )
       .orderBy(desc(cachedMarketTokens.updatedAt), desc(cachedMarketTokens.id))
       .limit(1)
       .get();
-    if (canonical?.id) {
+    if (canonical?.id && canonical.id !== row.id) {
       throw ev.redirect(302, `/${ev.params.locale}/token/${canonical.id}/`);
     }
   }

@@ -60,6 +60,10 @@ export type WalletPageSnapshot = {
   solSwaps?: MoralisWalletTokensResult;
 };
 
+export type WalletSnapshotBuildOptions = {
+  disabledApis?: ReadonlySet<string>;
+};
+
 /** Turso `api_wallet_snapshots.address`: EVM lowercased; Solana trim, case preserved. */
 export function normalizeWalletSnapshotAddress(raw: string): string {
   const t = raw.trim();
@@ -216,6 +220,10 @@ function evmOmitStub(): MoralisWalletTokensResult {
   return { ok: false, error: "Omitted (Solana wallet)" };
 }
 
+function disabledApiStub(key: string): MoralisWalletTokensResult {
+  return { ok: false, error: `Skipped in this sync run (${key} disabled after repeated provider failures)` };
+}
+
 async function buildSolanaWalletPageSnapshot(address: string): Promise<WalletPageSnapshot> {
   const omit = evmOmitStub();
   const netRaw = String(process.env.MORALIS_SOLANA_NETWORK ?? "mainnet").trim().toLowerCase();
@@ -259,32 +267,47 @@ async function buildSolanaWalletPageSnapshot(address: string): Promise<WalletPag
   };
 }
 
-async function buildEvmWalletPageSnapshot(address: string): Promise<WalletPageSnapshot> {
-  const [
-    nw,
-    nwEth,
-    tokBase,
-    tokEth,
-    nfts,
-    txBase,
-    txEth,
-    pnlBase,
-    pnlEth,
-    nativeBase,
-    nativeEth,
-  ] = await Promise.all([
-    fetchMoralisWalletNetWorth(address, ["eth", "base"]),
-    fetchMoralisWalletNetWorth(address, "eth"),
-    fetchMoralisWalletTokens(address, "base"),
-    fetchMoralisWalletTokens(address, "eth"),
-    fetchMoralisWalletNfts(address, "base", 40),
-    fetchMoralisWalletTransactions(address, "base", 80),
-    fetchMoralisWalletTransactions(address, "eth", 25),
-    fetchMoralisWalletProfitabilitySummary(address, "base", "all"),
-    fetchMoralisWalletProfitabilitySummary(address, "eth", "all"),
-    fetchMoralisNativeBalance(address, "base"),
-    fetchMoralisNativeBalance(address, "eth"),
-  ]);
+async function buildEvmWalletPageSnapshot(
+  address: string,
+  options?: WalletSnapshotBuildOptions,
+): Promise<WalletPageSnapshot> {
+  const disabled = options?.disabledApis ?? new Set<string>();
+  const [nw, nwEth, tokBase, tokEth, nfts, txBase, txEth, pnlBase, pnlEth, nativeBase, nativeEth] =
+    await Promise.all([
+      disabled.has("netWorthEthBase")
+        ? Promise.resolve(disabledApiStub("netWorthEthBase"))
+        : fetchMoralisWalletNetWorth(address, ["eth", "base"]),
+      disabled.has("netWorthEth")
+        ? Promise.resolve(disabledApiStub("netWorthEth"))
+        : fetchMoralisWalletNetWorth(address, "eth"),
+      disabled.has("tokensBase")
+        ? Promise.resolve(disabledApiStub("tokensBase"))
+        : fetchMoralisWalletTokens(address, "base"),
+      disabled.has("tokensEth")
+        ? Promise.resolve(disabledApiStub("tokensEth"))
+        : fetchMoralisWalletTokens(address, "eth"),
+      disabled.has("nftsBase")
+        ? Promise.resolve(disabledApiStub("nftsBase"))
+        : fetchMoralisWalletNfts(address, "base", 40),
+      disabled.has("txBase")
+        ? Promise.resolve(disabledApiStub("txBase"))
+        : fetchMoralisWalletTransactions(address, "base", 80),
+      disabled.has("txEth")
+        ? Promise.resolve(disabledApiStub("txEth"))
+        : fetchMoralisWalletTransactions(address, "eth", 25),
+      disabled.has("pnlBase")
+        ? Promise.resolve(disabledApiStub("pnlBase"))
+        : fetchMoralisWalletProfitabilitySummary(address, "base", "all"),
+      disabled.has("pnlEth")
+        ? Promise.resolve(disabledApiStub("pnlEth"))
+        : fetchMoralisWalletProfitabilitySummary(address, "eth", "all"),
+      disabled.has("nativeBase")
+        ? Promise.resolve(disabledApiStub("nativeBase"))
+        : fetchMoralisNativeBalance(address, "base"),
+      disabled.has("nativeEth")
+        ? Promise.resolve(disabledApiStub("nativeEth"))
+        : fetchMoralisNativeBalance(address, "eth"),
+    ]);
 
   const weekBase = txBase.ok ? baseActivityFromTransactions(txBase.data) : null;
   const interactBase = txBase.ok ? interactionStats(txBase.data, address) : null;
@@ -360,12 +383,15 @@ async function buildEvmWalletPageSnapshot(address: string): Promise<WalletPageSn
 }
 
 /** Fetches Moralis once per wallet — only call from daily sync (not from HTTP routes). */
-export async function buildWalletPageSnapshot(addressRaw: string): Promise<WalletPageSnapshot> {
+export async function buildWalletPageSnapshot(
+  addressRaw: string,
+  options?: WalletSnapshotBuildOptions,
+): Promise<WalletPageSnapshot> {
   const trimmed = addressRaw.trim();
   if (isSolanaWalletAddress(trimmed)) {
     return buildSolanaWalletPageSnapshot(trimmed);
   }
-  return buildEvmWalletPageSnapshot(trimmed.toLowerCase());
+  return buildEvmWalletPageSnapshot(trimmed.toLowerCase(), options);
 }
 
 /** Which Moralis wallet snapshot calls succeeded (for sync logging). */
