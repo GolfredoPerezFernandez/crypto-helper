@@ -375,6 +375,30 @@ function cmcInfoUrls(infoPayload: unknown, cmcId: number): { website?: string; e
   };
 }
 
+function nansenRoot(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== "object") return null;
+  return data as Record<string, unknown>;
+}
+
+function nansenDataObject(data: unknown): Record<string, unknown> | null {
+  const root = nansenRoot(data);
+  if (!root) return null;
+  const inner = root.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) return inner as Record<string, unknown>;
+  return root;
+}
+
+function nansenDataRows(data: unknown): Record<string, unknown>[] {
+  const root = nansenRoot(data);
+  if (!root) return [];
+  if (Array.isArray(root.data)) return root.data as Record<string, unknown>[];
+  const inner = root.data;
+  if (inner && typeof inner === "object" && Array.isArray((inner as Record<string, unknown>).data)) {
+    return (inner as Record<string, unknown>).data as Record<string, unknown>[];
+  }
+  return [];
+}
+
 const missingApiSnapshot = {
   ok: false as const,
   error: "Sin datos en base de datos — ejecuta la actualización diaria.",
@@ -453,6 +477,32 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
         "Sin analytics en caché. Prueba la carga en vivo o espera a la próxima actualización.",
     } as const);
 
+  const {
+    getGlobalSnapshotJson,
+    GLOBAL_NANSEN_TGM_TOKEN_INFORMATION,
+    GLOBAL_NANSEN_TGM_INDICATORS,
+    GLOBAL_NANSEN_TGM_WHO_BOUGHT_SOLD,
+    GLOBAL_NANSEN_TGM_TRANSFERS,
+    GLOBAL_NANSEN_TGM_PERP_PNL,
+    GLOBAL_NANSEN_TGM_TOKEN_OHLCV,
+  } = await import("~/server/crypto-ghost/api-snapshot-sync");
+
+  const [
+    nansenTokenInformation,
+    nansenIndicators,
+    nansenWhoBoughtSold,
+    nansenTransfers,
+    nansenPerpPnl,
+    nansenTokenOhlcv,
+  ] = await Promise.all([
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_TOKEN_INFORMATION),
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_INDICATORS),
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_WHO_BOUGHT_SOLD),
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_TRANSFERS),
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_PERP_PNL),
+    getGlobalSnapshotJson<Record<string, unknown> | null>(GLOBAL_NANSEN_TGM_TOKEN_OHLCV),
+  ]);
+
   return {
     ...row,
     moralisChain,
@@ -468,6 +518,12 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     moralisTokenScoreHistorical: snap?.moralisTokenScoreHistorical,
     moralisTokenPairs: snap?.moralisTokenPairs,
     moralisTokenAnalytics,
+    nansenTokenInformation,
+    nansenIndicators,
+    nansenWhoBoughtSold,
+    nansenTransfers,
+    nansenPerpPnl,
+    nansenTokenOhlcv,
     cmcQuotes,
     cmcInfo,
   };
@@ -576,6 +632,13 @@ export default component$(() => {
   const mTokAnalytics = t.moralisTokenAnalytics as { ok?: boolean; data?: unknown; error?: string } | undefined;
   const snapAnalyticsRec = mTokAnalytics?.ok ? tokenAnalyticsRecord(mTokAnalytics.data) : null;
 
+  const nInfoSnap = (t.nansenTokenInformation as Record<string, unknown> | null) ?? null;
+  const nIndicatorsSnap = (t.nansenIndicators as Record<string, unknown> | null) ?? null;
+  const nWhoSnap = (t.nansenWhoBoughtSold as Record<string, unknown> | null) ?? null;
+  const nTransfersSnap = (t.nansenTransfers as Record<string, unknown> | null) ?? null;
+  const nPerpSnap = (t.nansenPerpPnl as Record<string, unknown> | null) ?? null;
+  const nOhlcvSnap = (t.nansenTokenOhlcv as Record<string, unknown> | null) ?? null;
+
   const analyticsLive = useSignal<Record<string, unknown> | null>(null);
   const analyticsLoading = useSignal(false);
   const analyticsErr = useSignal("");
@@ -589,6 +652,29 @@ export default component$(() => {
   const tokenDbId = Number(t.id);
   const tokenAddrLower = String(t.address || "").trim().toLowerCase();
   const isEvmContract = /^0x[a-f0-9]{40}$/.test(tokenAddrLower);
+  const nansenTokenMatches = String(nInfoSnap?.token ?? "").toLowerCase() === tokenAddrLower;
+  const nInfoRec = nansenTokenMatches ? nansenDataObject(nInfoSnap?.data) : null;
+  const nInfoDetails =
+    nInfoRec?.token_details && typeof nInfoRec.token_details === "object"
+      ? (nInfoRec.token_details as Record<string, unknown>)
+      : null;
+  const nInfoSpot =
+    nInfoRec?.spot_metrics && typeof nInfoRec.spot_metrics === "object"
+      ? (nInfoRec.spot_metrics as Record<string, unknown>)
+      : null;
+  const nIndicators = nansenTokenMatches ? nansenDataObject(nIndicatorsSnap?.data) : null;
+  const nRiskIndicators = Array.isArray(nIndicators?.risk_indicators)
+    ? (nIndicators?.risk_indicators as Record<string, unknown>[])
+    : [];
+  const nRewardIndicators = Array.isArray(nIndicators?.reward_indicators)
+    ? (nIndicators?.reward_indicators as Record<string, unknown>[])
+    : [];
+  const nWhoRows = nansenTokenMatches ? nansenDataRows(nWhoSnap?.data) : [];
+  const nTransferRows = nansenTokenMatches ? nansenDataRows(nTransfersSnap?.data) : [];
+  const nPerpRows = Array.isArray((nPerpSnap?.data as Record<string, unknown> | null)?.data)
+    ? (((nPerpSnap?.data as Record<string, unknown> | null)?.data ?? []) as Record<string, unknown>[])
+    : [];
+  const nOhlcvRows = nansenTokenMatches ? nansenDataRows(nOhlcvSnap?.data) : [];
 
   const loadTokenAnalytics$ = $(async () => {
     analyticsLoading.value = true;
@@ -1533,6 +1619,95 @@ ERC-20
               <span class="font-mono text-slate-300">{String(t.id)}</span>
             </p>
           ) : null}
+          {nInfoRec ? (
+            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen · Token Information
+              </h3>
+              <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                <div>
+                  <dt class="text-slate-400 font-medium">Mcap</dt>
+                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoDetails?.market_cap_usd))}</dd>
+                </div>
+                <div>
+                  <dt class="text-slate-400 font-medium">FDV</dt>
+                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoDetails?.fdv_usd))}</dd>
+                </div>
+                <div>
+                  <dt class="text-slate-400 font-medium">Holders</dt>
+                  <dd class="text-slate-100 tabular-nums">{String(nInfoSpot?.total_holders ?? "—")}</dd>
+                </div>
+                <div>
+                  <dt class="text-slate-400 font-medium">Volumen total</dt>
+                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoSpot?.volume_total_usd))}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : null}
+          {(nRiskIndicators.length > 0 || nRewardIndicators.length > 0) ? (
+            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen Indicators
+              </h3>
+              <div class="grid gap-3 sm:grid-cols-2 text-[11px]">
+                <div>
+                  <p class="text-slate-300 font-semibold mb-1">Risk</p>
+                  <ul class="space-y-1">
+                    {nRiskIndicators.slice(0, 6).map((r, i) => (
+                      <li key={`risk-${i}`} class="flex items-center justify-between gap-2">
+                        <span class="text-slate-400">{String(r.indicator_type ?? "—")}</span>
+                        <span class="text-slate-100 tabular-nums">{String(r.score ?? "—")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p class="text-slate-300 font-semibold mb-1">Reward</p>
+                  <ul class="space-y-1">
+                    {nRewardIndicators.slice(0, 6).map((r, i) => (
+                      <li key={`reward-${i}`} class="flex items-center justify-between gap-2">
+                        <span class="text-slate-400">{String(r.indicator_type ?? "—")}</span>
+                        <span class="text-slate-100 tabular-nums">{String(r.score ?? "—")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {nOhlcvRows.length > 0 ? (
+            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen OHLCV (últimas velas)
+              </h3>
+              <div class="overflow-x-auto text-[10px]">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="border-b border-[#043234] text-slate-400">
+                      <th class="py-1.5 pr-2">Tiempo</th>
+                      <th class="py-1.5 pr-2">Open</th>
+                      <th class="py-1.5 pr-2">High</th>
+                      <th class="py-1.5 pr-2">Low</th>
+                      <th class="py-1.5 pr-2">Close</th>
+                      <th class="py-1.5">Vol USD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nOhlcvRows.slice(-10).map((r, i) => (
+                      <tr key={`ohlcv-${i}`} class="border-b border-[#043234]/35 text-slate-200">
+                        <td class="py-1.5 pr-2">{String(r.interval_start ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.open ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.high ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.low ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.close ?? "—")}</td>
+                        <td class="py-1.5">{formatUsdLiquidity(fmtScalar(r.volume_usd))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
           </div>
         </div>
 
@@ -1647,6 +1822,37 @@ ERC-20
               </tbody>
             </table>
           </div>
+          {nTransferRows.length > 0 ? (
+            <div class="mt-5">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen Transfers (smart money / CEX / DEX)
+              </h3>
+              <div class="overflow-x-auto text-[11px]">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="border-b border-[#043234] text-slate-400">
+                      <th class="py-1.5 pr-2">Time</th>
+                      <th class="py-1.5 pr-2">From</th>
+                      <th class="py-1.5 pr-2">To</th>
+                      <th class="py-1.5 pr-2">Type</th>
+                      <th class="py-1.5">USD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nTransferRows.slice(0, 15).map((r, i) => (
+                      <tr key={`nt-${i}`} class="border-b border-[#043234]/35 text-slate-200">
+                        <td class="py-1.5 pr-2">{String(r.block_timestamp ?? "—")}</td>
+                        <td class="py-1.5 pr-2 font-mono">{String(r.from_address ?? "—")}</td>
+                        <td class="py-1.5 pr-2 font-mono">{String(r.to_address ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.transaction_type ?? "—")}</td>
+                        <td class="py-1.5">{formatUsdLiquidity(fmtScalar(r.transfer_value_usd))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -1707,6 +1913,68 @@ ERC-20
               </tbody>
             </table>
           </div>
+          {nWhoRows.length > 0 ? (
+            <div class="mt-5">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen Who Bought/Sold
+              </h3>
+              <div class="overflow-x-auto text-[11px]">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="border-b border-[#043234] text-slate-400">
+                      <th class="py-1.5 pr-2">Address</th>
+                      <th class="py-1.5 pr-2">Label</th>
+                      <th class="py-1.5 pr-2">Bought USD</th>
+                      <th class="py-1.5 pr-2">Sold USD</th>
+                      <th class="py-1.5">Trade USD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nWhoRows.slice(0, 20).map((r, i) => (
+                      <tr key={`nwho-${i}`} class="border-b border-[#043234]/35 text-slate-200">
+                        <td class="py-1.5 pr-2 font-mono">{String(r.address ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{String(r.address_label ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{formatUsdLiquidity(fmtScalar(r.bought_volume_usd))}</td>
+                        <td class="py-1.5 pr-2">{formatUsdLiquidity(fmtScalar(r.sold_volume_usd))}</td>
+                        <td class="py-1.5">{formatUsdLiquidity(fmtScalar(r.trade_volume_usd))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          {nPerpRows.length > 0 ? (
+            <div class="mt-5">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
+                Nansen Perp PnL Leaderboard
+              </h3>
+              <div class="overflow-x-auto text-[11px]">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="border-b border-[#043234] text-slate-400">
+                      <th class="py-1.5 pr-2">Trader</th>
+                      <th class="py-1.5 pr-2">Realized</th>
+                      <th class="py-1.5 pr-2">Unrealized</th>
+                      <th class="py-1.5 pr-2">ROI total</th>
+                      <th class="py-1.5">Trades</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nPerpRows.slice(0, 20).map((r, i) => (
+                      <tr key={`nperp-${i}`} class="border-b border-[#043234]/35 text-slate-200">
+                        <td class="py-1.5 pr-2 font-mono">{String(r.trader_address ?? "—")}</td>
+                        <td class="py-1.5 pr-2">{formatUsdLiquidity(fmtScalar(r.pnl_usd_realised))}</td>
+                        <td class="py-1.5 pr-2">{formatUsdLiquidity(fmtScalar(r.pnl_usd_unrealised))}</td>
+                        <td class="py-1.5 pr-2">{formatSignedPercent(fmtScalar(r.roi_percent_total))}</td>
+                        <td class="py-1.5">{String(r.nof_trades ?? "—")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

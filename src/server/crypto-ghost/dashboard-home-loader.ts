@@ -9,6 +9,7 @@ import {
   GLOBAL_CMC_GLOBAL_METRICS,
   getGlobalSnapshotJson,
   getWalletSnapshotJson,
+  GLOBAL_NANSEN_TOKEN_SCREENER,
   GLOBAL_NFT_HOTTEST,
 } from "~/server/crypto-ghost/api-snapshot-sync";
 import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
@@ -66,7 +67,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
   try {
   const since24h = Math.floor(Date.now() / 1000) - 86_400;
 
-  const [meme, ai, gaming, mineable, earlybird, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, mostVisitedPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap] =
+  const [meme, ai, gaming, mineable, earlybird, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, mostVisitedPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap, nansenTokenScreenerSnap] =
     await Promise.all([
       db
         .select(MARKET_TOKEN_LIGHT_SELECT)
@@ -126,6 +127,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         .get(),
       queryRecentSyncRuns(20),
       getGlobalSnapshotJson<any>(GLOBAL_CMC_GLOBAL_METRICS),
+      getGlobalSnapshotJson<any>(GLOBAL_NANSEN_TOKEN_SCREENER),
     ]);
 
   const parseNum = (v: unknown): number => {
@@ -286,6 +288,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
             ? null
             : nftHotSnap.error,
     },
+    nansenTokenScreener: nansenTokenScreenerSnap,
   };
   } catch (e) {
     console.error("[loadDashboardHome]", e);
@@ -326,6 +329,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         ok: false,
         error: "Base de datos no disponible temporalmente.",
       },
+      nansenTokenScreener: null,
     };
   }
 }

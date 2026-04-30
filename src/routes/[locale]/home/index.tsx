@@ -138,6 +138,18 @@ export default component$(() => {
   const fgRadius = 72;
   const fgNeedleX = fgCenterX + fgRadius * Math.cos((fearGreedNeedleDeg * Math.PI) / 180);
   const fgNeedleY = fgCenterY + fgRadius * Math.sin((fearGreedNeedleDeg * Math.PI) / 180);
+  const screenerSnap = (data.value.nansenTokenScreener as Record<string, unknown> | null) ?? null;
+  const screenerRows = (() => {
+    const root = screenerSnap?.data;
+    if (!root || typeof root !== "object") return [] as Record<string, unknown>[];
+    const rootRec = root as Record<string, unknown>;
+    if (Array.isArray(rootRec.data)) return rootRec.data as Record<string, unknown>[];
+    const nested = rootRec.data;
+    if (nested && typeof nested === "object" && Array.isArray((nested as Record<string, unknown>).data)) {
+      return (nested as Record<string, unknown>).data as Record<string, unknown>[];
+    }
+    return [] as Record<string, unknown>[];
+  })();
   const last = st.lastSync;
   const lastSyncFinishedLabel =
     last?.finishedAt != null
@@ -563,6 +575,55 @@ export default component$(() => {
           </article>
         </div>
       </section>
+
+      {screenerRows.length > 0 ? (
+        <section class="rounded-xl border border-[#043234] bg-[#001a1c]/70 overflow-hidden">
+          <div class="px-4 py-3 border-b border-[#043234] flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-white">Nansen Token Screener</h2>
+            <span class="text-[10px] text-gray-500">Snapshot diario</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-[#001317] text-[10px] uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th class="px-4 py-2 font-medium">Token</th>
+                  <th class="px-4 py-2 font-medium">Chain</th>
+                  <th class="px-4 py-2 font-medium">Price</th>
+                  <th class="px-4 py-2 font-medium">24h</th>
+                  <th class="px-4 py-2 font-medium">Volume</th>
+                  <th class="px-4 py-2 font-medium">Mcap</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#043234]/70 text-slate-300">
+                {screenerRows.slice(0, 20).map((r, i) => (
+                  <tr key={`screener-${i}`} class="hover:bg-[#001a1c]/60">
+                    <td class="px-4 py-2">
+                      <div class="font-medium text-white">{String(r.token_symbol ?? r.symbol ?? "—")}</div>
+                      <div class="text-[10px] text-gray-500">{String(r.token_name ?? "—")}</div>
+                    </td>
+                    <td class="px-4 py-2">{String(r.chain ?? "—")}</td>
+                    <td class="px-4 py-2">${formatTokenUsdPrice(r.price_usd)}</td>
+                    <td
+                      class={`px-4 py-2 tabular-nums ${
+                        Number(r.price_change_24h_percent ?? 0) > 0
+                          ? "text-emerald-300"
+                          : Number(r.price_change_24h_percent ?? 0) < 0
+                            ? "text-rose-300"
+                            : "text-slate-300"
+                      }`}
+                    >
+                      {Number(r.price_change_24h_percent ?? 0) > 0 ? "+" : ""}
+                      {Number(r.price_change_24h_percent ?? 0).toFixed(2)}%
+                    </td>
+                    <td class="px-4 py-2">${formatUsdLiquidity(r.volume_usd_24h)}</td>
+                    <td class="px-4 py-2">${formatUsdLiquidity(r.market_cap_usd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section class="grid gap-3 2xl:gap-4 md:grid-cols-3">
         <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">

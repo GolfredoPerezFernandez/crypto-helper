@@ -466,6 +466,69 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
             </>
           )}
 
+          {hasPro ? (
+            collapsed ? (
+              <Link
+                class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/smart-money")}`}
+                href={`${base}/smart-money/`}
+                title={d.value.smartMoney}
+              >
+                <LuSparkles class={iconClass} />
+                <span class={lbl}>{d.value.smartMoney}</span>
+              </Link>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  class={`${navClass} w-full text-left justify-between ${navClassMdCollapsed}`}
+                  onClick$={toggleSmartMoney}
+                >
+                  <span class="flex items-center gap-2 min-w-0">
+                    <LuSparkles class={iconClass} />
+                    <span>{d.value.smartMoney}</span>
+                  </span>
+                  <span class="text-gray-500 text-xs shrink-0">{smartMoneyOpen.value ? "−" : "+"}</span>
+                </button>
+                {smartMoneyOpen.value ? (
+                  <div class="ml-2 border-l border-[#043234] flex flex-col gap-0.5 mb-1">
+                    <Link class={`${subClass} ${active("/smart-money")}`} href={`${base}/smart-money/?tab=netflow`}>
+                      {d.value.netflows}
+                    </Link>
+                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=holdings`}>
+                      {d.value.holdings}
+                    </Link>
+                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=historical-holdings`}>
+                      {d.value.historicalHoldings}
+                    </Link>
+                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=dex-trades`}>
+                      {d.value.dexTrades}
+                    </Link>
+                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=perp-trades`}>
+                      {d.value.perpTrades}
+                    </Link>
+                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=dcas`}>
+                      {d.value.jupiterDcas}
+                    </Link>
+                  </div>
+                ) : null}
+              </>
+            )
+          ) : (
+            <Link
+              class={`${navClassLocked} ${navClassLockedMdCollapsed} flex-wrap`}
+              href={`${base}/home/?pro=required`}
+              title={d.value.proOnlyTitle}
+            >
+              <LuSparkles class={iconClass} />
+              <span class={lbl}>{d.value.smartMoney}</span>
+              <span
+                class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
+              >
+                {d.value.sse}
+              </span>
+            </Link>
+          )}
+
           <Link class={`${navClass} ${navClassMdCollapsed} ${active("/nfts")}`} href={`${base}/nfts/`} title={d.value.nfts}>
             <LuImage class={iconClass} />
             <span class={lbl}>{d.value.nfts}</span>
@@ -529,68 +592,6 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
               ) : null}
             </span>
           </p>
-          {hasPro ? (
-            collapsed ? (
-              <Link
-                class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/smart-money")}`}
-                href={`${base}/smart-money/`}
-                title={d.value.smartMoney}
-              >
-                <LuSparkles class={iconClass} />
-                <span class={lbl}>{d.value.smartMoney}</span>
-              </Link>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  class={`${navClass} w-full text-left justify-between ${navClassMdCollapsed}`}
-                  onClick$={toggleSmartMoney}
-                >
-                  <span class="flex items-center gap-2 min-w-0">
-                    <LuSparkles class={iconClass} />
-                    <span>{d.value.smartMoney}</span>
-                  </span>
-                  <span class="text-gray-500 text-xs shrink-0">{smartMoneyOpen.value ? "−" : "+"}</span>
-                </button>
-                {smartMoneyOpen.value ? (
-                  <div class="ml-2 border-l border-[#043234] flex flex-col gap-0.5 mb-1">
-                    <Link class={`${subClass} ${active("/smart-money")}`} href={`${base}/smart-money/?tab=netflow`}>
-                      {d.value.netflows}
-                    </Link>
-                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=holdings`}>
-                      {d.value.holdings}
-                    </Link>
-                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=historical-holdings`}>
-                      {d.value.historicalHoldings}
-                    </Link>
-                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=dex-trades`}>
-                      {d.value.dexTrades}
-                    </Link>
-                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=perp-trades`}>
-                      {d.value.perpTrades}
-                    </Link>
-                    <Link class={`${subClass}`} href={`${base}/smart-money/?tab=dcas`}>
-                      {d.value.jupiterDcas}
-                    </Link>
-                  </div>
-                ) : null}
-              </>
-            )
-          ) : (
-            <Link
-              class={`${navClassLocked} ${navClassLockedMdCollapsed} flex-wrap`}
-              href={`${base}/home/?pro=required`}
-              title={d.value.proOnlyTitle}
-            >
-              <LuSparkles class={iconClass} />
-              <span class={lbl}>{d.value.smartMoney}</span>
-              <span
-                class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
-              >
-                {d.value.sse}
-              </span>
-            </Link>
-          )}
           {hasPro ? (
             <Link
               class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/whales-signals")}`}
