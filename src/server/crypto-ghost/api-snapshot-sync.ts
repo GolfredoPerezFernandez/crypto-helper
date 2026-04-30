@@ -7,6 +7,13 @@ import {
 } from "../../../drizzle/schema";
 import { fetchIcarusTopUsersBySwaps } from "~/server/crypto-ghost/icarus-top-users";
 import {
+  fetchNansenSmartMoney,
+  fetchNansenTgm,
+  fetchNansenTgmPnlLeaderboard,
+  getDefaultTgmRequest,
+  type SmartMoneySection,
+} from "~/server/crypto-ghost/nansen-smart-money";
+import {
   fetchMoralisDiscoveryTopLosers,
   fetchMoralisLatestBlock,
   fetchMoralisNftHottestCollections,
@@ -30,6 +37,29 @@ export const GLOBAL_TOKEN_CATEGORIES = "moralis_token_categories";
 export const GLOBAL_DISCOVERY_TOP_LOSERS = "moralis_discovery_top_losers";
 export const GLOBAL_LATEST_BLOCKS_EVM = "moralis_latest_blocks_evm";
 export const GLOBAL_CMC_GLOBAL_METRICS = "cmc_global_metrics";
+export const GLOBAL_NANSEN_SMART_MONEY_NETFLOW = "nansen_smart_money_netflow";
+export const GLOBAL_NANSEN_SMART_MONEY_HOLDINGS = "nansen_smart_money_holdings";
+export const GLOBAL_NANSEN_SMART_MONEY_HIST_HOLDINGS = "nansen_smart_money_historical_holdings";
+export const GLOBAL_NANSEN_SMART_MONEY_DEX_TRADES = "nansen_smart_money_dex_trades";
+export const GLOBAL_NANSEN_SMART_MONEY_PERP_TRADES = "nansen_smart_money_perp_trades";
+export const GLOBAL_NANSEN_SMART_MONEY_DCAS = "nansen_smart_money_dcas";
+export const GLOBAL_NANSEN_TGM_PNL = "nansen_tgm_pnl_leaderboard";
+export const GLOBAL_NANSEN_TGM_TOKEN_INFORMATION = "nansen_tgm_token_information";
+export const GLOBAL_NANSEN_TGM_INDICATORS = "nansen_tgm_indicators";
+export const GLOBAL_NANSEN_TGM_TOKEN_OHLCV = "nansen_tgm_token_ohlcv";
+export const GLOBAL_NANSEN_TGM_WHO_BOUGHT_SOLD = "nansen_tgm_who_bought_sold";
+export const GLOBAL_NANSEN_TGM_TRANSFERS = "nansen_tgm_transfers";
+export const GLOBAL_NANSEN_TGM_PERP_PNL = "nansen_tgm_perp_pnl_leaderboard";
+export const GLOBAL_NANSEN_TOKEN_SCREENER = "nansen_token_screener";
+
+const NANSEN_SMART_MONEY_SNAPSHOT_KEYS: Record<SmartMoneySection, string> = {
+  netflow: GLOBAL_NANSEN_SMART_MONEY_NETFLOW,
+  holdings: GLOBAL_NANSEN_SMART_MONEY_HOLDINGS,
+  "historical-holdings": GLOBAL_NANSEN_SMART_MONEY_HIST_HOLDINGS,
+  "dex-trades": GLOBAL_NANSEN_SMART_MONEY_DEX_TRADES,
+  "perp-trades": GLOBAL_NANSEN_SMART_MONEY_PERP_TRADES,
+  dcas: GLOBAL_NANSEN_SMART_MONEY_DCAS,
+};
 
 function extractSnapshotApiErrors(snap: WalletPageSnapshot): Record<string, string> {
   const out: Record<string, string> = {};
@@ -118,8 +148,10 @@ export async function getWalletSnapshotJson(address: string): Promise<WalletPage
  */
 export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
   const moralisConfigured = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const nansenConfigured = Boolean(process.env.NANSEN_API_KEY?.trim());
+  const nansenSyncEnabled = /^1|true|yes$/i.test(String(process.env.NANSEN_SYNC_SMART_MONEY ?? "1"));
   const auxStart = Date.now();
-  syncLogInfo("auxiliary API snapshot sync — start", { moralisConfigured });
+  syncLogInfo("auxiliary API snapshot sync — start", { moralisConfigured, nansenConfigured, nansenSyncEnabled });
 
   try {
     syncLogInfo("aux step 1/4: Icarus top users by swaps");
@@ -136,22 +168,139 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       tradersStored: traders.length,
     });
 
+    if (nansenConfigured && nansenSyncEnabled) {
+      syncLogInfo("aux step 2/5: Nansen smart-money global snapshots");
+      const nansenT0 = Date.now();
+      const sections: SmartMoneySection[] = [
+        "netflow",
+        "holdings",
+        "historical-holdings",
+        "dex-trades",
+        "perp-trades",
+        "dcas",
+      ];
+      for (const section of sections) {
+        const out = await fetchNansenSmartMoney(section);
+        const key = NANSEN_SMART_MONEY_SNAPSHOT_KEYS[section];
+        if (out.ok) {
+          await upsertGlobalSnapshot(key, {
+            section,
+            data: out.data,
+            creditsUsed: out.creditsUsed ?? null,
+            creditsRemaining: out.creditsRemaining ?? null,
+            syncedAt: nowSec(),
+          });
+        } else {
+          await upsertGlobalSnapshot(key, {
+            section,
+            error: out.error,
+            status: out.status,
+            syncedAt: nowSec(),
+          });
+        }
+      }
+
+      const tgmToken = String(process.env.NANSEN_TGM_TOKEN_ADDRESS || "")
+        .trim()
+        .toLowerCase();
+      if (/^0x[a-f0-9]{40}$/.test(tgmToken)) {
+        const tgmDaysRaw = Number(process.env.NANSEN_TGM_DAYS ?? "30");
+        const tgmDays = Number.isFinite(tgmDaysRaw) ? Math.max(1, Math.min(365, Math.floor(tgmDaysRaw))) : 30;
+        const tgm = await fetchNansenTgmPnlLeaderboard({
+          chain: "ethereum",
+          tokenAddress: tgmToken,
+          days: tgmDays,
+          perPage: 100,
+          page: 1,
+          premiumLabels: true,
+        });
+        if (tgm.ok) {
+          await upsertGlobalSnapshot(GLOBAL_NANSEN_TGM_PNL, {
+            token: tgmToken,
+            days: tgmDays,
+            rows: tgm.rows,
+            creditsUsed: tgm.creditsUsed ?? null,
+            creditsRemaining: tgm.creditsRemaining ?? null,
+            syncedAt: nowSec(),
+          });
+        } else {
+          await upsertGlobalSnapshot(GLOBAL_NANSEN_TGM_PNL, {
+            token: tgmToken,
+            days: tgmDays,
+            error: tgm.error,
+            status: tgm.status,
+            syncedAt: nowSec(),
+          });
+        }
+      }
+      if (/^0x[a-f0-9]{40}$/.test(tgmToken)) {
+        const tgmChain = String(process.env.NANSEN_TGM_CHAIN || "ethereum").trim().toLowerCase();
+        const tgmTimeframe = String(process.env.NANSEN_TGM_TIMEFRAME || "24h").trim();
+        const tgmSymbol = String(process.env.NANSEN_TGM_PERP_SYMBOL || "ETH").trim().toUpperCase();
+        const endpointToKey = [
+          { endpoint: "token-information", key: GLOBAL_NANSEN_TGM_TOKEN_INFORMATION },
+          { endpoint: "indicators", key: GLOBAL_NANSEN_TGM_INDICATORS },
+          { endpoint: "token-ohlcv", key: GLOBAL_NANSEN_TGM_TOKEN_OHLCV },
+          { endpoint: "who-bought-sold", key: GLOBAL_NANSEN_TGM_WHO_BOUGHT_SOLD },
+          { endpoint: "transfers", key: GLOBAL_NANSEN_TGM_TRANSFERS },
+          { endpoint: "perp-pnl-leaderboard", key: GLOBAL_NANSEN_TGM_PERP_PNL },
+          { endpoint: "token-screener", key: GLOBAL_NANSEN_TOKEN_SCREENER },
+        ] as const;
+        for (const pair of endpointToKey) {
+          const payload = getDefaultTgmRequest(pair.endpoint, {
+            chain: tgmChain,
+            tokenAddress: tgmToken,
+            timeframe: tgmTimeframe,
+            tokenSymbol: tgmSymbol,
+          });
+          const out = await fetchNansenTgm(pair.endpoint, payload);
+          if (out.ok) {
+            await upsertGlobalSnapshot(pair.key, {
+              endpoint: pair.endpoint,
+              chain: tgmChain,
+              token: tgmToken,
+              symbol: tgmSymbol,
+              timeframe: tgmTimeframe,
+              data: out.data,
+              creditsUsed: out.creditsUsed ?? null,
+              creditsRemaining: out.creditsRemaining ?? null,
+              syncedAt: nowSec(),
+            });
+          } else {
+            await upsertGlobalSnapshot(pair.key, {
+              endpoint: pair.endpoint,
+              chain: tgmChain,
+              token: tgmToken,
+              symbol: tgmSymbol,
+              timeframe: tgmTimeframe,
+              error: out.error,
+              status: out.status,
+              syncedAt: nowSec(),
+            });
+          }
+        }
+      }
+      syncLogInfo("aux step 2/5 done — Nansen smart-money", { ms: Date.now() - nansenT0 });
+    } else {
+      syncLogInfo("aux step 2/5 skipped — Nansen not configured or disabled");
+    }
+
     if (!moralisConfigured) {
       syncLogWarn("MORALIS_API_KEY missing — skip Moralis NFT globals + wallet snapshots");
-      syncLogInfo("auxiliary API snapshot sync — done (Icarus only)", {
+      syncLogInfo("auxiliary API snapshot sync — done (Icarus/Nansen only)", {
         totalMs: Date.now() - auxStart,
       });
       return;
     }
 
-    syncLogInfo("aux step 2/4: Moralis NFT market-data batch (hottest + top collections)");
+    syncLogInfo("aux step 3/5: Moralis NFT market-data batch (hottest + top collections)");
     const nftT0 = Date.now();
     const [hot, top] = await Promise.all([
       fetchMoralisNftHottestCollections(),
       fetchMoralisNftTopCollections(),
     ]);
     const nftMs = Date.now() - nftT0;
-    syncLogInfo("aux step 2/4 done — Moralis NFT", {
+    syncLogInfo("aux step 3/5 done — Moralis NFT", {
       ms: nftMs,
       hottestOk: hot.ok,
       topOk: top.ok,
@@ -198,15 +347,15 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       );
     }
     if (globalExtras.length > 0) {
-      syncLogInfo("aux step 3/4: optional Moralis global snapshots", { keys: globalKeys });
+      syncLogInfo("aux step 4/5: optional Moralis global snapshots", { keys: globalKeys });
       const t0 = Date.now();
       await Promise.all(globalExtras);
-      syncLogInfo("aux step 3/4 done — Moralis optional globals", {
+      syncLogInfo("aux step 4/5 done — Moralis optional globals", {
         ms: Date.now() - t0,
         keys: globalKeys,
       });
     } else {
-      syncLogInfo("aux step 3/4 skipped — no optional Moralis globals enabled");
+      syncLogInfo("aux step 4/5 skipped — no optional Moralis globals enabled");
     }
 
     const fromIcarus = new Set<string>();
@@ -233,7 +382,7 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
 
     const list = [...toFetch];
     const walletPhaseStart = Date.now();
-    syncLogInfo("aux step 4/4: wallet snapshots (Moralis parallel per wallet)", {
+    syncLogInfo("aux step 5/5: wallet snapshots (Moralis parallel per wallet)", {
       walletCount: list.length,
       icarusWallets: fromIcarus.size,
       registeredWallets: registered.length,
@@ -305,7 +454,7 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       if (i % 20 === 19) await new Promise((r) => setTimeout(r, 250));
     }
 
-    syncLogInfo("aux step 4/4 done — wallet snapshots", {
+    syncLogInfo("aux step 5/5 done — wallet snapshots", {
       walletsOk: okW,
       walletsFail: failW,
       total: list.length,
