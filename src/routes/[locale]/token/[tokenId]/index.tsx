@@ -470,7 +470,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     ({
       ok: false as const,
       error:
-        "Sin swaps en caché. Activa MORALIS_SYNC_TOKEN_SWAPS=1 en el sync o MORALIS_TOKEN_PAGE_LIVE_SWAPS=1 en el servidor para esta vista.",
+        "Sin swaps en caché aún: se intentará cargar desde Moralis al abrir la ficha (si no desactivaste la carga en vivo).",
     } as const);
 
   const moralisTokenAnalytics =
@@ -484,7 +484,9 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
   const addr = String(row.address || "").trim().toLowerCase();
   const evm = /^0x[a-f0-9]{40}$/.test(addr);
   const moralisKey = Boolean(process.env.MORALIS_API_KEY?.trim());
-  const liveSwapsOn = /^1|true|yes$/i.test(String(process.env.MORALIS_TOKEN_PAGE_LIVE_SWAPS ?? ""));
+  /** Default: fetch swaps/traders live when missing from snapshot. Opt out with MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 / MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 */
+  const disableLiveSwaps = /^0|false|no$/i.test(String(process.env.MORALIS_TOKEN_PAGE_LIVE_SWAPS ?? ""));
+  const disableLiveTraders = /^0|false|no$/i.test(String(process.env.MORALIS_TOKEN_PAGE_LIVE_TRADERS ?? ""));
 
   if (evm && moralisKey) {
     const {
@@ -509,14 +511,18 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
       owners = await fetchMoralisErc20Owners(addr, moralisChain, ownersLimitForTokenSync());
       healed = true;
     }
-    if (!topGainers.ok && isStaleMoralisOrderCacheError(topGainers.error)) {
+    const shouldFetchGainersLive =
+      (!topGainers.ok && isStaleMoralisOrderCacheError(topGainers.error)) ||
+      (!disableLiveTraders && snap?.topGainers == null);
+
+    if (shouldFetchGainersLive) {
       topGainers = await fetchMoralisErc20TopGainers(addr, moralisChain, 20);
       healed = true;
     }
 
     const shouldFetchSwapsLive =
       (!moralisSwaps.ok && isStaleMoralisOrderCacheError(moralisSwaps.error)) ||
-      (liveSwapsOn && tokenSnapshotNeverHadSwaps(snap));
+      (!disableLiveSwaps && tokenSnapshotNeverHadSwaps(snap));
 
     if (shouldFetchSwapsLive) {
       moralisSwaps = await fetchMoralisErc20Swaps(addr, moralisChain, 18, "DESC");
@@ -653,12 +659,16 @@ export default component$(() => {
       supplyPct: tr("supplyPct@@% supply"),
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
       tradersNoData: tr(
-        "tradersNoData@@Moralis has no indexed profit data for this pair yet, or the sync has not run.",
+        "tradersNoData@@Moralis may not publish realized PnL for this token yet, or the pair is thin. Live fetch runs by default when trader data is missing from cache; set MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 to disable.",
       ),
-      swapsDex: tr("swapsDex@@DEX swaps"),
+      swapsFeedHeading: tr("swapsFeedHeading@@Recent DEX swaps"),
+      swapsSectionSubtitle: tr(
+        "swapsSectionSubtitle@@Indexed swap fills from Moralis for this chain; they are cached after the first load. Optional backfill: set MORALIS_SYNC_TOKEN_SWAPS=1 in the daily sync. Live fetch is on by default — set MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 to disable.",
+      ),
       swapsEnvHint: tr(
-        "swapsEnvHint@@To load DEX swaps on this page, set MORALIS_TOKEN_PAGE_LIVE_SWAPS=1 on the server, or MORALIS_SYNC_TOKEN_SWAPS=1 in the daily sync (then re-sync).",
+        "swapsEnvHint@@Could not load swap rows (API error, thin liquidity, or Moralis has not indexed this pool). Live fetch is on by default; set MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 to skip. You can also enable MORALIS_SYNC_TOKEN_SWAPS in the daily sync.",
       ),
+      swapsLoadFailedTitle: tr("swapsLoadFailedTitle@@Could not load swaps"),
       resourcesCardTitle: tr("resourcesCardTitle@@Resources & information"),
       resourcesQuickLinks: tr("resourcesQuickLinks@@Quick links"),
       resourcesAbout: tr("resourcesAbout@@About"),
@@ -2008,11 +2018,11 @@ export default component$(() => {
       {tab.value === "swaps" ? (
         <section class="mt-6 rounded-2xl border border-[#0d5357]/70 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25" role="tabpanel">
           <header class="mb-4">
-            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.swapsDex}</h2>
+            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.swapsFeedHeading}</h2>
             <p class="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
-              DEX swap events on <span class="font-mono text-cyan-100/90">{moralisChain}</span>. Filled by sync when{" "}
-              <span class="font-mono text-slate-300">MORALIS_SYNC_TOKEN_SWAPS=1</span>, or on first visit if{" "}
-              <span class="font-mono text-slate-300">MORALIS_TOKEN_PAGE_LIVE_SWAPS=1</span>.
+              <span class="font-mono text-cyan-100/90">{moralisChain}</span>
+              <span class="text-slate-500"> · </span>
+              {tp.value.swapsSectionSubtitle}
             </p>
           </header>
           <div class="overflow-x-auto rounded-xl border border-[#0d5357]/60 bg-[#000d10]/55">
@@ -2149,7 +2159,7 @@ export default component$(() => {
                 ) : (
                   <tr>
                     <td colSpan={10} class="px-3 py-12 text-center text-slate-400">
-                      <p class="text-slate-300 mb-2 font-medium">Datos de swaps no cargados.</p>
+                      <p class="text-slate-300 mb-2 font-medium">{tp.value.swapsLoadFailedTitle}</p>
                       <p class="text-[11px] text-slate-500 max-w-lg mx-auto leading-relaxed">{tp.value.swapsEnvHint}</p>
                     </td>
                   </tr>

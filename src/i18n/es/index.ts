@@ -252,7 +252,14 @@ export default {
     noTransfersSnapshot: "Sin transferencias recientes disponibles.",
     transfersSnapshotFailed: "No se pudieron cargar las transferencias en caché.",
     topTradersPnl: "Top traders (PnL)",
-    swapsDex: "Swaps DEX",
+    swapsFeedHeading: "Swaps DEX recientes",
+    swapsSectionSubtitle:
+      "Operaciones indexadas por Moralis en esta red; se guardan en caché tras la primera carga. Opcional: rellenar con el sync diario (MORALIS_SYNC_TOKEN_SWAPS=1). La carga en vivo está activa por defecto; usa MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 para desactivarla.",
+    swapsEnvHint:
+      "No se pudieron cargar filas de swap (error de API, liquidez baja o Moralis aún no indexa el par). La carga en vivo está activa por defecto; MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 la desactiva. También puedes activar MORALIS_SYNC_TOKEN_SWAPS en el sync diario.",
+    swapsLoadFailedTitle: "No se pudieron cargar los swaps",
+    tradersNoData:
+      "Moralis puede no publicar PnL realizado para este token, o el par es muy delgado. La carga en vivo se intenta por defecto si faltan datos en caché; MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 la desactiva.",
     syncFooter:
       "Los datos de mercado y on-chain se actualizan de forma programada (y puedes sincronizar manualmente). Token id:",
     categories: {
