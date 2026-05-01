@@ -526,10 +526,12 @@ async function buildEvmWalletPageSnapshot(
     const ids = extractProtocolIdsFromDefiSummary(defiSummary).slice(0, protocolMax);
     if (ids.length > 0) {
       const tProto = Date.now();
-      const chains = ["ethereum", "base"] as const;
+      const chains = ["ethereum", "base"];
       const pairs = await Promise.all(
         ids.map(async (protocolId) => {
-          const r = await fetchMoralisWalletDefiPositionsByProtocol(address, chains, { limit: 50 });
+          const r = await fetchMoralisWalletDefiPositionsByProtocol(address, protocolId, chains, {
+            limit: 50,
+          });
           return [protocolId, r] as const;
         }),
       );

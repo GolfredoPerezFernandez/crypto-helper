@@ -1043,7 +1043,7 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
           itemsLimit,
         });
         syncLogInfo("aux step 5/5 done — user-browsed NFT resource refresh", {
-          ms: Date.now() - refreshStart,
+          wallClockMs: Date.now() - refreshStart,
           ...r,
         });
       } catch (e: unknown) {
