@@ -1,11 +1,17 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getWalletSnapshotJson } from "~/server/crypto-helper/api-snapshot-sync";
 import { isEvmAddress } from "~/server/crypto-helper/market-queries";
+import { apiError, apiOk } from "~/routes/api/crypto/_shared/api-response";
 
-export const onGet: RequestHandler = async ({ params, query, json }) => {
+export const onGet: RequestHandler = async ({ params, query, json, cacheControl }) => {
+  cacheControl({
+    public: true,
+    maxAge: 60,
+    staleWhileRevalidate: 60 * 10,
+  });
   const raw = params.address?.trim() || "";
   if (!isEvmAddress(raw)) {
-    json(400, { error: "invalid address" });
+    json(400, apiError("BAD_REQUEST", "invalid EVM address"));
     return;
   }
   const address = raw.toLowerCase();
@@ -14,12 +20,12 @@ export const onGet: RequestHandler = async ({ params, query, json }) => {
   const snap = await getWalletSnapshotJson(address);
   const r = chain === "eth" ? snap?.nativeEth : snap?.nativeBase;
   if (!snap || !r) {
-    json(503, { ok: false, error: "No wallet snapshot — run daily sync." });
+    json(503, apiError("SNAPSHOT_MISSING", "No wallet snapshot — run daily sync."));
     return;
   }
   if (!r.ok) {
-    json(502, { ok: false, error: r.error });
+    json(502, apiError("UPSTREAM_ERROR", r.error || "Snapshot native balance unavailable"));
     return;
   }
-  json(200, { ok: true, address, chain, data: r.data });
+  json(200, apiOk(r.data, { address, chain }));
 };

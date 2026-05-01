@@ -10,17 +10,16 @@ import {
 } from "~/server/crypto-helper/api-snapshot-sync";
 import type { MoralisWalletTokensResult } from "~/server/crypto-helper/moralis-api";
 import { formatTokenUsdPrice, formatUsdLiquidity } from "~/utils/format-market";
+import { buildSeo, localeFromParams } from "~/utils/seo";
 
-export const head: DocumentHead = {
-  title: "NFT Collections Dashboard | Crypto Helper",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Browse hottest NFT collections, contract-level details, and token views across supported chains.",
-    },
-  ],
-};
+export const head: DocumentHead = ({ url, params }) =>
+  buildSeo({
+    title: "NFT Collections Dashboard | Crypto Helper",
+    description:
+      "Explore highlighted NFT collections, contract-level details, and token views across supported EVM chains.",
+    canonicalUrl: url.href,
+    locale: localeFromParams(params),
+  });
 
 export const useNftsLoader = routeLoader$(async () => {
   const hot = await getGlobalSnapshotJson<MoralisWalletTokensResult | null>(GLOBAL_NFT_HOTTEST);
@@ -43,10 +42,12 @@ export const useNftsLoader = routeLoader$(async () => {
   };
 });
 
-function normalizeList(raw: unknown): any[] {
-  if (Array.isArray(raw)) return raw;
+type NftCollectionRow = Record<string, unknown>;
+
+function normalizeList(raw: unknown): NftCollectionRow[] {
+  if (Array.isArray(raw)) return raw as NftCollectionRow[];
   if (raw && typeof raw === "object" && Array.isArray((raw as { result?: unknown }).result)) {
-    return (raw as { result: any[] }).result;
+    return (raw as { result: NftCollectionRow[] }).result;
   }
   return [];
 }
@@ -142,7 +143,7 @@ export default component$(() => {
     const q = hotSearch.value.trim().toLowerCase();
     let list = lists.value.hotList.slice(0, 18);
     if (q) {
-      list = list.filter((c: any) => {
+      list = list.filter((c) => {
         const name = String(c.name ?? c.collection_title ?? "").toLowerCase();
         const addr = String(c.collection_address ?? c.token_address ?? c.address ?? "").toLowerCase();
         return name.includes(q) || addr.includes(q);
@@ -155,7 +156,7 @@ export default component$(() => {
     const q = topSearch.value.trim().toLowerCase();
     let list = lists.value.topList.slice(0, 18);
     if (q) {
-      list = list.filter((c: any) => {
+      list = list.filter((c) => {
         const name = String(c.name ?? c.collection_title ?? "").toLowerCase();
         const addr = String(c.collection_address ?? "").toLowerCase();
         return name.includes(q) || addr.includes(q);
@@ -182,12 +183,12 @@ export default component$(() => {
 
       <section class="mt-10">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 class="text-lg font-semibold text-white">Hottest</h2>
+          <h2 class="text-lg font-semibold text-white">Más destacadas</h2>
           <div class="relative min-w-0 max-w-md sm:w-72">
             <LuSearch class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="search"
-              placeholder="Search name or address…"
+              placeholder="Buscar por nombre o dirección…"
               class={inputClass}
               value={hotSearch.value}
               onInput$={(e) => {
@@ -198,7 +199,7 @@ export default component$(() => {
               <button
                 type="button"
                 class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-500 hover:bg-[#043234]/60"
-                aria-label="Clear"
+                aria-label="Limpiar búsqueda"
                 onClick$={$(() => {
                   hotSearch.value = "";
                 })}
@@ -209,7 +210,7 @@ export default component$(() => {
           </div>
         </div>
         <p class="mt-2 text-xs text-slate-500">
-          Showing <span class="font-semibold text-slate-300">{hotFiltered.value.length}</span> collections
+          Mostrando <span class="font-semibold text-slate-300">{hotFiltered.value.length}</span> colecciones
         </p>
         <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {hotFiltered.value.length === 0 ? (
@@ -217,11 +218,14 @@ export default component$(() => {
               Sin datos o sin coincidencias.
             </li>
           ) : (
-            hotFiltered.value.map((c: any, i: number) => {
-              const row = c as Record<string, unknown>;
+            hotFiltered.value.map((c, i: number) => {
+              const row = c;
               const logoUrl = nftCollectionImageUrl(row);
-              const addr = String(c.collection_address || c.token_address || c.address || "").toLowerCase();
-              const ch = moralisChainSlug(c);
+              const addr = String(row.collection_address || row.token_address || row.address || "").toLowerCase();
+              const ch = moralisChainSlug(row);
+              const name = String(row.name ?? row.collection_title ?? "Colección");
+              const addrLabel = String(row.collection_address ?? row.token_address ?? "—");
+              const floorUsd = row.floor_price_usd;
               const href = addr.startsWith("0x") ? `/${L}/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
               const inner = (
                 <>
@@ -239,19 +243,19 @@ export default component$(() => {
                       NFT
                     </div>
                   )}
-                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{c.name || c.collection_title || "Collection"}</h3>
-                  <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={c.collection_address || c.token_address}>
-                    {c.collection_address || c.token_address || "—"}
+                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{name}</h3>
+                  <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={addrLabel}>
+                    {addrLabel}
                   </p>
-                  {c.floor_price_usd != null ? (
+                  {floorUsd != null ? (
                     <p class="mt-3 text-sm 2xl:text-[15px] font-semibold tabular-nums text-[#04E6E6]">
-                      Floor ~ ${formatTokenUsdPrice(c.floor_price_usd)}
+                      Piso ~ ${formatTokenUsdPrice(String(floorUsd))}
                     </p>
                   ) : null}
                 </>
               );
               return (
-                <li key={c.collection_address || c.address || i}>
+                <li key={String(row.collection_address || row.address || i)}>
                   {href ? (
                     <Link
                       href={href}
@@ -273,12 +277,12 @@ export default component$(() => {
 
       <section class="mt-14">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 class="text-lg font-semibold text-white">Top collections</h2>
+          <h2 class="text-lg font-semibold text-white">Top colecciones</h2>
           <div class="relative min-w-0 max-w-md sm:w-72">
             <LuSearch class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="search"
-              placeholder="Search name or address…"
+              placeholder="Buscar por nombre o dirección…"
               class={inputClass}
               value={topSearch.value}
               onInput$={(e) => {
@@ -289,7 +293,7 @@ export default component$(() => {
               <button
                 type="button"
                 class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-500 hover:bg-[#043234]/60"
-                aria-label="Clear"
+                aria-label="Limpiar búsqueda"
                 onClick$={$(() => {
                   topSearch.value = "";
                 })}
@@ -300,7 +304,7 @@ export default component$(() => {
           </div>
         </div>
         <p class="mt-2 text-xs text-slate-500">
-          Showing <span class="font-semibold text-slate-300">{topFiltered.value.length}</span> collections
+          Mostrando <span class="font-semibold text-slate-300">{topFiltered.value.length}</span> colecciones
         </p>
         <p class="mt-2 max-w-2xl text-[11px] leading-relaxed text-slate-600">
           A veces el volumen USD aparece como <span class="text-slate-500">Vol $0</span> en caché aunque la colección
@@ -310,16 +314,18 @@ export default component$(() => {
         <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {topFiltered.value.length === 0 ? (
             <li class="col-span-full rounded-2xl border border-[#043234]/80 bg-[#001318]/40 p-10 text-center text-sm text-slate-500">
-              No rows or no matches.
+              Sin filas o sin coincidencias.
             </li>
           ) : (
-            topFiltered.value.map((c: any, i: number) => {
-              const row = c as Record<string, unknown>;
+            topFiltered.value.map((c, i: number) => {
+              const row = c;
               const logoUrl = nftCollectionImageUrl(row);
               const topVol = nftCollectionVolumeUsd(row);
               const topCap = nftCollectionMarketCapUsd(row);
-              const addr = String(c.collection_address || "").toLowerCase();
-              const ch = moralisChainSlug(c);
+              const addr = String(row.collection_address || "").toLowerCase();
+              const ch = moralisChainSlug(row);
+              const name = String(row.name ?? row.collection_title ?? "Colección");
+              const addrLabel = String(row.collection_address ?? "—");
               const href = addr.startsWith("0x") ? `/${L}/nfts/${addr}/?chain=${encodeURIComponent(ch)}` : null;
               const inner = (
                 <>
@@ -337,9 +343,9 @@ export default component$(() => {
                       NFT
                     </div>
                   )}
-                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{c.name || c.collection_title || "Collection"}</h3>
-                  <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={c.collection_address}>
-                    {c.collection_address || "—"}
+                  <h3 class="font-medium leading-snug text-white 2xl:text-[15px]">{name}</h3>
+                  <p class="mt-1 truncate font-mono text-[11px] text-slate-500" title={addrLabel}>
+                    {addrLabel}
                   </p>
                   {topVol != null && topVol > 0 ? (
                     <p class="mt-3 text-sm 2xl:text-[15px] tabular-nums text-slate-300">
@@ -364,7 +370,7 @@ export default component$(() => {
                 </>
               );
               return (
-                <li key={`top-${c.collection_address || i}`}>
+                <li key={`top-${String(row.collection_address || i)}`}>
                   {href ? (
                     <Link
                       href={href}

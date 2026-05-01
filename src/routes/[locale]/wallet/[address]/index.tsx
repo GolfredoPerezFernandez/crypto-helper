@@ -48,7 +48,7 @@ function cleanErrorText(raw: unknown): string {
   const s = String(raw).trim();
   if (!s) return "";
   const lower = s.slice(0, 120).toLowerCase();
-  // Upstream-not-found / HTML pages → treat as "no data" silently.
+  // Upstream-not-found / HTML pages should still be visible as a soft warning.
   if (
     lower.startsWith("<!doctype") ||
     lower.startsWith("<html") ||
@@ -57,7 +57,7 @@ function cleanErrorText(raw: unknown): string {
     lower.startsWith("http 404") ||
     lower.includes("upstream returned html")
   ) {
-    return "";
+    return "El proveedor upstream no devolvió datos estructurados para esta consulta (respuesta no JSON).";
   }
   // Rate limit / auth → short hint.
   if (lower.includes("429") || lower.includes("rate limit")) {
@@ -68,6 +68,29 @@ function cleanErrorText(raw: unknown): string {
   }
   return s.length > 200 ? `${s.slice(0, 200)}…` : s;
 }
+
+type WalletViewData = {
+  address: string;
+  invalidAddress?: boolean;
+  snapshotMissing?: boolean;
+  nw?: { ok?: boolean; data?: unknown; error?: unknown };
+  tokBase?: { ok?: boolean; data?: unknown; error?: unknown };
+  tokEth?: { ok?: boolean; data?: unknown; error?: unknown };
+  tokensCrossChain?: { ok?: boolean; data?: unknown; error?: unknown };
+  nfts?: { ok?: boolean; data?: unknown; error?: unknown };
+  txBase?: { ok?: boolean; data?: unknown; error?: unknown };
+  txEth?: { ok?: boolean; data?: unknown; error?: unknown };
+  pnlBase?: { ok?: boolean; data?: unknown; error?: unknown };
+  pnlEth?: { ok?: boolean; data?: unknown; error?: unknown };
+  weekBase?: unknown;
+  interactBase?: { sentN: number; recvN: number; sentPreview: string[] } | null;
+  defiSummary?: { ok?: boolean; data?: unknown; error?: unknown };
+  defiPositions?: { ok?: boolean; data?: unknown; error?: unknown };
+  nftCollectionsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
+  nftsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
+  nftCollectionsBase?: { ok?: boolean; data?: unknown; error?: unknown };
+  nftCollectionsEth?: { ok?: boolean; data?: unknown; error?: unknown };
+};
 
 function walletLegendPct(part: number, total: number): string {
   if (total <= 0) return "—";
@@ -291,11 +314,13 @@ export default component$(() => {
   const d = useWalletPageLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
-  const v = d.value as any;
+  const v = d.value as WalletViewData;
   const invalidAddress = !!v.invalidAddress;
 
   const assetsTab = useSignal<"tokens" | "nfts" | "defi">("tokens");
   const tokenChainFilter = useSignal<WalletChainFilterId>("all");
+  const tokenCompact = useSignal(true);
+  const tokenPage = useSignal(1);
   const txTab = useSignal<"base" | "eth">("base");
   const copied = useSignal(false);
 
@@ -431,6 +456,13 @@ export default component$(() => {
 
   const tokRowCount = tokRowsCross.length;
   const tokenCountAll = allRowsUnified.length;
+  const tokenPageSize = 25;
+  const tokenTotalPages = Math.max(1, Math.ceil(tokRowsCross.length / tokenPageSize));
+  const tokenCurrentPage = Math.min(Math.max(1, tokenPage.value), tokenTotalPages);
+  const tokenRowsVisible = tokRowsCross.slice(
+    (tokenCurrentPage - 1) * tokenPageSize,
+    tokenCurrentPage * tokenPageSize,
+  );
 
   const chainSlices = buildChainChartSlices(allRowsUnified, nwChains);
   const assetSlices = buildAssetChartSlices(allRowsUnified, 6);
@@ -456,7 +488,9 @@ export default component$(() => {
   const nfts = nftItemsFromMoralis(walletNftSnap?.ok ? walletNftSnap.data : null);
   const nftsErr = cleanErrorText(walletNftSnap?.error ?? v.nfts?.error);
   const nftMcKeys = nftSnapshotChainKeys(v);
-  const baseAct = walletBaseActivityForUi(v.weekBase);
+  const baseAct = walletBaseActivityForUi(
+    v.weekBase as Parameters<typeof walletBaseActivityForUi>[0],
+  );
 
   const explorerBase = `https://basescan.org/address/${v.address}`;
   const explorerEth = `https://etherscan.io/address/${v.address}`;
@@ -785,6 +819,7 @@ export default component$(() => {
                 }`}
                 onClick$={() => {
                   tokenChainFilter.value = cid;
+                  tokenPage.value = 1;
                 }}
               >
                 <span class={`h-2 w-2 shrink-0 rounded-full ${CHAIN_PILL_META[cid].dot}`} />
@@ -804,11 +839,26 @@ export default component$(() => {
                       : "Balances ERC-20"}
                   </p>
                 </div>
+                <div class="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    class={`rounded-md border px-2 py-1 transition ${
+                      tokenCompact.value
+                        ? "border-[#04E6E6]/40 bg-[#043234] text-[#04E6E6]"
+                        : "border-[#043234] bg-[#000D0E]/60 text-slate-400 hover:text-slate-200"
+                    }`}
+                    onClick$={() => {
+                      tokenCompact.value = !tokenCompact.value;
+                    }}
+                  >
+                    {tokenCompact.value ? "Vista compacta" : "Vista expandida"}
+                  </button>
+                </div>
               </div>
               {tokOk && tokRowsCross.length > 0 ? (
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-xs">
-                    <thead>
+                    <thead class="sticky top-0 z-[1] bg-[#001217]/95 backdrop-blur-sm">
                       <tr class="border-b border-[#043234]/60 text-[10px] uppercase tracking-wide text-slate-500">
                         <th class="py-2 pr-2 font-medium">Token</th>
                         {tokenChainFilter.value === "all" ? (
@@ -822,7 +872,7 @@ export default component$(() => {
                       </tr>
                     </thead>
                     <tbody>
-                      {tokRowsCross.map((t) => {
+                      {tokenRowsVisible.map((t) => {
                         const change = t.usdPrice24hrPercentChange;
                         const changeCls =
                           change == null
@@ -837,9 +887,11 @@ export default component$(() => {
                         return (
                           <tr
                             key={`${t.tokenAddress}-${t.chainId}`}
-                            class="border-b border-[#043234]/35 text-slate-300 transition-colors hover:bg-[#04E6E6]/[0.03]"
+                            class={`border-b border-[#043234]/35 text-slate-300 transition-colors hover:bg-[#04E6E6]/[0.03] ${
+                              tokenCompact.value ? "" : "align-top"
+                            }`}
                           >
-                            <td class="py-2 pr-2">
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2`}>
                               <div class="flex min-w-0 items-center gap-2">
                                 <TokenLogoImg src={t.logo} symbol={t.symbol ?? "?"} size={28} />
                                 <div class="min-w-0">
@@ -888,19 +940,19 @@ export default component$(() => {
                               </div>
                             </td>
                             {tokenChainFilter.value === "all" ? (
-                              <td class="py-2 pr-2 text-[11px] text-slate-400 whitespace-nowrap">
+                              <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2 text-[11px] text-slate-400 whitespace-nowrap`}>
                                 {chainLabelFromChainId(t.chainId)}
                               </td>
                             ) : null}
-                            <td class="py-2 pr-2 font-mono tabular-nums text-slate-400">{t.balance ?? "0"}</td>
-                            <td class="py-2 pr-2 text-right tabular-nums text-slate-300">
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2 font-mono tabular-nums text-slate-400`}>{t.balance ?? "0"}</td>
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2 text-right tabular-nums text-slate-300`}>
                               {t.usdPrice != null ? `$${formatUsdBalance(t.usdPrice)}` : "—"}
                             </td>
-                            <td class={`py-2 pr-2 text-right tabular-nums ${changeCls}`}>{changeText}</td>
-                            <td class="py-2 pr-2 text-right tabular-nums text-slate-400">
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2 text-right tabular-nums ${changeCls}`}>{changeText}</td>
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} pr-2 text-right tabular-nums text-slate-400`}>
                               {t.portfolioPercentage != null ? `${t.portfolioPercentage.toFixed(2)}%` : "—"}
                             </td>
-                            <td class="py-2 text-right tabular-nums text-slate-50">
+                            <td class={`${tokenCompact.value ? "py-1.5" : "py-2"} text-right tabular-nums text-slate-50`}>
                               ${formatUsdBalance(t.usdValue ?? 0)}
                             </td>
                           </tr>
@@ -908,6 +960,39 @@ export default component$(() => {
                       })}
                     </tbody>
                   </table>
+                </div>
+              ) : null}
+              {tokOk && tokRowsCross.length > 0 ? (
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                  <span>
+                    Mostrando {(tokenCurrentPage - 1) * tokenPageSize + 1}-
+                    {Math.min(tokenCurrentPage * tokenPageSize, tokRowsCross.length)} de {tokRowsCross.length}
+                  </span>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="rounded border border-[#043234] bg-[#000D0E]/60 px-2 py-1 disabled:opacity-40"
+                      disabled={tokenCurrentPage <= 1}
+                      onClick$={() => {
+                        tokenPage.value = Math.max(1, tokenCurrentPage - 1);
+                      }}
+                    >
+                      Anterior
+                    </button>
+                    <span class="px-1 tabular-nums">
+                      {tokenCurrentPage}/{tokenTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      class="rounded border border-[#043234] bg-[#000D0E]/60 px-2 py-1 disabled:opacity-40"
+                      disabled={tokenCurrentPage >= tokenTotalPages}
+                      onClick$={() => {
+                        tokenPage.value = Math.min(tokenTotalPages, tokenCurrentPage + 1);
+                      }}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
                 </div>
               ) : tokOk ? (
                 <WalletEmptyState
@@ -959,7 +1044,7 @@ export default component$(() => {
               {txOk && txRows.length > 0 ? (
                 <div class="overflow-x-auto">
                   <table class="w-full min-w-[520px] border-collapse text-left text-[11px] text-slate-200">
-                    <thead>
+                    <thead class="sticky top-0 z-[1] bg-[#001217]/95 backdrop-blur-sm">
                       <tr class="border-b border-[#043234]/60 text-[10px] uppercase tracking-wide text-slate-500">
                         <th class="px-1 py-2 font-medium">Hash</th>
                         <th class="px-1 py-2 font-medium">Fecha</th>

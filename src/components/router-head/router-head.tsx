@@ -9,11 +9,13 @@ import * as pwaHead from "@qwikdev/pwa/head";
 export const RouterHead = component$(() => {
   const head = useDocumentHead();
   const loc = useLocation();
+  const canonicalLink = head.links.find((l) => l.rel === "canonical");
+  const canonicalHref = canonicalLink?.href || loc.url.href;
 
   return (
     <>
       <title>{head.title}</title>
-      <link rel="canonical" href={loc.url.href} />
+      <link rel="canonical" href={canonicalHref} />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       {head.meta.map((m) => (
         <meta key={m.key} {...m} />
@@ -24,7 +26,7 @@ export const RouterHead = component$(() => {
       {pwaHead.links.map((l) => (
         <link key={l.key} {...l} />
       ))}
-      {head.links.map((l) => (
+      {head.links.filter((l) => l.rel !== "canonical").map((l) => (
         <link key={l.key} {...l} />
       ))}
       {head.styles.map((s) => (

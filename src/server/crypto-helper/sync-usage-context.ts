@@ -1,5 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
 /** Persisted on `sync_runs.usage_payload` after each daily market sync (JSON). */
 export type SyncUsagePayloadV1 = {
   v: 1;
@@ -38,8 +36,15 @@ type Acc = {
   moralisCmcPhaseCuEstimate?: number;
   notes: string[];
 };
-
-const als = new AsyncLocalStorage<Acc>();
+/**
+ * Keep this file browser-safe: it can be pulled transitively from modules that are
+ * shared with client helpers. We intentionally avoid importing `node:async_hooks`
+ * at top-level to prevent Vite client build failures in CI.
+ *
+ * For our sync jobs (single logical run context), a lightweight module-local store
+ * is enough. If no capture is active, record* calls are no-ops.
+ */
+let currentAcc: Acc | null = null;
 
 function emptyAcc(startedAtSec: number): Acc {
   return {
@@ -54,21 +59,21 @@ function emptyAcc(startedAtSec: number): Acc {
 }
 
 export function beginSyncUsageCapture(runStartedAtSec: number): void {
-  als.enterWith(emptyAcc(runStartedAtSec));
+  currentAcc = emptyAcc(runStartedAtSec);
 }
 
 export function recordCmcHttpCall(): void {
-  const s = als.getStore();
+  const s = currentAcc;
   if (s) s.cmcHttpCalls++;
 }
 
 export function recordIcarusHttpCall(): void {
-  const s = als.getStore();
+  const s = currentAcc;
   if (s) s.icarusHttpCalls++;
 }
 
 export function recordNansenCall(key: string, creditsUsed: string | null | undefined, creditsRemaining?: string | null): void {
-  const s = als.getStore();
+  const s = currentAcc;
   if (!s) return;
   const n = parseNansenCreditsNumber(creditsUsed);
   s.nansen.push({
@@ -96,7 +101,7 @@ export function readMoralisComputeUnitsFromResponse(res: Response): number | nul
 }
 
 export function recordMoralisResponse(res: Response, label: string): void {
-  const s = als.getStore();
+  const s = currentAcc;
   if (!s) return;
   const cu = readMoralisComputeUnitsFromResponse(res);
   if (cu == null) {
@@ -107,14 +112,14 @@ export function recordMoralisResponse(res: Response, label: string): void {
 }
 
 export function attachMoralisCmcPhaseEstimate(metrics: Record<string, number>, estimateCu: number): void {
-  const s = als.getStore();
+  const s = currentAcc;
   if (!s) return;
   s.moralisCmcMetrics = metrics;
   s.moralisCmcPhaseCuEstimate = Math.max(0, Math.floor(estimateCu));
 }
 
 export function takeSyncUsageSnapshot(): SyncUsagePayloadV1 | null {
-  const s = als.getStore();
+  const s = currentAcc;
   if (!s) return null;
   let nansenSum = 0;
   let nansenHas = false;

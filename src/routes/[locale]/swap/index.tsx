@@ -249,7 +249,7 @@ export default component$(() => {
 
     if (!sellAmount.value || !buyAmount.value || !bestPath.value) return;
     if (!sellToken.value.address || !buyToken.value.address) {
-      alert('Token address not configured');
+      alert(t('swapPage.alerts.tokenAddressNotConfigured@@Token address not configured'));
       return;
     }
 
@@ -413,7 +413,7 @@ export default component$(() => {
               <button
                 class="p-2.5 rounded-xl bg-gray-50 border-4 border-white text-gray-600 shadow-sm hover:scale-110 hover:bg-gray-100 transition duration-200"
                 onClick$={switchTokens}
-                aria-label={t('swapPage.form.switchTokens') || "Switch tokens"}
+                aria-label={t('swapPage.form.switchTokens')}
               >
                 <LuArrowDownUp class="w-5 h-5" />
               </button>

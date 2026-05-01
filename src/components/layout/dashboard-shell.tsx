@@ -92,6 +92,11 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       sse: tr("dashboard.sse@@SSE"),
       proOnlyTitle: tr("dashboard.proOnlyTitle@@Pro subscribers only — see plans on Overview"),
       proBadge: tr("dashboard.proBadge@@Pro"),
+      openMenu: tr("dashboard.openMenu@@Open menu"),
+      closeMenu: tr("dashboard.closeMenu@@Close menu"),
+      footerTagline: tr("dashboard.footerTagline@@Markets, signals and real-time analytics."),
+      privacy: tr("app.footer.privacy@@Privacy"),
+      terms: tr("app.footer.terms@@Terms"),
       solanaNavTitle: tr("dashboard.solanaNavTitle@@Solana"),
       solanaOverview: tr("dashboard.solanaOverview@@Overview"),
       walletApi: tr("dashboard.walletApi@@Wallet"),
@@ -204,8 +209,8 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
             type="button"
             onClick$={toggleMobileNav}
             class="inline-flex md:hidden shrink-0 rounded-lg border border-[#043234] p-2 text-[#04E6E6] hover:bg-[#043234]/50 transition-colors"
-            aria-label={mobileNavOpen.value ? "Close menu" : "Open menu"}
-            title={mobileNavOpen.value ? "Close menu" : "Open menu"}
+            aria-label={mobileNavOpen.value ? d.value.closeMenu : d.value.openMenu}
+            title={mobileNavOpen.value ? d.value.closeMenu : d.value.openMenu}
           >
             {mobileNavOpen.value ? (
               <LuChevronLeft class="h-4 w-4" />
@@ -593,15 +598,15 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
         <footer class="mt-auto pt-10 rounded-2xl border border-[#043234] bg-gradient-to-r from-[#001318] via-[#001a1c] to-[#001318] px-5 py-4">
           <div class="flex flex-col items-center justify-center gap-2 text-center">
             <div>
-              <p class="text-sm font-semibold text-[#04E6E6]">Crypto Helper</p>
-              <p class="text-xs text-slate-400">Mercado, señales y análisis en tiempo real.</p>
+              <p class="text-sm font-semibold text-[#04E6E6]">{d.value.brand}</p>
+              <p class="text-xs text-slate-400">{d.value.footerTagline}</p>
             </div>
             <div class="flex items-center justify-center gap-4 text-xs">
               <Link href={`/${L}/privacy/`} class="text-slate-400 transition hover:text-[#04E6E6]">
-                Privacy
+                {d.value.privacy}
               </Link>
               <Link href={`/${L}/terms/`} class="text-slate-400 transition hover:text-[#04E6E6]">
-                Terms
+                {d.value.terms}
               </Link>
               <span class="text-slate-500">© {new Date().getFullYear()}</span>
             </div>

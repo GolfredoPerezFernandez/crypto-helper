@@ -22,6 +22,7 @@ import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypt
 import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
+import { buildSeo, localeFromParams } from "~/utils/seo";
 import type { MoralisDiscoveryHomePack } from "~/server/crypto-helper/dashboard-home-loader";
 
 function moralisRowsFromSnap(snap: unknown, max = 12): Record<string, unknown>[] {
@@ -51,15 +52,15 @@ function moralisTokenLabel(row: Record<string, unknown>): string {
   return "—";
 }
 
-export const head: DocumentHead = {
-  title: "Crypto Dashboard Overview | Crypto Helper",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Explore crypto market overview, token rankings, bubbles, NFT collections, and trader dashboards in Crypto Helper.",
-    },
-  ],
+export const head: DocumentHead = ({ url, params }) => {
+  const locale = localeFromParams(params);
+  return buildSeo({
+    title: "Crypto Dashboard Overview | Crypto Helper",
+    description:
+      "Explore crypto market overview, token rankings, bubbles, NFT collections, and trader dashboards in Crypto Helper.",
+    canonicalUrl: url.href,
+    locale,
+  });
 };
 
 export const useDashboardHomeLoader = routeLoader$(async (ev) => {

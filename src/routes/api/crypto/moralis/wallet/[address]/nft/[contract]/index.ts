@@ -2,6 +2,8 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { fetchMoralisNftsByContract } from "~/server/crypto-helper/moralis-api";
 import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
+import { apiError, apiOk } from "~/routes/api/crypto/_shared/api-response";
+import { parseNftContractQuery } from "~/routes/api/crypto/moralis/_shared/nft-contract-query";
 
 /**
  * Moralis GET /nft/{contract} — NFTs by collection, scoped under wallet URL for parity with
@@ -9,47 +11,27 @@ import { verifyAuth } from "~/utils/auth";
  */
 export const onGet: RequestHandler = async (ev) => {
   if (!(await verifyAuth(ev))) {
-    ev.json(401, { ok: false, error: "Unauthorized" });
+    ev.json(401, apiError("UNAUTHORIZED", "Unauthorized"));
     return;
   }
   const rawWallet = ev.params.address?.trim() || "";
   const rawContract = ev.params.contract?.trim() || "";
   if (!isEvmAddress(rawWallet)) {
-    ev.json(400, { ok: false, error: "invalid wallet address" });
+    ev.json(400, apiError("BAD_REQUEST", "invalid wallet address"));
     return;
   }
   if (!isEvmAddress(rawContract)) {
-    ev.json(400, { ok: false, error: "invalid contract" });
+    ev.json(400, apiError("BAD_REQUEST", "invalid contract"));
     return;
   }
   const wallet = rawWallet.toLowerCase();
   const contract = rawContract.toLowerCase();
-  const q = ev.query;
-  const chain = (q.get("chain")?.trim() || "base").toLowerCase();
-  const limit = Math.min(100, Math.max(1, Number(q.get("limit") || 40) || 40));
-  const cursor = q.get("cursor")?.trim() || undefined;
-  const format = q.get("format")?.trim().toLowerCase() === "hex" ? "hex" : "decimal";
-  const normalizeMetadata = q.get("normalizeMetadata") !== "false";
-  const media_items = q.get("media_items") === "true";
-  const include_prices = q.get("include_prices") === "true";
-  const tr = q.get("totalRanges");
-  const totalRanges = tr != null && tr !== "" ? Number(tr) : undefined;
-  const rg = q.get("range");
-  const range = rg != null && rg !== "" ? Number(rg) : undefined;
+  const q = parseNftContractQuery(ev.query);
 
-  const r = await fetchMoralisNftsByContract(contract, chain, {
-    limit,
-    cursor,
-    format,
-    normalizeMetadata,
-    media_items,
-    include_prices,
-    totalRanges: Number.isFinite(totalRanges) && (totalRanges as number) >= 1 ? totalRanges : undefined,
-    range: Number.isFinite(range) && (range as number) >= 1 ? range : undefined,
-  });
+  const r = await fetchMoralisNftsByContract(contract, q.chain, q);
   if (!r.ok) {
-    ev.json(502, { ok: false, error: r.error });
+    ev.json(502, apiError("UPSTREAM_ERROR", r.error || "Moralis upstream failed"));
     return;
   }
-  ev.json(200, { ok: true, wallet, contract, chain, data: r.data });
+  ev.json(200, apiOk(r.data, { wallet, contract, chain: q.chain }));
 };

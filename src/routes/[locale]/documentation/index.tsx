@@ -24,6 +24,7 @@ import {
 import { useLocation, type DocumentHead } from '@builder.io/qwik-city';
 import { isBrowser } from '@builder.io/qwik/build';
 import { inlineTranslate, useSpeak } from 'qwik-speak';
+import { buildSeo, localeFromParams } from '~/utils/seo';
 export default component$(() => {
   useSpeak({ runtimeAssets: ['docs'] });
   const t = inlineTranslate();
@@ -3023,20 +3024,12 @@ export default component$(() => {
   );
 });
 
-export const head: DocumentHead = {
-  title: 'Documentation - KNRT Marketplace | Complete Whitepaper for Beginners',
-  meta: [
-    {
-      name: 'description',
-      content: 'Learn step by step how to use KNRT Marketplace: connect wallet, buy tokens, create NFTs, buy, sell and rent. Whitepaper for beginners with no technical knowledge.',
-    },
-    {
-      property: 'og:title',
-      content: 'KNRT Marketplace Documentation - Complete Whitepaper',
-    },
-    {
-      property: 'og:description',
-      content: 'Everything you need to know to get started in the NFT world with KNRT Marketplace.',
-    },
-  ],
-};
+export const head: DocumentHead = ({ url, params }) =>
+  buildSeo({
+    title: 'Documentation and Feature Guide | Crypto Helper',
+    description:
+      'Official Crypto Helper docs: wallet setup, dashboards, token discovery, NFT flows, and feature walkthroughs for beginners.',
+    canonicalUrl: url.href,
+    locale: localeFromParams(params),
+    type: 'article',
+  });

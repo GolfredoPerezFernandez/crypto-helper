@@ -21,12 +21,15 @@ import Root from "./root";
 export default function (opts: RenderToStreamOptions) {
   const extra = opts.containerAttributes as Record<string, string | undefined> | undefined;
   const mergedClass = ["vt-root", extra?.class].filter(Boolean).join(" ").trim();
+  const requestLocale =
+    (opts.serverData as { qwikcity?: { params?: { locale?: string } } } | undefined)?.qwikcity?.params?.locale ||
+    "en-us";
   return renderToStream(<Root />, {
     manifest,
     ...opts,
     // Use container attributes to set attributes on the html tag.
     containerAttributes: {
-      lang: "en-US",
+      lang: requestLocale,
       ...opts.containerAttributes,
       class: mergedClass || "vt-root",
     },

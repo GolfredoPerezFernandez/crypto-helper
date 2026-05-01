@@ -158,7 +158,8 @@ export function registerCryptoHelperRoutes(app: Express): void {
 
 export function scheduleCryptoHelperJobs(): void {
   console.log("[Crypto Helper] scheduleCryptoHelperJobs() — start", new Date().toISOString());
-  const expr = process.env.SYNC_CRON || "0 */12 * * *";
+  // Default once per day (UTC 03:00). Override with SYNC_CRON for custom cadence.
+  const expr = process.env.SYNC_CRON || "0 3 * * *";
   cron.schedule(expr, () => {
     const tsStart = new Date().toISOString();
     console.log("[Crypto Helper] cron: scheduled market sync starting", tsStart);
@@ -172,7 +173,7 @@ export function scheduleCryptoHelperJobs(): void {
       )
       .catch((e) => console.error("[cron] CMC sync", e));
   });
-  console.log(`[Crypto Helper] CMC daily sync scheduled: ${expr}`);
+  console.log(`[Crypto Helper] market sync scheduled (cron): ${expr}`);
 
   const bootSyncEnabled = BOOL_TRUE_RE.test(String(process.env.SYNC_BOOTSTRAP_ENABLED ?? "1"));
   if (bootSyncEnabled) {

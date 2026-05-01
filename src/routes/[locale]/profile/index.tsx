@@ -735,7 +735,7 @@ export default component$(() => {
       if (!res.ok || !r?.ok) {
         profileNfts.value = [];
         profileNftTransfers.value = [];
-        profileNftsError.value = r?.error || 'No se pudieron cargar los NFTs.';
+        profileNftsError.value = r?.error || t('profile.nfts.loadError@@Could not load NFTs.');
         return;
       }
       profileNfts.value = Array.isArray(r.items) ? r.items : [];
@@ -746,7 +746,7 @@ export default component$(() => {
     } catch {
       profileNfts.value = [];
       profileNftTransfers.value = [];
-      profileNftsError.value = 'No se pudieron cargar los NFTs.';
+      profileNftsError.value = t('profile.nfts.loadError@@Could not load NFTs.');
     }
   });
 
@@ -932,7 +932,7 @@ export default component$(() => {
                     </p>
                   </div>
                   <span class="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
-                    {t('allNfts.card.mode.active')}
+                    {t('profile.stats.active@@Active')}
                   </span>
                 </div>
                 <p class="mt-2 text-lg font-semibold text-white">

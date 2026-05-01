@@ -903,8 +903,10 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
     const maxPerWalletWarn = Math.max(5, Number(process.env.MORALIS_WALLET_LOG_MAX_PARTIAL ?? 25));
     let partialWarns = 0;
 
-    for (let i = 0; i < list.length; i++) {
-      const addr = list[i];
+    const walletConcurrency = Math.max(1, Math.min(16, Number(process.env.MORALIS_WALLET_SYNC_CONCURRENCY ?? 6)));
+    let nextIndex = 0;
+    let doneCount = 0;
+    const processWallet = async (addr: string) => {
       const w0 = Date.now();
       try {
         const snap = await buildWalletPageSnapshot(addr, { disabledApis });
@@ -944,18 +946,32 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
         if (failSamples.length < 10) failSamples.push(`${addr.slice(0, 12)}…: ${msg}`);
         syncLogWarn("wallet snapshot exception", { address: addr, error: msg });
       }
-      if ((i + 1) % 25 === 0) {
-        syncLogInfo("wallet snapshot progress", {
-          done: i + 1,
-          total: list.length,
-          ok: okW,
-          fail: failW,
-          elapsedMs: Date.now() - walletPhaseStart,
-          disabledApis: disabledApis.size ? [...disabledApis] : undefined,
-        });
+    };
+    const worker = async () => {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= list.length) return;
+        await processWallet(list[i]);
+        doneCount++;
+        if (doneCount % 25 === 0 || doneCount === list.length) {
+          syncLogInfo("wallet snapshot progress", {
+            done: doneCount,
+            total: list.length,
+            ok: okW,
+            fail: failW,
+            elapsedMs: Date.now() - walletPhaseStart,
+            disabledApis: disabledApis.size ? [...disabledApis] : undefined,
+            concurrency: walletConcurrency,
+          });
+        }
+        if (doneCount % (walletConcurrency * 12) === 0) {
+          await new Promise((r) => setTimeout(r, 120));
+        }
       }
-      if (i % 20 === 19) await new Promise((r) => setTimeout(r, 250));
-    }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(walletConcurrency, Math.max(1, list.length)) }, () => worker()),
+    );
 
     syncLogInfo("aux step 4/4 done — wallet snapshots", {
       walletsOk: okW,

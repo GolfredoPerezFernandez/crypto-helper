@@ -12,19 +12,17 @@ import {
   rowWithNansenFallback,
 } from "~/server/crypto-helper/watchlist-nansen-merge";
 import { TRADER_WATCH_WALLETS } from "~/server/crypto-helper/trader-wallets";
+import { buildSeo, localeFromParams } from "~/utils/seo";
 
 const PAGE_SIZE = 25;
 
-export const head: DocumentHead = {
-  title: "Top Crypto Traders Watchlist | Crypto Helper",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Track profitable crypto trader wallets with cached PnL and net worth insights.",
-    },
-  ],
-};
+export const head: DocumentHead = ({ url, params }) =>
+  buildSeo({
+    title: "Top Crypto Traders Watchlist | Crypto Helper",
+    description: "Track profitable crypto trader wallets with cached PnL and net worth insights.",
+    canonicalUrl: url.href,
+    locale: localeFromParams(params),
+  });
 
 export const useTopTradersLoader = routeLoader$(async (ev) => {
   const nansenTokenFromQuery = normalizeEvmAddress(ev.query.get("token"));

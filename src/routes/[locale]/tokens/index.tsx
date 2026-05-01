@@ -4,10 +4,16 @@ import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { useDashboardAuth } from "../layout";
 import { clampLimit, queryMarketTokens } from "~/server/crypto-helper/market-queries";
+import { buildSeo, localeFromParams } from "~/utils/seo";
 
-export const head: DocumentHead = {
-  title: "Todos los tokens | Panel",
-};
+export const head: DocumentHead = ({ url, params }) =>
+  buildSeo({
+    title: "All Crypto Tokens and Market Data | Crypto Helper",
+    description:
+      "Browse up to 500 crypto assets with filters by category and network, sortable market metrics, and quick access to each token profile.",
+    canonicalUrl: url.href,
+    locale: localeFromParams(params),
+  });
 
 export const useAllTokensLoader = routeLoader$(async () => {
   return queryMarketTokens({ category: null, limit: clampLimit(500, 500), offset: 0 });
