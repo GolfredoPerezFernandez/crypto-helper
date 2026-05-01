@@ -19,6 +19,7 @@ import {
   type MoralisWalletTokensResult,
 } from "~/server/crypto-helper/moralis-api";
 import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-chain";
+import { parseTokenApiSnapshot } from "~/server/crypto-helper/market-token-snapshot";
 import { MARKET_CATEGORIES } from "~/server/crypto-helper/market-category-constants";
 import {
   GLOBAL_CMC_GLOBAL_METRICS,
@@ -284,6 +285,21 @@ function mergeApiSnapshotCmcOnly(
   return JSON.stringify(parsed);
 }
 
+/** Inject or replace `moralisTransfers` after a stale-row quote refresh (JSON string in/out). */
+function mergeMoralisTransfersIntoApiSnapshot(
+  snapshotJson: string,
+  transfers: MoralisWalletTokensResult,
+): string {
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(snapshotJson) as Record<string, unknown>;
+  } catch {
+    parsed = {};
+  }
+  parsed.moralisTransfers = transfers;
+  return JSON.stringify(parsed);
+}
+
 /**
  * Rows in this category whose cmcId was not part of today’s listing batch still stay in Turso;
  * refresh price/volume/% and CMC snapshot via quotes/latest (no full Moralis pass).
@@ -325,12 +341,45 @@ async function refreshStaleCategoryRows(
   const quotes = await fetchQuotesLatestMap(headers, staleIds);
   const infos = await fetchInfoMap(headers, staleIds);
 
+  const moralisKey = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const transfersRefreshMax = Math.max(
+    0,
+    Math.min(200, Number(process.env.MORALIS_STALE_TRANSFERS_REFRESH_MAX ?? 25) || 25),
+  );
+  let transfersRefreshBudget = transfersRefreshMax;
+
   let n = 0;
   for (const row of stale) {
     const cid = row.cmcId!;
     const q = quotes[String(cid)] as any;
     if (!q?.quote?.USD) continue;
     const info = infos[cid] ?? infos[String(cid)];
+    let apiSnapshot = mergeApiSnapshotCmcOnly(row.apiSnapshot, cid, q, info, now);
+
+    if (moralisKey && transfersRefreshBudget > 0) {
+      const addr = String(row.address || "").trim().toLowerCase();
+      const evm = /^0x[a-f0-9]{40}$/.test(addr);
+      const prev = parseTokenApiSnapshot(row.apiSnapshot ?? null);
+      const mt = prev?.moralisTransfers;
+      if (evm && (mt == null || mt.ok === false)) {
+        transfersRefreshBudget--;
+        const chain =
+          typeof prev?.moralisChain === "string" && prev.moralisChain
+            ? prev.moralisChain
+            : moralisChainFromNetworkLabel(String(row.network ?? ""));
+        try {
+          const fresh = await fetchMoralisErc20Transfers(addr, chain, 18);
+          apiSnapshot = mergeMoralisTransfersIntoApiSnapshot(apiSnapshot, fresh);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          apiSnapshot = mergeMoralisTransfersIntoApiSnapshot(apiSnapshot, {
+            ok: false,
+            error: msg,
+          });
+        }
+      }
+    }
+
     const patch = {
       name: String(q.name ?? row.name),
       symbol: String(q.symbol ?? row.symbol),
@@ -356,7 +405,7 @@ async function refreshStaleCategoryRows(
       slug: String(q.slug ?? row.slug ?? ""),
       cmcId: cid,
       updatedAt: now,
-      apiSnapshot: mergeApiSnapshotCmcOnly(row.apiSnapshot, cid, q, info, now),
+      apiSnapshot,
     };
 
     await db
@@ -449,8 +498,16 @@ async function buildTokenApiSnapshot(
       if (topLosers?.ok) metrics.moralisTopLosersOk++;
       else metrics.moralisTopLosersFail++;
     }
-  } else if (metrics) {
-    metrics.skippedNoContractOrKey++;
+  } else {
+    if (isEvm && !moralisKey) {
+      const err: MoralisWalletTokensResult = {
+        ok: false,
+        error: "MORALIS_API_KEY missing — on-chain snapshot skipped.",
+      };
+      topGainers = owners = moralisPrice = moralisTransfers = moralisMeta = err;
+      if (topLosersSyncOn) topLosers = err;
+    }
+    if (metrics) metrics.skippedNoContractOrKey++;
   }
 
   if (topLosersSyncOn && (!isEvm || !moralisKey)) {

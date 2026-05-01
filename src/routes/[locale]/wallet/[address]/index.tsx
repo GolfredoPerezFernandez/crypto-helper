@@ -87,6 +87,8 @@ type WalletViewData = {
   interactBase?: { sentN: number; recvN: number; sentPreview: string[] } | null;
   defiSummary?: { ok?: boolean; data?: unknown; error?: unknown };
   defiPositions?: { ok?: boolean; data?: unknown; error?: unknown };
+  /** Prefetch por protocolo durante sync (`wallet-snapshot`). */
+  defiProtocolPositions?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
   nftCollectionsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
   nftsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
   nftCollectionsBase?: { ok?: boolean; data?: unknown; error?: unknown };
@@ -244,6 +246,54 @@ function pickUsd(value: unknown): number | null {
   return null;
 }
 
+/** Moralis a veces omite `totalUnclaimedUsd` en el resumen; probamos alias y luego sumamos filas. */
+function pickDefiSummaryUnclaimedUsd(result: Record<string, unknown> | null): number | null {
+  if (!result) return null;
+  const keys = [
+    "totalUnclaimedUsd",
+    "total_unclaimed_usd",
+    "totalClaimableUsd",
+    "total_claimable_usd",
+    "totalPendingRewardsUsd",
+    "unclaimedRewardsUsd",
+    "pendingRewardsUsd",
+  ];
+  for (const k of keys) {
+    const n = pickUsd(result[k]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function sumUnclaimedFromProtocolSummaryRows(protocols: Record<string, unknown>[]): number | null {
+  let sum = 0;
+  let any = false;
+  for (const p of protocols) {
+    const u = pickUsd(p.totalUnclaimedUsd ?? p.total_unclaimed_usd ?? p.claimableUsd);
+    if (u != null) {
+      sum += u;
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
+function sumUnclaimedFromDefiPositionRows(rows: Record<string, unknown>[]): number | null {
+  let sum = 0;
+  let any = false;
+  for (const row of rows) {
+    const pos = (
+      row.position && typeof row.position === "object" ? row.position : row
+    ) as Record<string, unknown>;
+    const u = pickUsd(pos.unclaimedUsd ?? pos.unclaimed_usd ?? row.unclaimedUsd);
+    if (u != null) {
+      sum += u;
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
 export const useWalletPageLoader = routeLoader$(async (ev) => {
   const raw = ev.params.address?.trim() || "";
   if (!isEvmAddress(raw)) {
@@ -351,7 +401,6 @@ export default component$(() => {
       ? (defiSummaryResult.totalPositions as number)
       : 0;
   const defiTotalUsd = pickUsd(defiSummaryResult?.totalUsd);
-  const defiUnclaimedUsd = pickUsd(defiSummaryResult?.totalUnclaimedUsd);
   const defiProtocols = Array.isArray(defiSummaryResult?.protocols)
     ? (defiSummaryResult.protocols as Record<string, unknown>[])
     : [];
@@ -365,6 +414,20 @@ export default component$(() => {
     ? (defiPositionsUni.result as Record<string, unknown>[])
     : [];
   const defiPositionsError = !v.defiPositions?.ok ? cleanErrorText(v.defiPositions?.error) : "";
+
+  const defiUnclaimedUsd =
+    pickDefiSummaryUnclaimedUsd(defiSummaryResult) ??
+    sumUnclaimedFromProtocolSummaryRows(defiProtocols) ??
+    sumUnclaimedFromDefiPositionRows(defiPositionsList);
+
+  const defiProtoMap =
+    (v.defiProtocolPositions ?? {}) as Record<
+      string,
+      { ok?: boolean; data?: unknown; error?: unknown }
+    >;
+  const defiPrefetchedProtocolCount = Object.values(defiProtoMap).filter(
+    (x) => x?.ok && x.data != null,
+  ).length;
 
   /** Drill-down on a single DeFi protocol. Pulls Universal API v1 detailed positions. */
   const loadProtocolPositions = $(async (protocolId: string, chainId: unknown) => {
@@ -518,95 +581,209 @@ export default component$(() => {
           Aún no hay un resumen guardado para esta cartera. Vuelve a intentarlo más tarde.
         </p>
       ) : null}
-      <section class="mb-6 overflow-hidden rounded-2xl border border-[#043234] bg-[#001a1c]/80 shadow-lg shadow-black/25 motion-safe:animate-[walletFade_0.55s_ease-out_both]">
+      {/* Vista unificada: KPI + distribución + PnL (responsive, estilo trading desk) */}
+      <section class="mb-6 overflow-hidden rounded-3xl border border-[#0a5357]/90 bg-[#001015]/95 shadow-[0_0_0_1px_rgba(4,230,230,0.06),0_25px_80px_-20px_rgba(0,0,0,0.65)] motion-safe:animate-[walletFade_0.55s_ease-out_both]">
         <div class="relative">
-          <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(4,230,230,0.07),transparent_52%)]" />
-          <div class="relative grid gap-0 lg:grid-cols-12">
-            <div class="p-6 sm:p-8 lg:col-span-12">
-              <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Cartera EVM · datos de mercado y cadena</p>
-              <h1 class="mt-1 text-2xl font-bold text-white sm:text-3xl">Resumen de wallet</h1>
-              <div class="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                <div class="rounded-xl border border-[#0c4b4f]/70 bg-[#000d12]/75 px-3 py-2">
-                  <p class="text-[10px] uppercase tracking-wide text-slate-500">Address</p>
-                  <p class="mt-1 min-w-0 break-all font-mono text-sm text-[#04E6E6]/95">{v.address}</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-                  <button
-                    type="button"
-                    disabled={savingFavorite.value}
-                    onClick$={async () => {
-                      savingFavorite.value = true;
-                      try {
-                        const r = await upsertWatchlistItem({
-                          itemType: "wallet",
-                          itemKey: String(v.address).toLowerCase(),
-                          label: `Wallet ${truncateWalletAddr(String(v.address).toLowerCase())}`,
-                          meta: { address: String(v.address).toLowerCase() },
-                        });
-                        if (!r.ok && r.requiresLogin) {
-                          window.alert("Debes iniciar sesión para guardar favoritos.");
-                        }
-                      } finally {
-                        savingFavorite.value = false;
+          <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_0%_-20%,rgba(4,230,230,0.11),transparent_50%),radial-gradient(ellipse_80%_60%_at_100%_0%,rgba(98,126,234,0.06),transparent_45%)]" />
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#04E6E6]/25 to-transparent" />
+
+          <div class="relative p-5 sm:p-6 lg:p-8">
+            {/* Cabecera */}
+            <div class="flex flex-col gap-4 border-b border-[#043234]/50 pb-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Cartera EVM · mercado y cadena
+                </p>
+                <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[1.75rem]">
+                  Resumen de wallet
+                </h1>
+                <p class="mt-2 max-w-xl text-xs leading-relaxed text-slate-500">
+                  Patrimonio, reparto por red y activos, y rendimiento por cadena en un solo panel.
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-2 lg:justify-end">
+                <button
+                  type="button"
+                  disabled={savingFavorite.value}
+                  onClick$={async () => {
+                    savingFavorite.value = true;
+                    try {
+                      const r = await upsertWatchlistItem({
+                        itemType: "wallet",
+                        itemKey: String(v.address).toLowerCase(),
+                        label: `Wallet ${truncateWalletAddr(String(v.address).toLowerCase())}`,
+                        meta: { address: String(v.address).toLowerCase() },
+                      });
+                      if (!r.ok && r.requiresLogin) {
+                        window.alert("Debes iniciar sesión para guardar favoritos.");
                       }
-                    }}
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-[#04E6E6] transition hover:border-[#04E6E6]/45 hover:text-cyan-100 disabled:opacity-60"
-                  >
-                    ☆ Favorito
-                  </button>
-                  <button
-                    type="button"
-                    onClick$={copyAddress}
-                    aria-label="Copiar dirección"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
-                  >
-                    <LuCopy class="h-3.5 w-3.5 shrink-0 opacity-80" />
-                    {copied.value ? "Copiado" : "Copiar"}
-                  </button>
-                  <a
-                    href={explorerBase}
-                    target="_blank"
-                    rel="noreferrer"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
-                  >
-                    BaseScan
-                    <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  </a>
-                  <a
-                    href={explorerEth}
-                    target="_blank"
-                    rel="noreferrer"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
-                  >
-                    Etherscan
-                    <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  </a>
+                    } finally {
+                      savingFavorite.value = false;
+                    }
+                  }}
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#04E6E6]/35 bg-[#04E6E6]/10 px-3 py-2 text-xs font-semibold text-[#04E6E6] transition hover:border-[#04E6E6]/55 hover:bg-[#04E6E6]/15 disabled:opacity-60"
+                >
+                  ☆ Favorito
+                </button>
+                <button
+                  type="button"
+                  onClick$={copyAddress}
+                  aria-label="Copiar dirección"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                >
+                  <LuCopy class="h-3.5 w-3.5 shrink-0 opacity-80" />
+                  {copied.value ? "Copiado" : "Copiar"}
+                </button>
+                <a
+                  href={explorerBase}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                >
+                  BaseScan
+                  <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
+                </a>
+                <a
+                  href={explorerEth}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                >
+                  Etherscan
+                  <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
+                </a>
+              </div>
+            </div>
+
+            {/* Cuerpo: columna KPI | columnas distribución */}
+            <div class="mt-6 grid gap-8 xl:grid-cols-12 xl:gap-6 2xl:gap-8">
+              {/* KPI + address */}
+              <div class="flex flex-col xl:col-span-5">
+                <div class="rounded-2xl border border-[#0c4b4f]/80 bg-gradient-to-br from-[#000d12]/90 to-[#000508]/80 p-4 ring-1 ring-white/[0.03]">
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Address</p>
+                  <p class="mt-2 min-w-0 break-all font-mono text-sm leading-snug text-[#04E6E6]">{v.address}</p>
+                </div>
+
+                <div class="mt-6 flex flex-1 flex-col justify-end">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Patrimonio total (estimado)
+                  </p>
+                  {v.nw?.ok && nwTotalUsd != null ? (
+                    <p class="mt-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl xl:text-[2.75rem] 2xl:text-5xl">
+                      ${formatUsdBalance(nwTotalUsd)}
+                    </p>
+                  ) : (
+                    <p class="mt-2 text-2xl font-semibold text-slate-500">—</p>
+                  )}
+                  <div class="mt-3 min-h-[1.75rem]">
+                    {change24h != null ? (
+                      <span
+                        class={
+                          change24h >= 0
+                            ? "inline-flex items-center gap-2 text-base font-semibold tabular-nums text-emerald-300"
+                            : "inline-flex items-center gap-2 text-base font-semibold tabular-nums text-rose-300"
+                        }
+                      >
+                        <span>
+                          {change24h >= 0 ? "+" : ""}
+                          {change24h.toFixed(2)}%
+                        </span>
+                        <span class="text-xs font-normal text-slate-500">24h · ponderado</span>
+                      </span>
+                    ) : (
+                      <span class="text-sm text-slate-500">Variación 24h no disponible</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <p class="mt-5 text-xs font-medium uppercase tracking-wide text-slate-500">Patrimonio total (estimado)</p>
-              {v.nw?.ok && nwTotalUsd != null ? (
-                <p class="mt-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl">
-                  ${formatUsdBalance(nwTotalUsd)}
-                </p>
-              ) : (
-                <p class="mt-2 text-2xl font-semibold text-slate-500">—</p>
-              )}
-              <div class="mt-4">
-                {change24h != null ? (
-                  <span
-                    class={
-                      change24h >= 0
-                        ? "text-base font-semibold tabular-nums text-emerald-300"
-                        : "text-base font-semibold tabular-nums text-rose-300"
-                    }
-                  >
-                    {change24h >= 0 ? "+" : ""}
-                    {change24h.toFixed(2)}%
-                    <span class="ml-2 text-xs font-normal text-slate-500">24h · ponderado por tokens</span>
+
+              {/* Distribución */}
+              <div class="min-w-0 xl:col-span-7">
+                <div class="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-[#043234]/40 pb-3">
+                  <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Distribución de cartera</h3>
+                    <p class="mt-0.5 text-[10px] text-slate-600">Por cadena y por activo</p>
+                  </div>
+                  <span class="rounded-full border border-[#043234]/80 bg-[#000D0E]/60 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                    Live snapshot
                   </span>
-                ) : (
-                  <span class="text-sm text-slate-500">Variación 24h no disponible</span>
-                )}
+                </div>
+                <div class="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                  <section class="rounded-2xl border border-[#043234]/75 bg-[#000508]/55 p-3.5 sm:p-4 ring-1 ring-inset ring-white/[0.04]">
+                    <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Chain breakdown</h4>
+                    <div class="mt-3 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-4">
+                      <WalletDonutChart slices={chainSlices} ariaLabel="Distribución del patrimonio por cadena" />
+                      <ul class="flex min-w-0 flex-1 flex-col gap-1.5 sm:max-h-[220px] sm:overflow-y-auto sm:pr-1">
+                        {chainSlices.length === 0 ? (
+                          <li class="text-sm text-slate-500">Sin desglose por cadena.</li>
+                        ) : (
+                          chainSlices.map((s, i) => (
+                            <li
+                              key={`${s.label}-${i}`}
+                              class="flex items-center gap-2 rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-2.5 py-2 transition-all duration-200 hover:border-[#04E6E6]/30 hover:bg-[#001014]/90"
+                            >
+                              <span class="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
+                              <span class="min-w-0 flex-1 truncate text-xs text-slate-200">{s.label}</span>
+                              <span class="shrink-0 tabular-nums text-xs text-slate-300">${formatUsdBalance(s.value)}</span>
+                              <span class="w-12 shrink-0 text-right text-[10px] text-slate-500">
+                                {walletLegendPct(s.value, chainSliceTotal)}
+                              </span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                  </section>
+                  <section class="rounded-2xl border border-[#043234]/75 bg-[#000508]/55 p-3.5 sm:p-4 ring-1 ring-inset ring-white/[0.04]">
+                    <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Asset allocation</h4>
+                    <div class="mt-3 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-4">
+                      <WalletDonutChart slices={assetSlices} ariaLabel="Distribución por activo" />
+                      <ul class="flex min-w-0 flex-1 flex-col gap-1.5 sm:max-h-[220px] sm:overflow-y-auto sm:pr-1">
+                        {assetSlices.length === 0 ? (
+                          <li class="text-sm text-slate-500">Sin tokens con valor en USD.</li>
+                        ) : (
+                          assetSlices.map((s, i) => (
+                            <li
+                              key={`${s.label}-${i}`}
+                              class="flex items-center gap-2 rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-2.5 py-2 transition-all duration-200 hover:border-[#04E6E6]/30 hover:bg-[#001014]/90"
+                            >
+                              <span class="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
+                              <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-100">{s.label}</span>
+                              <span class="shrink-0 tabular-nums text-xs text-slate-300">${formatUsdBalance(s.value)}</span>
+                              <span class="w-12 shrink-0 text-right text-[10px] text-slate-500">
+                                {walletLegendPct(s.value, assetSliceTotal)}
+                              </span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+
+            {/* PnL — fila inferior dentro del mismo panel */}
+            <div class="mt-8 border-t border-[#043234]/55 pt-8">
+              <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">PnL agregado</h2>
+                  <p class="mt-1 text-[11px] text-slate-600">Rendimiento realizado por red (Moralis)</p>
+                </div>
+              </div>
+              <div class="grid gap-4 sm:gap-5 lg:grid-cols-2">
+                <WalletPnlSnapshot
+                  chainLabel="Base"
+                  ok={!!v.pnlBase?.ok}
+                  data={v.pnlBase?.ok ? v.pnlBase.data : null}
+                  emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
+                />
+                <WalletPnlSnapshot
+                  chainLabel="Ethereum"
+                  ok={!!v.pnlEth?.ok}
+                  data={v.pnlEth?.ok ? v.pnlEth.data : null}
+                  emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
+                />
               </div>
             </div>
           </div>
@@ -614,6 +791,10 @@ export default component$(() => {
       </section>
 
       <section class="mb-6 rounded-2xl border border-[#043234]/90 bg-gradient-to-b from-[#0a1416] to-[#050a0c] p-5 shadow-lg shadow-black/35 motion-safe:animate-[walletFade_0.7s_ease-out_both]">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Actividad reciente (Base)</h3>
+          <span class="text-[10px] text-slate-600">Transacciones por día · muestra</span>
+        </div>
         <WalletActivityLineChart
           labels={baseAct?.buckets.map((b) => b.label) ?? []}
           values={baseAct?.buckets.map((b) => b.count) ?? []}
@@ -622,83 +803,6 @@ export default component$(() => {
         {!baseAct && v.txBase?.ok && !v.snapshotMissing ? (
           <p class="mt-2 text-sm text-slate-500">No hay fechas legibles en las transacciones de la muestra.</p>
         ) : null}
-      </section>
-
-      <section class="mb-6 rounded-2xl border border-[#043234]/90 bg-gradient-to-b from-[#001a1c]/95 to-[#050a0c] p-5 sm:p-6 shadow-lg shadow-black/25 motion-safe:animate-[walletFade_0.9s_ease-out_both]">
-        <div class="mb-4 flex items-center justify-between gap-3">
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Distribución de cartera</h3>
-          <span class="text-[10px] uppercase tracking-wide text-slate-600">Cadenas y activos</span>
-        </div>
-        <div class="grid gap-5 xl:grid-cols-2">
-          <section class="rounded-2xl border border-[#043234]/80 bg-[#000D0E]/45 p-4">
-            <h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Chain breakdown</h4>
-            <div class="mt-4 flex flex-col items-stretch gap-5 sm:flex-row sm:items-center">
-              <WalletDonutChart slices={chainSlices} ariaLabel="Distribución del patrimonio por cadena" />
-              <ul class="flex min-w-0 flex-1 flex-col gap-2">
-                {chainSlices.length === 0 ? (
-                  <li class="text-sm text-slate-500">Sin desglose por cadena.</li>
-                ) : (
-                  chainSlices.map((s, i) => (
-                    <li
-                      key={`${s.label}-${i}`}
-                      class="flex items-center gap-3 rounded-xl border border-[#043234]/70 bg-[#000D0E]/60 px-3 py-2.5 transition-all duration-300 hover:border-[#04E6E6]/35 hover:bg-[#001014]/80"
-                    >
-                      <span class="h-3 w-3 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
-                      <span class="min-w-0 flex-1 truncate text-sm text-slate-200">{s.label}</span>
-                      <span class="shrink-0 tabular-nums text-sm text-slate-300">${formatUsdBalance(s.value)}</span>
-                      <span class="w-14 shrink-0 text-right text-xs text-slate-500">
-                        {walletLegendPct(s.value, chainSliceTotal)}
-                      </span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </section>
-          <section class="rounded-2xl border border-[#043234]/80 bg-[#000D0E]/45 p-4">
-            <h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Asset allocation</h4>
-            <div class="mt-4 flex flex-col items-stretch gap-5 sm:flex-row sm:items-center">
-              <WalletDonutChart slices={assetSlices} ariaLabel="Distribución por activo" />
-              <ul class="flex min-w-0 flex-1 flex-col gap-2">
-                {assetSlices.length === 0 ? (
-                  <li class="text-sm text-slate-500">Sin tokens con valor en USD.</li>
-                ) : (
-                  assetSlices.map((s, i) => (
-                    <li
-                      key={`${s.label}-${i}`}
-                      class="flex items-center gap-3 rounded-xl border border-[#043234]/70 bg-[#000D0E]/60 px-3 py-2.5 transition-all duration-300 hover:border-[#04E6E6]/35 hover:bg-[#001014]/80"
-                    >
-                      <span class="h-3 w-3 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
-                      <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">{s.label}</span>
-                      <span class="shrink-0 tabular-nums text-sm text-slate-300">${formatUsdBalance(s.value)}</span>
-                      <span class="w-14 shrink-0 text-right text-xs text-slate-500">
-                        {walletLegendPct(s.value, assetSliceTotal)}
-                      </span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section class="mb-8 rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5">
-        <h2 class="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">PnL agregado</h2>
-        <div class="grid gap-4 lg:grid-cols-2">
-          <WalletPnlSnapshot
-            chainLabel="Base"
-            ok={!!v.pnlBase?.ok}
-            data={v.pnlBase?.ok ? v.pnlBase.data : null}
-            emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
-          />
-          <WalletPnlSnapshot
-            chainLabel="Ethereum"
-            ok={!!v.pnlEth?.ok}
-            data={v.pnlEth?.ok ? v.pnlEth.data : null}
-            emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
-          />
-        </div>
       </section>
 
       <div class="mb-4 flex flex-wrap gap-6 border-b border-[#043234]/70 pb-0">
@@ -1232,18 +1336,21 @@ export default component$(() => {
       </div>
 
       <section
-        class={`${assetsTab.value === "defi" ? "mb-6 rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5" : "hidden"}`}
+        class={`${assetsTab.value === "defi" ? "relative mb-6 overflow-hidden rounded-3xl border border-[#0a5357]/80 bg-gradient-to-b from-[#001217] to-[#000608] p-4 shadow-[0_25px_80px_-30px_rgba(0,0,0,0.75)] sm:p-6" : "hidden"}`}
         aria-hidden={assetsTab.value !== "defi"}
       >
-        <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">DeFi · multi-chain</h2>
-            <p class="mt-1 text-[11px] text-slate-500">
-              Lending, liquidez, staking y rewards en Ethereum y Base. Datos del último análisis en caché.
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(4,230,230,0.06),transparent_55%)] opacity-90" />
+        <div class="relative mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-[#043234]/50 pb-5">
+          <div class="max-w-xl">
+            <h2 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">DeFi · multi-chain</h2>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              Lending, pools, staking y recompensas en <span class="text-slate-300">Ethereum</span> y{" "}
+              <span class="text-slate-300">Base</span>. Los totales vienen del snapshot; las posiciones por protocolo se
+              precargan en sincronización (sin pulsar &quot;Cargar&quot; cuando hay datos en caché).
             </p>
           </div>
           {defiSummaryResult ? (
-            <span class="rounded-full border border-[#04E6E6]/30 bg-[#04E6E6]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#04E6E6]">
+            <span class="shrink-0 rounded-full border border-[#04E6E6]/35 bg-[#04E6E6]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#04E6E6]">
               Universal API v1
             </span>
           ) : null}
@@ -1286,24 +1393,36 @@ export default component$(() => {
 
               {defiProtocols.length > 0 ? (
                 <div>
-                  <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      Protocolos
-                    </h3>
-                    <p class="text-[10px] text-gray-500">
-                      Pulsa <span class="text-gray-300">Detalle</span> para cargar las posiciones específicas (Universal API).
+                  <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Protocolos</h3>
+                    <p class="max-w-md text-right text-[10px] leading-snug text-slate-500">
+                      {defiPrefetchedProtocolCount > 0 ? (
+                        <>
+                          <span class="font-medium text-emerald-400/95">{defiPrefetchedProtocolCount}</span> con
+                          posiciones completas en caché (último sync).{" "}
+                          <span class="text-slate-600">Universal API · ~5k CU por protocolo.</span>
+                        </>
+                      ) : (
+                        <>
+                          Las posiciones por protocolo se guardan en la próxima sincronización (
+                          <code class="rounded bg-[#001a1c] px-1 text-[9px] text-slate-400">
+                            MORALIS_SYNC_WALLET_DEFI_PROTOCOL_DETAILS
+                          </code>
+                          ). Mientras tanto puedes usar <span class="text-slate-400">Cargar</span>.
+                        </>
+                      )}
                     </p>
                   </div>
-                  <div class="overflow-x-auto">
+                  <div class="overflow-x-auto rounded-xl border border-[#043234]/60 bg-[#000508]/40">
                     <table class="w-full min-w-[680px] border-collapse text-left text-[12px] text-slate-200">
                       <thead>
-                        <tr class="border-b border-[#043234] text-[10px] uppercase tracking-wide text-gray-500">
-                          <th class="px-2 py-2 font-medium">Protocolo</th>
-                          <th class="px-2 py-2 font-medium">Red</th>
-                          <th class="px-2 py-2 font-medium text-right">Posiciones</th>
-                          <th class="px-2 py-2 font-medium text-right">USD</th>
-                          <th class="px-2 py-2 font-medium text-right">Sin reclamar</th>
-                          <th class="px-2 py-2 font-medium text-right">Detalle</th>
+                        <tr class="border-b border-[#043234] bg-[#001015]/90 text-[10px] uppercase tracking-wide text-slate-500">
+                          <th class="px-3 py-2.5 font-medium">Protocolo</th>
+                          <th class="px-3 py-2.5 font-medium">Red</th>
+                          <th class="px-3 py-2.5 font-medium text-right">Posiciones</th>
+                          <th class="px-3 py-2.5 font-medium text-right">USD</th>
+                          <th class="px-3 py-2.5 font-medium text-right">Sin reclamar</th>
+                          <th class="px-3 py-2.5 font-medium text-right">Datos</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1313,16 +1432,21 @@ export default component$(() => {
                           const name = String(p.protocolName ?? p.protocolId ?? "Protocolo");
                           const logo = typeof p.protocolLogo === "string" ? (p.protocolLogo as string) : "";
                           const url = typeof p.protocolUrl === "string" ? (p.protocolUrl as string) : "";
-                          const usd = pickUsd(p.totalUsd);
-                          const unclaimed = pickUsd(p.totalUnclaimedUsd);
+                          const usd = pickUsd(p.totalUsd ?? p.total_usd);
+                          const unclaimed = pickUsd(
+                            p.totalUnclaimedUsd ?? p.total_unclaimed_usd ?? p.claimableUsd,
+                          );
                           const positions = typeof p.positionCount === "number" ? (p.positionCount as number) : 0;
+                          const cached = defiProtoMap[protocolId];
+                          const hasCachedDetail = !!(cached?.ok && cached.data != null);
                           const isOpen = protoOpenId.value === protocolId;
+                          const showDetailRow = hasCachedDetail || isOpen;
                           const isLoading = isOpen && protoLoading.value;
                           return (
                             <>
-                              <tr key={rowKey} class="border-b border-[#043234]/40">
-                                <td class="px-2 py-2">
-                                  <div class="flex items-center gap-2 min-w-0">
+                              <tr key={rowKey} class="border-b border-[#043234]/35 transition-colors hover:bg-[#001014]/50">
+                                <td class="px-3 py-2.5">
+                                  <div class="flex min-w-0 items-center gap-2">
                                     {logo ? (
                                       <img src={logo} alt="" class="h-6 w-6 rounded-md object-cover" width={24} height={24} loading="lazy" />
                                     ) : (
@@ -1343,54 +1467,56 @@ export default component$(() => {
                                       ) : (
                                         <span class="truncate font-medium text-slate-100">{name}</span>
                                       )}
-                                      <span class="block truncate text-[10px] text-gray-500">{protocolId}</span>
+                                      <span class="block truncate font-mono text-[10px] text-slate-600">{protocolId}</span>
                                     </div>
                                   </div>
                                 </td>
-                                <td class="px-2 py-2 text-[11px] text-gray-400">
+                                <td class="px-3 py-2.5 text-[11px] text-slate-500">
                                   {chainLabelFromChainId(p.chainId)}
                                 </td>
-                                <td class="px-2 py-2 text-right tabular-nums text-gray-300">
-                                  {positions}
-                                </td>
-                                <td class="px-2 py-2 text-right tabular-nums text-slate-100">
+                                <td class="px-3 py-2.5 text-right tabular-nums text-slate-400">{positions}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums text-slate-100">
                                   {usd != null ? `$${formatUsdBalance(usd)}` : "—"}
                                 </td>
                                 <td
-                                  class={`px-2 py-2 text-right tabular-nums ${unclaimed && unclaimed > 0 ? "text-emerald-300" : "text-gray-500"}`}
+                                  class={`px-3 py-2.5 text-right tabular-nums ${unclaimed && unclaimed > 0 ? "text-emerald-300" : "text-slate-600"}`}
                                 >
                                   {unclaimed != null ? `$${formatUsdBalance(unclaimed)}` : "—"}
                                 </td>
-                                <td class="px-2 py-2 text-right">
-                                  <button
-                                    type="button"
-                                    disabled={isLoading}
-                                    class={`rounded-md border px-2 py-1 text-[10px] font-medium transition disabled:opacity-50 ${
-                                      isOpen
-                                        ? "border-[#04E6E6]/50 bg-[#04E6E6]/15 text-[#04E6E6]"
-                                        : "border-[#043234] bg-[#000D0E]/50 text-gray-300 hover:border-[#04E6E6]/30 hover:text-[#04E6E6]"
-                                    }`}
-                                    onClick$={() => loadProtocolPositions(protocolId, p.chainId)}
-                                  >
-                                    {isLoading
-                                      ? "Cargando…"
-                                      : isOpen
-                                        ? "Cerrar"
-                                        : "Detalle"}
-                                  </button>
+                                <td class="px-3 py-2.5 text-right">
+                                  {hasCachedDetail ? (
+                                    <span class="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-emerald-300">
+                                      Snapshot
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={isLoading}
+                                      class={`rounded-lg border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
+                                        isOpen
+                                          ? "border-[#04E6E6]/50 bg-[#04E6E6]/15 text-[#04E6E6]"
+                                          : "border-[#043234] bg-[#000D0E]/70 text-slate-300 hover:border-[#04E6E6]/35 hover:text-[#04E6E6]"
+                                      }`}
+                                      onClick$={() => loadProtocolPositions(protocolId, p.chainId)}
+                                    >
+                                      {isLoading ? "…" : isOpen ? "Cerrar" : "Cargar"}
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
-                              {isOpen ? (
-                                <tr key={`${rowKey}-detail`} class="border-b border-[#043234]/60 bg-[#000d0e]/40">
-                                  <td colSpan={6} class="px-3 py-3">
-                                    {protoErr.value ? (
+                              {showDetailRow ? (
+                                <tr key={`${rowKey}-detail`} class="border-b border-[#043234]/50 bg-[#000a0d]/80">
+                                  <td colSpan={6} class="px-3 py-4">
+                                    {hasCachedDetail ? (
+                                      <DefiProtocolDetail payload={cached!.data as Record<string, unknown>} />
+                                    ) : protoErr.value ? (
                                       <p class="text-[11px] text-amber-300">{protoErr.value}</p>
                                     ) : protoLoading.value ? (
-                                      <p class="text-[11px] text-gray-400">Cargando posiciones de {name}…</p>
+                                      <p class="text-[11px] text-slate-500">Cargando posiciones de {name}…</p>
                                     ) : protoPayload.value ? (
                                       <DefiProtocolDetail payload={protoPayload.value} />
                                     ) : (
-                                      <p class="text-[11px] text-gray-500">Sin datos.</p>
+                                      <p class="text-[11px] text-slate-600">Sin datos.</p>
                                     )}
                                   </td>
                                 </tr>

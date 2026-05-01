@@ -1,5 +1,5 @@
 import { syncLogError, syncLogInfo } from "~/server/crypto-helper/sync-logger";
-import { recordIcarusHttpCall } from "~/server/crypto-helper/sync-usage-context";
+import { recordEndpointOutcome, recordIcarusHttpCall } from "~/server/crypto-helper/sync-usage-context";
 
 export type IcarusTopUser = { account?: string; [key: string]: unknown };
 
@@ -28,6 +28,7 @@ export async function fetchIcarusTopUsersBySwaps(
       }),
     });
     recordIcarusHttpCall();
+    recordEndpointOutcome(res.ok);
     const ms = Date.now() - t0;
     const raw = await res.text();
     let j: { result?: unknown } = {};
@@ -53,6 +54,7 @@ export async function fetchIcarusTopUsersBySwaps(
     return rows as IcarusTopUser[];
   } catch (e: unknown) {
     const ms = Date.now() - t0;
+    recordEndpointOutcome(false);
     syncLogError("Icarus topUsers network/error", e instanceof Error ? e : { error: String(e), ms });
     return [];
   }

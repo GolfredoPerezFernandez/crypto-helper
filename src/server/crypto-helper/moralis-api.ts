@@ -3,7 +3,7 @@
  * without circular deps (actions → cmc-sync → actions).
  */
 
-import { recordMoralisResponse } from "~/server/crypto-helper/sync-usage-context";
+import { recordEndpointOutcome, recordMoralisResponse } from "~/server/crypto-helper/sync-usage-context";
 
 const MORALIS_BASE = "https://deep-index.moralis.io/api/v2.2";
 const MORALIS_SOLANA_BASE = "https://solana-gateway.moralis.io";
@@ -26,6 +26,9 @@ async function moralisFetch(url: string, init: RequestInit): Promise<Response> {
   const timer = setTimeout(() => ctrl.abort(), MORALIS_TIMEOUT_MS);
   try {
     return await fetch(url, { ...init, signal: init.signal ?? ctrl.signal });
+  } catch (e) {
+    recordEndpointOutcome(false);
+    throw e;
   } finally {
     clearTimeout(timer);
   }

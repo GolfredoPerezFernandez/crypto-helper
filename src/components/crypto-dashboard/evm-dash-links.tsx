@@ -56,11 +56,12 @@ export function dashboardTxHref(locale: string, chain: "base" | "eth", hash: unk
   return `/${locale}/tx/${encodeURIComponent(h)}/?chain=${ch}`;
 }
 
-export type EvmAddrVariant = "wallet" | "token" | "nft";
+export type EvmAddrVariant = "wallet" | "token" | "nft" | "contract";
 
 /**
  * Dirección 0x: enlace principal en la app; ↗ al explorador de la cadena.
  * `moralisChain`: slug de cadena (`base`, `eth`, `polygon`, …).
+ * `contract`: contrato que no es un token de mercado en caché (p. ej. par DEX / pool) — solo explorador.
  */
 export const EvmAddrLinks = component$(
   (props: { locale: string; moralisChain: string; address: unknown; variant?: EvmAddrVariant }) => {
@@ -77,26 +78,43 @@ export const EvmAddrLinks = component$(
         ? `/${props.locale}/token-details/${encodeURIComponent(a)}/`
         : v === "nft"
           ? `/${props.locale}/nfts/${a}/?chain=${chQ}`
-          : `/${props.locale}/wallet/${a}/`;
+          : v === "contract"
+            ? ex
+            : `/${props.locale}/wallet/${a}/`;
+    const contractOnly = v === "contract";
     return (
       <span class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-        <Link
-          href={primaryHref}
-          class="font-mono text-[10px] text-[#04E6E6] hover:underline"
-          title={a}
-        >
-          {a.slice(0, 10)}…
-        </Link>
-        <a
-          href={ex}
-          target="_blank"
-          rel="noreferrer"
-          class="text-[9px] text-slate-600 hover:text-slate-400"
-          title="Explorador"
-          aria-label="Explorador"
-        >
-          ↗
-        </a>
+        {contractOnly ? (
+          <a
+            href={ex}
+            target="_blank"
+            rel="noreferrer"
+            class="font-mono text-[10px] text-[#04E6E6] hover:underline"
+            title={`${a} · Explorador`}
+          >
+            {a.slice(0, 10)}…
+          </a>
+        ) : (
+          <Link
+            href={primaryHref}
+            class="font-mono text-[10px] text-[#04E6E6] hover:underline"
+            title={a}
+          >
+            {a.slice(0, 10)}…
+          </Link>
+        )}
+        {!contractOnly ? (
+          <a
+            href={ex}
+            target="_blank"
+            rel="noreferrer"
+            class="text-[9px] text-slate-600 hover:text-slate-400"
+            title="Explorador"
+            aria-label="Explorador"
+          >
+            ↗
+          </a>
+        ) : null}
       </span>
     );
   },

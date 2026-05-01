@@ -250,6 +250,7 @@ export default {
     colTo: "Destino",
     colValue: "Valor",
     noTransfersSnapshot: "Sin transferencias recientes disponibles.",
+    transfersSnapshotFailed: "No se pudieron cargar las transferencias en caché.",
     topTradersPnl: "Top traders (PnL)",
     swapsDex: "Swaps DEX",
     syncFooter:

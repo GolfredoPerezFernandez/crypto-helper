@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { recordCmcHttpCall } from "~/server/crypto-helper/sync-usage-context";
+import { recordCmcHttpCall, recordEndpointOutcome } from "~/server/crypto-helper/sync-usage-context";
 
 export type SyncRunContext = {
   runId: string;
@@ -64,6 +64,7 @@ export async function timedFetch(
     const res = await fetch(input, { ...init, signal: init?.signal ?? ctrl.signal });
     const ms = Date.now() - t0;
     clearTimeout(timer);
+    recordEndpointOutcome(res.ok);
     syncLogApi(`HTTP ${apiLabel}`, res.ok ? "ok" : "fail", ms, {
       status: res.status,
       url: typeof input === "string" ? input : String(input),
@@ -72,6 +73,7 @@ export async function timedFetch(
   } catch (e: unknown) {
     const ms = Date.now() - t0;
     clearTimeout(timer);
+    recordEndpointOutcome(false);
     syncLogApi(`HTTP ${apiLabel}`, "fail", ms, {
       error: e instanceof Error ? e.message : String(e),
       url: typeof input === "string" ? input : String(input),

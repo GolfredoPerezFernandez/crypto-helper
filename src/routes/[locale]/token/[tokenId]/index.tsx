@@ -541,6 +541,9 @@ export default component$(() => {
       colTo: tr("colTo@@To"),
       colValue: tr("colValue@@Value"),
       noTransfersSnapshot: tr("noTransfersSnapshot@@No recent transfers available."),
+      transfersSnapshotFailed: tr(
+        "transfersSnapshotFailed@@Could not load cached transfers.",
+      ),
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
       swapsDex: tr("swapsDex@@DEX swaps"),
     };
@@ -1495,7 +1498,14 @@ export default component$(() => {
                 ) : (
                   <tr>
                     <td colSpan={4} class="py-10 text-center text-slate-400">
-                      No hay transferencias recientes disponibles.
+                      <p class="text-slate-300 mb-2">{tp.value.transfersSnapshotFailed}</p>
+                      {mt?.error ? (
+                        <p class="text-slate-500 text-xs font-mono break-words max-w-xl mx-auto leading-relaxed">
+                          {String(mt.error)}
+                        </p>
+                      ) : (
+                        <p>{tp.value.noTransfersSnapshot}</p>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -1774,7 +1784,7 @@ export default component$(() => {
                                 locale={L}
                                 moralisChain={moralisChain}
                                 address={pairAddr}
-                                variant="token"
+                                variant="contract"
                               />
                             </div>
                           ) : null}
@@ -1930,7 +1940,7 @@ export default component$(() => {
                             locale={L}
                             moralisChain={moralisChain}
                             address={pairAddr}
-                            variant="token"
+                            variant="contract"
                           />
                         ) : (
                           <span class="text-slate-600">—</span>

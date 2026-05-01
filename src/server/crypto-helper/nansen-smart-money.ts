@@ -1,3 +1,5 @@
+import { recordEndpointOutcome } from "~/server/crypto-helper/sync-usage-context";
+
 type SmartMoneySection =
   | "netflow"
   | "holdings"
@@ -43,7 +45,12 @@ async function nansenFetch(url: string, init: RequestInit): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), NANSEN_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: init.signal ?? ctrl.signal });
+    const res = await fetch(url, { ...init, signal: init.signal ?? ctrl.signal });
+    recordEndpointOutcome(res.ok);
+    return res;
+  } catch (e) {
+    recordEndpointOutcome(false);
+    throw e;
   } finally {
     clearTimeout(timer);
   }

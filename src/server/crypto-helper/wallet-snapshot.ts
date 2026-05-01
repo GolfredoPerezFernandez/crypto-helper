@@ -6,6 +6,7 @@ import {
   fetchMoralisSolanaSwaps,
   fetchMoralisWalletCrossChainTokens,
   fetchMoralisWalletDefiPositions,
+  fetchMoralisWalletDefiPositionsByProtocol,
   fetchMoralisWalletDefiSummary,
   fetchMoralisWalletNetWorth,
   fetchMoralisWalletNftCollections,
@@ -70,6 +71,11 @@ export type WalletPageSnapshot = {
    */
   defiSummary?: MoralisWalletTokensResult;
   defiPositions?: MoralisWalletTokensResult;
+  /**
+   * Universal API — `/wallets/:a/defi/:protocolId/positions` por protocolo (rellenado en sync).
+   * Clave = `protocolId` del resumen DeFi (p. ej. `basebridge`). Evita cargas bajo demanda en la UI.
+   */
+  defiProtocolPositions?: Record<string, MoralisWalletTokensResult>;
   /** @deprecated kept so old snapshots still display until next sync overwrites them. */
   defiSummaryBase?: MoralisWalletTokensResult;
   /** @deprecated */
@@ -108,6 +114,20 @@ export type WalletSnapshotBuildOptions = {
 };
 
 /** Turso `api_wallet_snapshots.address`: EVM lowercased; Solana trim, case preserved. */
+/** IDs únicos en `defiSummary.result.protocols` para prefetch por protocolo (Universal API). */
+function extractProtocolIdsFromDefiSummary(defiSummary: MoralisWalletTokensResult | undefined): string[] {
+  if (!defiSummary?.ok || defiSummary.data == null) return [];
+  const data = defiSummary.data as Record<string, unknown>;
+  const result = data.result as Record<string, unknown> | undefined;
+  const protocols = Array.isArray(result?.protocols) ? (result.protocols as Record<string, unknown>[]) : [];
+  const ids = new Set<string>();
+  for (const p of protocols) {
+    const id = String(p.protocolId ?? "").trim();
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 export function normalizeWalletSnapshotAddress(raw: string): string {
   const t = raw.trim();
   if (/^0x[a-fA-F0-9]{40}$/.test(t)) return t.toLowerCase();
@@ -439,6 +459,7 @@ async function buildEvmWalletPageSnapshot(
   let tokensCrossChain: MoralisWalletTokensResult | undefined;
   let defiSummary: MoralisWalletTokensResult | undefined;
   let defiPositions: MoralisWalletTokensResult | undefined;
+  let defiProtocolPositions: Record<string, MoralisWalletTokensResult> | undefined;
   let pnlDetailBase: MoralisWalletTokensResult | undefined;
   let pnlDetailEth: MoralisWalletTokensResult | undefined;
   let approvalsBase: MoralisWalletTokensResult | undefined;
@@ -490,6 +511,35 @@ async function buildEvmWalletPageSnapshot(
     }
   }
 
+  /** ~5000 CU por protocolo; limitado por env para controlar coste en sync. */
+  const protocolDetailOn =
+    defiOn &&
+    !/^0|false|no$/i.test(String(process.env.MORALIS_SYNC_WALLET_DEFI_PROTOCOL_DETAILS ?? "1"));
+  const protocolMax = Math.max(
+    1,
+    Math.min(50, Math.floor(Number(process.env.MORALIS_SYNC_WALLET_DEFI_PROTOCOL_MAX ?? 25) || 25)),
+  );
+  if (protocolDetailOn && defiSummary?.ok) {
+    const ids = extractProtocolIdsFromDefiSummary(defiSummary).slice(0, protocolMax);
+    if (ids.length > 0) {
+      const tProto = Date.now();
+      const chains = ["ethereum", "base"] as const;
+      const pairs = await Promise.all(
+        ids.map(async (protocolId) => {
+          const r = await fetchMoralisWalletDefiPositionsByProtocol(address, chains, { limit: 50 });
+          return [protocolId, r] as const;
+        }),
+      );
+      defiProtocolPositions = Object.fromEntries(pairs);
+      walletSnapshotLog("defi protocol positions prefetched", {
+        address: `${address.slice(0, 10)}…`,
+        requested: ids.length,
+        ms: Date.now() - tProto,
+        ok: pairs.filter(([, r]) => r.ok).length,
+      });
+    }
+  }
+
   walletSnapshotLog("wallet snapshot built (evm)", {
     address: `${address.slice(0, 10)}…`,
     totalMs: Date.now() - t0,
@@ -512,11 +562,15 @@ async function buildEvmWalletPageSnapshot(
       nativeBase: nativeBase.ok,
       nativeEth: nativeEth.ok,
     },
-    extraEnabled: { crossChainOn, defiOn, pnlDetailOn, approvalsOn },
+    extraEnabled: { crossChainOn, defiOn, pnlDetailOn, approvalsOn, protocolDetailOn },
     extraOk: {
       tokensCrossChain: tokensCrossChain?.ok,
       defiSummary: defiSummary?.ok,
       defiPositions: defiPositions?.ok,
+      defiProtocolPositions:
+        defiProtocolPositions &&
+        Object.keys(defiProtocolPositions).length > 0 &&
+        Object.values(defiProtocolPositions).every((x) => x.ok),
     },
     disabledCount: disabled.size,
   });
@@ -541,6 +595,9 @@ async function buildEvmWalletPageSnapshot(
     interactBase,
     ...(crossChainOn ? { tokensCrossChain } : {}),
     ...(defiOn ? { defiSummary, defiPositions } : {}),
+    ...(defiProtocolPositions && Object.keys(defiProtocolPositions).length > 0
+      ? { defiProtocolPositions }
+      : {}),
     ...(pnlDetailOn ? { pnlDetailBase, pnlDetailEth } : {}),
     ...(approvalsOn ? { approvalsBase, approvalsEth } : {}),
   };
@@ -575,6 +632,9 @@ export function summarizeWalletSnapshotApiResults(s: WalletPageSnapshot): Record
   if (s.tokensCrossChain !== undefined) base.tokensCrossChain = s.tokensCrossChain.ok;
   if (s.defiSummary !== undefined) base.defiSummary = s.defiSummary.ok;
   if (s.defiPositions !== undefined) base.defiPositions = s.defiPositions.ok;
+  if (s.defiProtocolPositions && Object.keys(s.defiProtocolPositions).length > 0) {
+    base.defiProtocolPositions_allOk = Object.values(s.defiProtocolPositions).every((x) => x.ok);
+  }
   if (s.defiSummaryBase !== undefined) base.defiSummaryBase = s.defiSummaryBase.ok;
   if (s.defiSummaryEth !== undefined) base.defiSummaryEth = s.defiSummaryEth.ok;
   if (s.defiPositionsBase !== undefined) base.defiPositionsBase = s.defiPositionsBase.ok;

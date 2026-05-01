@@ -23,7 +23,7 @@ import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypto-helper-actions";
 import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
-import { getSyncUsageBreakdown } from "~/utils/format-sync-usage-summary";
+import { formatHttpEndpointsCell, getSyncUsageBreakdown } from "~/utils/format-sync-usage-summary";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
 import { buildSeo, localeFromParams } from "~/utils/seo";
 import { HelpTooltip } from "~/components/ui/help-tooltip";
@@ -709,14 +709,13 @@ export default component$(() => {
         </article>
 
         <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
-          {HelpTip("Mide si las altcoins están rindiendo mejor que Bitcoin.")}
+          {HelpTip("Indica cuánto favorece este índice a las altcoins frente al activo líder del mercado.")}
           <p class="text-sm font-semibold text-white">Altcoin Season</p>
-          <div class="mt-3 flex items-end justify-between">
+          <div class="mt-3">
             <p class="text-4xl font-bold text-white tabular-nums leading-none">
               {altSeasonValue.toFixed(0)}
               <span class="text-2xl text-gray-500">/100</span>
             </p>
-            <span class="text-xs text-gray-400">{altSeasonValue >= 50 ? "Altcoin" : "Bitcoin"}</span>
           </div>
           <div class="mt-3 relative h-2 rounded-full bg-[#05282a]">
             <div class="absolute inset-y-0 left-0 w-1/2 rounded-l-full bg-amber-500/90" />
@@ -727,8 +726,8 @@ export default component$(() => {
             />
           </div>
           <div class="mt-2 flex justify-between text-[11px] text-gray-500">
-            <span>Bitcoin</span>
-            <span>Altcoin</span>
+            <span>{tx("Menos", "Less")}</span>
+            <span>{tx("Más", "More")}</span>
           </div>
         </article>
 
@@ -768,6 +767,17 @@ export default component$(() => {
                   <th class="px-4 py-2 font-medium">Fin</th>
                   <th class="px-4 py-2 font-medium">Duración</th>
                   <th class="px-4 py-2 font-medium">Estado</th>
+                  <th class="px-4 py-2 font-medium whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1">
+                      {tx("HTTP", "HTTP")}
+                      {HelpTip(
+                        tx(
+                          "Respuestas HTTP correctas respecto al total de llamadas en esta corrida (mercado, Moralis, Nansen, Icarus, etc.). Filas antiguas sin este dato muestran —.",
+                          "Successful HTTP responses vs total calls this run. Older rows may show —.",
+                        ),
+                      )}
+                    </span>
+                  </th>
                   <th class="px-4 py-2 font-medium">Detalle</th>
                   <th class="px-4 py-2 font-medium">
                     <span class="inline-flex items-center gap-1">
@@ -795,6 +805,7 @@ export default component$(() => {
                   const dur =
                     row.finishedAt != null ? formatDurationMs(effectiveSyncDurationMs(row)) : "—";
                   const usageBr = getSyncUsageBreakdown(row.usagePayload ?? null, isEs ? "es" : "en");
+                  const httpEp = formatHttpEndpointsCell(row.usagePayload ?? null, isEs ? "es" : "en");
                   return (
                     <tr key={row.id} class="hover:bg-[#001a1c]/50">
                       <td class="px-4 py-2 tabular-nums text-gray-300 whitespace-nowrap">{fin}</td>
@@ -812,29 +823,36 @@ export default component$(() => {
                           {row.status}
                         </span>
                       </td>
+                      <td
+                        class="px-4 py-2 tabular-nums text-[11px] text-slate-200 whitespace-nowrap"
+                        title={httpEp.title || undefined}
+                      >
+                        {httpEp.text}
+                      </td>
                       <td class="px-4 py-2 max-w-[18rem] truncate text-[11px] text-slate-400" title={row.errorMessage ?? ""}>
                         {row.errorMessage ?? "—"}
                       </td>
                       <td
-                        class="px-4 py-2 w-[min(24rem,44vw)] min-w-[13rem] max-w-[28rem] text-[11px] text-slate-300 align-top"
+                        class="px-4 py-1.5 min-w-0 max-w-[min(48rem,88vw)] text-[10px] text-slate-300 align-middle"
                         title={usageBr.tooltip || undefined}
                       >
                         {usageBr.lines.length === 0 ? (
                           "—"
                         ) : (
-                          <ul class="m-0 list-none space-y-2.5 p-0">
+                          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                             {usageBr.lines.map((line, i) => (
-                              <li key={i} class="border-l-2 border-[#04E6E6]/30 pl-2.5">
-                                <div class="text-[10px] font-semibold tracking-wide text-[#04E6E6]/90">
-                                  {line.provider}
-                                </div>
-                                <div class="mt-0.5 text-[11px] text-slate-200">{line.primary}</div>
-                                {line.secondary ? (
-                                  <div class="mt-0.5 text-[10px] leading-snug text-slate-500">{line.secondary}</div>
-                                ) : null}
-                              </li>
+                              <span
+                                key={i}
+                                class="inline-flex max-w-[min(100%,14rem)] flex-wrap items-baseline gap-x-1 gap-y-0 rounded-md border border-[#04E6E6]/20 bg-[#001a1c]/80 px-1.5 py-0.5"
+                                title={
+                                  [line.provider, line.primary, line.secondary].filter(Boolean).join(" — ") || undefined
+                                }
+                              >
+                                <span class="shrink-0 font-semibold text-[#04E6E6]/90">{line.provider}</span>
+                                <span class="text-slate-200">{line.primary}</span>
+                              </span>
                             ))}
-                          </ul>
+                          </div>
                         )}
                       </td>
                       <td class="px-4 py-2 max-w-[10rem] truncate" title={row.source ?? ""}>

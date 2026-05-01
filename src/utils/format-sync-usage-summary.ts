@@ -159,6 +159,25 @@ export function getSyncUsageBreakdown(
 }
 
 /** Compact single line (toolbars, exports). */
+/** Llamadas HTTP agregadas durante la corrida (payload nuevo); filas viejas → — */
+export function formatHttpEndpointsCell(
+  raw: string | null | undefined,
+  lang: "es" | "en",
+): { text: string; title: string } {
+  const u = parseUsagePayload(raw);
+  const h = u?.httpEndpoints;
+  if (!h) return { text: "—", title: "" };
+  const total = h.ok + h.fail;
+  if (total === 0) return { text: "—", title: "" };
+  return {
+    text: `${h.ok} / ${total}`,
+    title:
+      lang === "es"
+        ? `${h.ok} respuestas OK · ${h.fail} con error o HTTP no exitoso (${total} llamadas)`
+        : `${h.ok} OK responses · ${h.fail} errors or non-success HTTP (${total} calls)`,
+  };
+}
+
 export function formatSyncUsageSummaryForRow(
   raw: string | null | undefined,
   lang: "es" | "en",

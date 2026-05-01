@@ -22,6 +22,8 @@ export type SyncUsagePayloadV1 = {
    * Wallet/aux NFT calls are covered separately via headers on each `moralisGet`.
    */
   moralisCmcPhaseCuEstimate?: number;
+  /** Counted from CMC `timedFetch`, Moralis, Nansen, Icarus during the run. */
+  httpEndpoints?: { ok: number; fail: number };
   notes: string[];
 };
 
@@ -34,6 +36,8 @@ type Acc = {
   moralisNoHeader: number;
   moralisCmcMetrics?: Record<string, number>;
   moralisCmcPhaseCuEstimate?: number;
+  endpointOk: number;
+  endpointFail: number;
   notes: string[];
 };
 /**
@@ -54,8 +58,18 @@ function emptyAcc(startedAtSec: number): Acc {
     nansen: [],
     moralis: [],
     moralisNoHeader: 0,
+    endpointOk: 0,
+    endpointFail: 0,
     notes: [],
   };
+}
+
+/** Count one outbound HTTP attempt after response (or failure). Used for sync historial ratio. */
+export function recordEndpointOutcome(ok: boolean): void {
+  const s = currentAcc;
+  if (!s) return;
+  if (ok) s.endpointOk++;
+  else s.endpointFail++;
 }
 
 export function beginSyncUsageCapture(runStartedAtSec: number): void {
@@ -103,6 +117,7 @@ export function readMoralisComputeUnitsFromResponse(res: Response): number | nul
 export function recordMoralisResponse(res: Response, label: string): void {
   const s = currentAcc;
   if (!s) return;
+  recordEndpointOutcome(res.ok);
   const cu = readMoralisComputeUnitsFromResponse(res);
   if (cu == null) {
     s.moralisNoHeader++;
@@ -155,6 +170,10 @@ export function takeSyncUsageSnapshot(): SyncUsagePayloadV1 | null {
     },
     moralisCmcMetrics: s.moralisCmcMetrics,
     moralisCmcPhaseCuEstimate: s.moralisCmcPhaseCuEstimate,
+    httpEndpoints: {
+      ok: s.endpointOk,
+      fail: s.endpointFail,
+    },
     notes,
   };
 }

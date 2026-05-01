@@ -254,6 +254,7 @@ export default {
     colTo: "To",
     colValue: "Value",
     noTransfersSnapshot: "No recent transfers available.",
+    transfersSnapshotFailed: "Could not load cached transfers.",
     topTradersPnl: "Top traders (PnL)",
     swapsDex: "DEX swaps",
     syncFooter:

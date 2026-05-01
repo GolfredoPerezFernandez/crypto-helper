@@ -1,12 +1,12 @@
 import { useDocumentHead, useLocation } from "@builder.io/qwik-city";
-
-import { component$ } from "@builder.io/qwik";
+import { component$, useServerData } from "@builder.io/qwik";
 import * as pwaHead from "@qwikdev/pwa/head";
 
 /**
  * The RouterHead component is placed inside of the document `<head>` element.
  */
 export const RouterHead = component$(() => {
+  const nonce = useServerData<string | undefined>("nonce");
   const head = useDocumentHead();
   const loc = useLocation();
   const canonicalLink = head.links.find((l) => l.rel === "canonical");
@@ -33,7 +33,11 @@ export const RouterHead = component$(() => {
         <style key={s.key} dangerouslySetInnerHTML={s.style} />
       ))}
       {head.scripts.map((s) => (
-        <script key={s.key} dangerouslySetInnerHTML={s.script} />
+        <script
+          key={s.key}
+          dangerouslySetInnerHTML={s.script}
+          nonce={nonce ?? undefined}
+        />
       ))}
     </>
   );
