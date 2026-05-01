@@ -260,6 +260,8 @@ export default {
     swapsLoadFailedTitle: "No se pudieron cargar los swaps",
     tradersNoData:
       "Moralis puede no publicar PnL realizado para este token, o el par es muy delgado. La carga en vivo se intenta por defecto si faltan datos en caché; MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 la desactiva.",
+    tradersLoadFailedTitle: "No se pudieron cargar los rankings de traders",
+    tradersEmptyIndexed: "No hay filas de traders indexadas para este token ahora.",
     syncFooter:
       "Los datos de mercado y on-chain se actualizan de forma programada (y puedes sincronizar manualmente). Token id:",
     categories: {

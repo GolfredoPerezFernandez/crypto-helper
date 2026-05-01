@@ -497,7 +497,8 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     } = await import("~/server/crypto-helper/moralis-api");
     const {
       isStaleMoralisOrderCacheError,
-      tokenSnapshotNeverHadSwaps,
+      tokenSnapshotNeedsLiveSwaps,
+      tokenSnapshotNeedsLiveTopGainers,
       ownersLimitForTokenSync,
     } = await import("~/server/crypto-helper/token-detail-moralis-heal");
 
@@ -513,7 +514,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     }
     const shouldFetchGainersLive =
       (!topGainers.ok && isStaleMoralisOrderCacheError(topGainers.error)) ||
-      (!disableLiveTraders && snap?.topGainers == null);
+      (!disableLiveTraders && tokenSnapshotNeedsLiveTopGainers(snap));
 
     if (shouldFetchGainersLive) {
       topGainers = await fetchMoralisErc20TopGainers(addr, moralisChain, 20);
@@ -522,7 +523,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
 
     const shouldFetchSwapsLive =
       (!moralisSwaps.ok && isStaleMoralisOrderCacheError(moralisSwaps.error)) ||
-      (!disableLiveSwaps && tokenSnapshotNeverHadSwaps(snap));
+      (!disableLiveSwaps && tokenSnapshotNeedsLiveSwaps(snap));
 
     if (shouldFetchSwapsLive) {
       moralisSwaps = await fetchMoralisErc20Swaps(addr, moralisChain, 18, "DESC");
@@ -660,6 +661,10 @@ export default component$(() => {
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
       tradersNoData: tr(
         "tradersNoData@@Moralis may not publish realized PnL for this token yet, or the pair is thin. Live fetch runs by default when trader data is missing from cache; set MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 to disable.",
+      ),
+      tradersLoadFailedTitle: tr("tradersLoadFailedTitle@@Could not load trader rankings"),
+      tradersEmptyIndexed: tr(
+        "tradersEmptyIndexed@@No indexed trader rows for this token right now.",
       ),
       swapsFeedHeading: tr("swapsFeedHeading@@Recent DEX swaps"),
       swapsSectionSubtitle: tr(
@@ -1997,15 +2002,20 @@ export default component$(() => {
                 ) : topGainers?.ok ? (
                   <tr>
                     <td colSpan={3} class="px-3 py-12 text-center text-slate-400">
-                      <p class="text-slate-300 mb-2">No indexed trader rows for this token right now.</p>
+                      <p class="text-slate-300 mb-2">{tp.value.tradersEmptyIndexed}</p>
                       <p class="text-[11px] text-slate-500 max-w-md mx-auto">{tp.value.tradersNoData}</p>
                     </td>
                   </tr>
                 ) : (
                   <tr>
                     <td colSpan={3} class="px-3 py-12 text-center text-slate-400">
-                      <p class="text-slate-300 mb-2">Datos de traders no disponibles en este momento.</p>
+                      <p class="text-slate-300 mb-2 font-medium">{tp.value.tradersLoadFailedTitle}</p>
                       <p class="text-[11px] text-slate-500 max-w-md mx-auto">{tp.value.tradersNoData}</p>
+                      {topGainers?.error ? (
+                        <p class="mt-3 max-w-xl mx-auto break-all font-mono text-[10px] text-slate-500">
+                          {String(topGainers.error)}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 )}
@@ -2161,6 +2171,11 @@ export default component$(() => {
                     <td colSpan={10} class="px-3 py-12 text-center text-slate-400">
                       <p class="text-slate-300 mb-2 font-medium">{tp.value.swapsLoadFailedTitle}</p>
                       <p class="text-[11px] text-slate-500 max-w-lg mx-auto leading-relaxed">{tp.value.swapsEnvHint}</p>
+                      {mSwaps?.error ? (
+                        <p class="mt-3 max-w-2xl mx-auto break-all font-mono text-[10px] text-slate-500">
+                          {String(mSwaps.error)}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 )}

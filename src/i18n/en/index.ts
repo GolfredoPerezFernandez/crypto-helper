@@ -264,6 +264,8 @@ export default {
     swapsLoadFailedTitle: "Could not load swaps",
     tradersNoData:
       "Moralis may not publish realized PnL for this token yet, or the pair is thin. Live fetch runs by default when trader data is missing from cache; set MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 to disable.",
+    tradersLoadFailedTitle: "Could not load trader rankings",
+    tradersEmptyIndexed: "No indexed trader rows for this token right now.",
     syncFooter:
       "Market and on-chain data is refreshed on a schedule (and can be synced manually). Token id:",
     categories: {

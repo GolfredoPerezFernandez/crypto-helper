@@ -15,6 +15,18 @@ export function tokenSnapshotNeverHadSwaps(snap: { moralisSwaps?: unknown } | nu
   return snap == null || snap.moralisSwaps == null;
 }
 
+/** Live-fetch when swaps were never stored or the last snapshot attempt failed (retry cached errors). */
+export function tokenSnapshotNeedsLiveSwaps(snap: { moralisSwaps?: { ok?: boolean } } | null): boolean {
+  if (snap == null || snap.moralisSwaps == null) return true;
+  return snap.moralisSwaps.ok !== true;
+}
+
+/** Same for top gainers / PnL — sync may persist `{ ok: false }` and block refetch unless we retry. */
+export function tokenSnapshotNeedsLiveTopGainers(snap: { topGainers?: { ok?: boolean } } | null): boolean {
+  if (snap == null || snap.topGainers == null) return true;
+  return snap.topGainers.ok !== true;
+}
+
 export function ownersLimitForTokenSync(): number {
   const ownersLimitRaw = Number(process.env.MORALIS_SYNC_TOKEN_OWNERS_LIMIT ?? "25");
   return Number.isFinite(ownersLimitRaw)
