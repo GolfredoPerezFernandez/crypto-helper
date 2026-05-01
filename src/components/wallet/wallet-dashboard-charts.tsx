@@ -2,7 +2,12 @@ import { component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import type { WalletChartSlice } from "~/server/crypto-helper/wallet-snapshot";
 
 /** Animated doughnut (Chart.js). Client-only after hydration. */
-export const WalletDonutChart = component$((props: { slices: WalletChartSlice[]; ariaLabel: string }) => {
+export const WalletDonutChart = component$((props: {
+  slices: WalletChartSlice[];
+  ariaLabel: string;
+  /** Smaller canvas for dense dashboards (wallet overview). */
+  compact?: boolean;
+}) => {
   const canvasRef = useSignal<HTMLCanvasElement>();
 
   useVisibleTask$(async ({ track, cleanup }) => {
@@ -58,9 +63,16 @@ export const WalletDonutChart = component$((props: { slices: WalletChartSlice[];
   });
 
   const hasData = props.slices.some((s) => s.value > 0);
+  const compact = props.compact === true;
 
   return (
-    <div class="relative mx-auto h-[200px] w-[200px] shrink-0 sm:h-[220px] sm:w-[220px]">
+    <div
+      class={
+        compact
+          ? "relative mx-auto h-[120px] w-[120px] shrink-0 sm:h-[136px] sm:w-[136px]"
+          : "relative mx-auto h-[200px] w-[200px] shrink-0 sm:h-[220px] sm:w-[220px]"
+      }
+    >
       {hasData ? (
         <canvas ref={canvasRef} class="!h-full !w-full" aria-label={props.ariaLabel} />
       ) : (

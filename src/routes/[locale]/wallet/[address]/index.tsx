@@ -278,6 +278,24 @@ function sumUnclaimedFromProtocolSummaryRows(protocols: Record<string, unknown>[
   return any ? sum : null;
 }
 
+/** PnL Moralis con totales en cero (p. ej. sin trades en la red) — mostrar franja compacta. */
+function isPnlMoralisAllZeros(data: unknown): boolean {
+  if (data == null || typeof data !== "object") return true;
+  const r = data as Record<string, unknown>;
+  const nz = (x: unknown) => {
+    const n = typeof x === "number" ? x : Number(String(x ?? "").trim());
+    return Number.isFinite(n) && Math.abs(n) > 1e-9;
+  };
+  if (nz(r.total_count_of_trades)) return false;
+  if (nz(r.total_buys)) return false;
+  if (nz(r.total_sells)) return false;
+  if (nz(r.total_realized_profit_usd)) return false;
+  if (nz(r.total_trade_volume)) return false;
+  if (nz(r.total_bought_volume_usd)) return false;
+  if (nz(r.total_sold_volume_usd)) return false;
+  return true;
+}
+
 function sumUnclaimedFromDefiPositionRows(rows: Record<string, unknown>[]): number | null {
   let sum = 0;
   let any = false;
@@ -559,10 +577,12 @@ export default component$(() => {
 
   const explorerBase = `https://basescan.org/address/${v.address}`;
   const explorerEth = `https://etherscan.io/address/${v.address}`;
+  const ethPnlEmptyOk =
+    !!v.pnlEth?.ok && v.pnlEth.data != null && isPnlMoralisAllZeros(v.pnlEth.data);
 
   return (
     <div class="mx-auto w-full max-w-[1600px] 2xl:max-w-[1760px]">
-      <nav class="mb-4 text-sm" aria-label="Migas de pan">
+      <nav class="mb-3 text-sm" aria-label="Migas de pan">
         <Link
           href={`/${L}/top-traders/`}
           class="inline-flex items-center gap-1 rounded-lg border border-[#043234]/80 bg-[#000D0E]/40 px-3 py-1.5 text-[#04E6E6] transition hover:border-[#04E6E6]/35 hover:bg-[#001a1c]/80"
@@ -582,26 +602,26 @@ export default component$(() => {
         </p>
       ) : null}
       {/* Vista unificada: KPI + distribución + PnL (responsive, estilo trading desk) */}
-      <section class="mb-6 overflow-hidden rounded-3xl border border-[#0a5357]/90 bg-[#001015]/95 shadow-[0_0_0_1px_rgba(4,230,230,0.06),0_25px_80px_-20px_rgba(0,0,0,0.65)] motion-safe:animate-[walletFade_0.55s_ease-out_both]">
+      <section class="mb-5 overflow-hidden rounded-2xl border border-[#0a5357]/90 bg-[#001015]/95 shadow-[0_0_0_1px_rgba(4,230,230,0.06),0_18px_50px_-18px_rgba(0,0,0,0.55)] motion-safe:animate-[walletFade_0.55s_ease-out_both]">
         <div class="relative">
           <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_0%_-20%,rgba(4,230,230,0.11),transparent_50%),radial-gradient(ellipse_80%_60%_at_100%_0%,rgba(98,126,234,0.06),transparent_45%)]" />
           <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#04E6E6]/25 to-transparent" />
 
-          <div class="relative p-5 sm:p-6 lg:p-8">
+          <div class="relative p-4 sm:p-5 lg:p-6">
             {/* Cabecera */}
-            <div class="flex flex-col gap-4 border-b border-[#043234]/50 pb-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <div class="flex flex-col gap-3 border-b border-[#043234]/50 pb-4 lg:flex-row lg:items-center lg:justify-between">
+              <div class="min-w-0">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Cartera EVM · mercado y cadena
                 </p>
-                <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[1.75rem]">
+                <h1 class="mt-0.5 text-xl font-bold tracking-tight text-white sm:text-2xl">
                   Resumen de wallet
                 </h1>
-                <p class="mt-2 max-w-xl text-xs leading-relaxed text-slate-500">
-                  Patrimonio, reparto por red y activos, y rendimiento por cadena en un solo panel.
+                <p class="mt-1 hidden max-w-lg text-[11px] leading-snug text-slate-500 md:block">
+                  Patrimonio, reparto y PnL por red en un panel compacto.
                 </p>
               </div>
-              <div class="flex flex-wrap gap-2 lg:justify-end">
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:shrink-0 lg:justify-end">
                 <button
                   type="button"
                   disabled={savingFavorite.value}
@@ -621,7 +641,7 @@ export default component$(() => {
                       savingFavorite.value = false;
                     }
                   }}
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#04E6E6]/35 bg-[#04E6E6]/10 px-3 py-2 text-xs font-semibold text-[#04E6E6] transition hover:border-[#04E6E6]/55 hover:bg-[#04E6E6]/15 disabled:opacity-60"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#04E6E6]/35 bg-[#04E6E6]/10 px-2.5 py-1.5 text-[11px] font-semibold text-[#04E6E6] transition hover:border-[#04E6E6]/55 hover:bg-[#04E6E6]/15 disabled:opacity-60 sm:px-3 sm:py-2 sm:text-xs"
                 >
                   ☆ Favorito
                 </button>
@@ -629,7 +649,7 @@ export default component$(() => {
                   type="button"
                   onClick$={copyAddress}
                   aria-label="Copiar dirección"
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white sm:px-3 sm:py-2 sm:text-xs"
                 >
                   <LuCopy class="h-3.5 w-3.5 shrink-0 opacity-80" />
                   {copied.value ? "Copiado" : "Copiar"}
@@ -638,7 +658,7 @@ export default component$(() => {
                   href={explorerBase}
                   target="_blank"
                   rel="noreferrer"
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white sm:px-3 sm:py-2 sm:text-xs"
                 >
                   BaseScan
                   <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
@@ -647,7 +667,7 @@ export default component$(() => {
                   href={explorerEth}
                   target="_blank"
                   rel="noreferrer"
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/70 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white sm:px-3 sm:py-2 sm:text-xs"
                 >
                   Etherscan
                   <LuExternalLink class="h-3.5 w-3.5 shrink-0 opacity-70" />
@@ -656,76 +676,80 @@ export default component$(() => {
             </div>
 
             {/* Cuerpo: columna KPI | columnas distribución */}
-            <div class="mt-6 grid gap-8 xl:grid-cols-12 xl:gap-6 2xl:gap-8">
+            <div class="mt-4 grid gap-5 xl:grid-cols-12 xl:gap-4 2xl:gap-5">
               {/* KPI + address */}
-              <div class="flex flex-col xl:col-span-5">
-                <div class="rounded-2xl border border-[#0c4b4f]/80 bg-gradient-to-br from-[#000d12]/90 to-[#000508]/80 p-4 ring-1 ring-white/[0.03]">
+              <div class="flex flex-col xl:col-span-4 2xl:col-span-4">
+                <div class="rounded-xl border border-[#0c4b4f]/80 bg-gradient-to-br from-[#000d12]/90 to-[#000508]/80 p-3 ring-1 ring-white/[0.03] sm:p-3.5">
                   <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Address</p>
-                  <p class="mt-2 min-w-0 break-all font-mono text-sm leading-snug text-[#04E6E6]">{v.address}</p>
+                  <p class="mt-1 min-w-0 break-all font-mono text-[11px] leading-snug text-[#04E6E6] sm:text-xs">{v.address}</p>
                 </div>
 
-                <div class="mt-6 flex flex-1 flex-col justify-end">
-                  <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <div class="mt-4 flex flex-1 flex-col justify-end">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Patrimonio total (estimado)
                   </p>
                   {v.nw?.ok && nwTotalUsd != null ? (
-                    <p class="mt-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl xl:text-[2.75rem] 2xl:text-5xl">
+                    <p class="mt-1 text-3xl font-bold tabular-nums tracking-tight text-white sm:text-4xl 2xl:text-[2.35rem]">
                       ${formatUsdBalance(nwTotalUsd)}
                     </p>
                   ) : (
-                    <p class="mt-2 text-2xl font-semibold text-slate-500">—</p>
+                    <p class="mt-1 text-xl font-semibold text-slate-500">—</p>
                   )}
-                  <div class="mt-3 min-h-[1.75rem]">
+                  <div class="mt-2 min-h-[1.25rem]">
                     {change24h != null ? (
                       <span
                         class={
                           change24h >= 0
-                            ? "inline-flex items-center gap-2 text-base font-semibold tabular-nums text-emerald-300"
-                            : "inline-flex items-center gap-2 text-base font-semibold tabular-nums text-rose-300"
+                            ? "inline-flex items-center gap-1.5 text-sm font-semibold tabular-nums text-emerald-300"
+                            : "inline-flex items-center gap-1.5 text-sm font-semibold tabular-nums text-rose-300"
                         }
                       >
                         <span>
                           {change24h >= 0 ? "+" : ""}
                           {change24h.toFixed(2)}%
                         </span>
-                        <span class="text-xs font-normal text-slate-500">24h · ponderado</span>
+                        <span class="text-[10px] font-normal text-slate-500">24h · pond.</span>
                       </span>
                     ) : (
-                      <span class="text-sm text-slate-500">Variación 24h no disponible</span>
+                      <span class="text-xs text-slate-500">Variación 24h no disponible</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Distribución */}
-              <div class="min-w-0 xl:col-span-7">
-                <div class="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-[#043234]/40 pb-3">
+              <div class="min-w-0 xl:col-span-8 2xl:col-span-8">
+                <div class="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-[#043234]/40 pb-2">
                   <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Distribución de cartera</h3>
-                    <p class="mt-0.5 text-[10px] text-slate-600">Por cadena y por activo</p>
+                    <h3 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Distribución</h3>
+                    <p class="mt-0.5 text-[9px] text-slate-600">Cadena · activos</p>
                   </div>
-                  <span class="rounded-full border border-[#043234]/80 bg-[#000D0E]/60 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                    Live snapshot
+                  <span class="rounded-full border border-[#043234]/80 bg-[#000D0E]/60 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-500">
+                    Snapshot
                   </span>
                 </div>
-                <div class="grid gap-4 lg:grid-cols-2 lg:gap-5">
-                  <section class="rounded-2xl border border-[#043234]/75 bg-[#000508]/55 p-3.5 sm:p-4 ring-1 ring-inset ring-white/[0.04]">
-                    <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Chain breakdown</h4>
-                    <div class="mt-3 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-4">
-                      <WalletDonutChart slices={chainSlices} ariaLabel="Distribución del patrimonio por cadena" />
-                      <ul class="flex min-w-0 flex-1 flex-col gap-1.5 sm:max-h-[220px] sm:overflow-y-auto sm:pr-1">
+                <div class="grid gap-3 sm:grid-cols-2 lg:gap-3">
+                  <section class="rounded-xl border border-[#043234]/75 bg-[#000508]/55 p-3 ring-1 ring-inset ring-white/[0.04] sm:p-3">
+                    <h4 class="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Chain</h4>
+                    <div class="mt-2 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <WalletDonutChart
+                        compact
+                        slices={chainSlices}
+                        ariaLabel="Distribución del patrimonio por cadena"
+                      />
+                      <ul class="flex min-w-0 flex-1 flex-col gap-1 sm:max-h-[140px] sm:overflow-y-auto sm:pr-0.5">
                         {chainSlices.length === 0 ? (
                           <li class="text-sm text-slate-500">Sin desglose por cadena.</li>
                         ) : (
                           chainSlices.map((s, i) => (
                             <li
                               key={`${s.label}-${i}`}
-                              class="flex items-center gap-2 rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-2.5 py-2 transition-all duration-200 hover:border-[#04E6E6]/30 hover:bg-[#001014]/90"
+                              class="flex items-center gap-1.5 rounded-md border border-[#043234]/60 bg-[#000D0E]/50 px-2 py-1.5 transition-colors hover:border-[#04E6E6]/25"
                             >
-                              <span class="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
-                              <span class="min-w-0 flex-1 truncate text-xs text-slate-200">{s.label}</span>
-                              <span class="shrink-0 tabular-nums text-xs text-slate-300">${formatUsdBalance(s.value)}</span>
-                              <span class="w-12 shrink-0 text-right text-[10px] text-slate-500">
+                              <span class="h-2 w-2 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
+                              <span class="min-w-0 flex-1 truncate text-[11px] text-slate-200">{s.label}</span>
+                              <span class="shrink-0 tabular-nums text-[11px] text-slate-300">${formatUsdBalance(s.value)}</span>
+                              <span class="w-11 shrink-0 text-right text-[9px] text-slate-500">
                                 {walletLegendPct(s.value, chainSliceTotal)}
                               </span>
                             </li>
@@ -734,23 +758,23 @@ export default component$(() => {
                       </ul>
                     </div>
                   </section>
-                  <section class="rounded-2xl border border-[#043234]/75 bg-[#000508]/55 p-3.5 sm:p-4 ring-1 ring-inset ring-white/[0.04]">
-                    <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Asset allocation</h4>
-                    <div class="mt-3 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-4">
-                      <WalletDonutChart slices={assetSlices} ariaLabel="Distribución por activo" />
-                      <ul class="flex min-w-0 flex-1 flex-col gap-1.5 sm:max-h-[220px] sm:overflow-y-auto sm:pr-1">
+                  <section class="rounded-xl border border-[#043234]/75 bg-[#000508]/55 p-3 ring-1 ring-inset ring-white/[0.04] sm:p-3">
+                    <h4 class="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Activos</h4>
+                    <div class="mt-2 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <WalletDonutChart compact slices={assetSlices} ariaLabel="Distribución por activo" />
+                      <ul class="flex min-w-0 flex-1 flex-col gap-1 sm:max-h-[140px] sm:overflow-y-auto sm:pr-0.5">
                         {assetSlices.length === 0 ? (
                           <li class="text-sm text-slate-500">Sin tokens con valor en USD.</li>
                         ) : (
                           assetSlices.map((s, i) => (
                             <li
                               key={`${s.label}-${i}`}
-                              class="flex items-center gap-2 rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-2.5 py-2 transition-all duration-200 hover:border-[#04E6E6]/30 hover:bg-[#001014]/90"
+                              class="flex items-center gap-1.5 rounded-md border border-[#043234]/60 bg-[#000D0E]/50 px-2 py-1.5 transition-colors hover:border-[#04E6E6]/25"
                             >
-                              <span class="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
-                              <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-100">{s.label}</span>
-                              <span class="shrink-0 tabular-nums text-xs text-slate-300">${formatUsdBalance(s.value)}</span>
-                              <span class="w-12 shrink-0 text-right text-[10px] text-slate-500">
+                              <span class="h-2 w-2 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
+                              <span class="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-100">{s.label}</span>
+                              <span class="shrink-0 tabular-nums text-[11px] text-slate-300">${formatUsdBalance(s.value)}</span>
+                              <span class="w-11 shrink-0 text-right text-[9px] text-slate-500">
                                 {walletLegendPct(s.value, assetSliceTotal)}
                               </span>
                             </li>
@@ -763,27 +787,46 @@ export default component$(() => {
               </div>
             </div>
 
-            {/* PnL — fila inferior dentro del mismo panel */}
-            <div class="mt-8 border-t border-[#043234]/55 pt-8">
-              <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">PnL agregado</h2>
-                  <p class="mt-1 text-[11px] text-slate-600">Rendimiento realizado por red (Moralis)</p>
-                </div>
+            {/* PnL — fila inferior compacta */}
+            <div class="mt-4 border-t border-[#043234]/45 pt-4">
+              <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">PnL agregado</h2>
+                <span class="text-[9px] text-slate-600">Moralis · realised</span>
               </div>
-              <div class="grid gap-4 sm:gap-5 lg:grid-cols-2">
-                <WalletPnlSnapshot
-                  chainLabel="Base"
-                  ok={!!v.pnlBase?.ok}
-                  data={v.pnlBase?.ok ? v.pnlBase.data : null}
-                  emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
-                />
-                <WalletPnlSnapshot
-                  chainLabel="Ethereum"
-                  ok={!!v.pnlEth?.ok}
-                  data={v.pnlEth?.ok ? v.pnlEth.data : null}
-                  emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
-                />
+              <div
+                class={
+                  ethPnlEmptyOk
+                    ? "grid gap-3 lg:grid-cols-12 lg:items-stretch"
+                    : "grid gap-3 lg:grid-cols-2"
+                }
+              >
+                <div class={ethPnlEmptyOk ? "lg:col-span-8" : ""}>
+                  <WalletPnlSnapshot
+                    compact
+                    chainLabel="Base"
+                    ok={!!v.pnlBase?.ok}
+                    data={v.pnlBase?.ok ? v.pnlBase.data : null}
+                    emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
+                  />
+                </div>
+                <div class={ethPnlEmptyOk ? "flex items-stretch lg:col-span-4" : ""}>
+                  {ethPnlEmptyOk ? (
+                    <div class="flex w-full flex-col justify-center rounded-lg border border-dashed border-[#043234]/55 bg-[#000508]/40 px-3 py-2 text-center">
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Ethereum</p>
+                      <p class="mt-1 text-[11px] leading-snug text-slate-500">
+                        Sin actividad PnL indexada (0 operaciones / volúmenes).
+                      </p>
+                    </div>
+                  ) : (
+                    <WalletPnlSnapshot
+                      compact
+                      chainLabel="Ethereum"
+                      ok={!!v.pnlEth?.ok}
+                      data={v.pnlEth?.ok ? v.pnlEth.data : null}
+                      emptyMessage="No hay datos de PnL disponibles para esta red en este momento."
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
