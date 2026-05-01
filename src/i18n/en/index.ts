@@ -262,6 +262,9 @@ export default {
     swapsEnvHint:
       "Could not load swap rows (API error, thin liquidity, or Moralis has not indexed this pool). Live fetch is on by default; set MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 to skip. You can also enable MORALIS_SYNC_TOKEN_SWAPS in the daily sync.",
     swapsLoadFailedTitle: "Could not load swaps",
+    swapColLegs: "Tokens in · out",
+    swapLegIn: "Received",
+    swapLegOut: "Paid",
     tradersNoData:
       "Moralis may not publish realized PnL for this token yet, or the pair is thin. Live fetch runs by default when trader data is missing from cache; set MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 to disable.",
     tradersLoadFailedTitle: "Could not load trader rankings",

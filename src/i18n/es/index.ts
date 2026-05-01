@@ -258,6 +258,9 @@ export default {
     swapsEnvHint:
       "No se pudieron cargar filas de swap (error de API, liquidez baja o Moralis aún no indexa el par). La carga en vivo está activa por defecto; MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 la desactiva. También puedes activar MORALIS_SYNC_TOKEN_SWAPS en el sync diario.",
     swapsLoadFailedTitle: "No se pudieron cargar los swaps",
+    swapColLegs: "Entrada · salida (tokens)",
+    swapLegIn: "Recibido",
+    swapLegOut: "Entregado",
     tradersNoData:
       "Moralis puede no publicar PnL realizado para este token, o el par es muy delgado. La carga en vivo se intenta por defecto si faltan datos en caché; MORALIS_TOKEN_PAGE_LIVE_TRADERS=0 la desactiva.",
     tradersLoadFailedTitle: "No se pudieron cargar los rankings de traders",

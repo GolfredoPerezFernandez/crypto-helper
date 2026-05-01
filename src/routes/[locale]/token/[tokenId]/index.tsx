@@ -9,6 +9,7 @@ import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-cha
 import { parseTokenApiSnapshot } from "~/server/crypto-helper/market-token-snapshot";
 import { CATEGORY_DASHBOARD_PATH } from "~/server/crypto-helper/market-category-constants";
 import {
+  formatDexTokenAmount,
   formatSignedPercent,
   formatTokenSupply,
   formatTokenUsdPrice,
@@ -49,6 +50,9 @@ const CAT_LABEL: Record<string, string> = {
 };
 
 type TabId = "overview" | "holders" | "traders" | "swaps";
+
+/** Fixed locale for DEX swap numeric columns so one row never mixes `86,07` and `187` styles. */
+const SWAP_TABLE_LOCALE = "en-US";
 
 /** Moralis list endpoints vary: { result: [] }, { data: [] }, or raw array */
 export function moralisResultRows(data: unknown): Record<string, unknown>[] {
@@ -261,16 +265,19 @@ function formatSwapBlockTime(r: Record<string, unknown>): { when: string; block:
   return { when, block };
 }
 
-function formatSwapTokenSide(t: Record<string, unknown> | undefined): string {
+/** One token leg (bought / sold): short symbol, trimmed amount, USD value and unit price. */
+function formatSwapLegLine(t: Record<string, unknown> | undefined): string {
   if (!t || typeof t !== "object") return "—";
-  const sym = String(t.symbol ?? "?");
-  const amt = String(t.amount ?? "").trim();
+  const sym = String(t.symbol ?? "").trim() || "?";
+  const amtRaw = String(t.amount ?? "").trim();
+  const amtDisp = amtRaw ? formatDexTokenAmount(amtRaw) : "";
   const usdAmt = metricNum(t, "usdAmount", "usd_amount");
   const usdP = metricNum(t, "usdPrice", "usd_price");
-  let s = amt ? `${sym} ${amt}` : sym;
-  if (usdAmt != null) s += ` · ${formatUsdLiquidity(usdAmt)}`;
-  if (usdP != null) s += ` @${formatTokenUsdPrice(usdP)}`;
-  return s;
+  const head = amtDisp ? `${sym} ${amtDisp}` : sym;
+  const tail: string[] = [];
+  if (usdAmt != null) tail.push(formatUsdLiquidity(usdAmt, SWAP_TABLE_LOCALE));
+  if (usdP != null) tail.push(`@ ${formatTokenUsdPrice(usdP, SWAP_TABLE_LOCALE)}`);
+  return tail.length ? `${head} · ${tail.join(" · ")}` : head;
 }
 
 function formatMoralisStatScalar(v: unknown): string {
@@ -674,6 +681,9 @@ export default component$(() => {
         "swapsEnvHint@@Could not load swap rows (API error, thin liquidity, or Moralis has not indexed this pool). Live fetch is on by default; set MORALIS_TOKEN_PAGE_LIVE_SWAPS=0 to skip. You can also enable MORALIS_SYNC_TOKEN_SWAPS in the daily sync.",
       ),
       swapsLoadFailedTitle: tr("swapsLoadFailedTitle@@Could not load swaps"),
+      swapColLegs: tr("swapColLegs@@Tokens in · out"),
+      swapLegIn: tr("swapLegIn@@Received"),
+      swapLegOut: tr("swapLegOut@@Paid"),
       resourcesCardTitle: tr("resourcesCardTitle@@Resources & information"),
       resourcesQuickLinks: tr("resourcesQuickLinks@@Quick links"),
       resourcesAbout: tr("resourcesAbout@@About"),
@@ -2048,7 +2058,7 @@ export default component$(() => {
                   <th class="px-2 py-2.5 font-semibold">Wallet</th>
                   <th class="px-2 py-2.5 text-right font-semibold">USD</th>
                   <th class="px-2 py-2.5 text-right font-semibold">Price</th>
-                  <th class="px-2 py-2.5 font-semibold">Buy / Sell</th>
+                  <th class="px-2 py-2.5 font-semibold min-w-[14rem]">{tp.value.swapColLegs}</th>
                 </tr>
               </thead>
               <tbody class="text-slate-200">
@@ -2058,8 +2068,8 @@ export default component$(() => {
                     const w = String(r.walletAddress ?? r.wallet_address ?? "").toLowerCase();
                     const bought = r.bought as Record<string, unknown> | undefined;
                     const sold = r.sold as Record<string, unknown> | undefined;
-                    const buyStr = formatSwapTokenSide(bought);
-                    const sellStr = formatSwapTokenSide(sold);
+                    const buyStr = formatSwapLegLine(bought);
+                    const sellStr = formatSwapLegLine(sold);
                     const { when, block } = formatSwapBlockTime(r);
                     const sub = String(r.subCategory ?? r.sub_category ?? "—");
                     const pairAddr = String(r.pairAddress ?? r.pair_address ?? "").toLowerCase();
@@ -2070,8 +2080,14 @@ export default component$(() => {
                     const entity = String(r.entity ?? "").trim();
                     const entityLogo = String(r.entityLogo ?? r.entity_logo ?? "").trim();
                     const bqpRaw = r.baseQuotePrice ?? r.base_quote_price;
+                    const bqpNum =
+                      typeof bqpRaw === "number" && Number.isFinite(bqpRaw)
+                        ? bqpRaw
+                        : Number(String(bqpRaw ?? "").replace(/,/g, "").trim());
                     const bqpStr =
-                      bqpRaw != null && String(bqpRaw).trim() ? String(bqpRaw).trim() : "—";
+                      bqpRaw != null && String(bqpRaw).trim() && Number.isFinite(bqpNum)
+                        ? formatTokenUsdPrice(bqpNum, SWAP_TABLE_LOCALE)
+                        : String(bqpRaw ?? "").trim() || "—";
                     return (
                       <tr
                         key={h}
@@ -2146,16 +2162,27 @@ export default component$(() => {
                         </td>
                         <td class="px-2 py-2 text-right tabular-nums align-top">
                           {r.totalValueUsd != null || r.total_value_usd != null
-                            ? formatUsdLiquidity(fmtScalar(r.totalValueUsd ?? r.total_value_usd))
+                            ? formatUsdLiquidity(fmtScalar(r.totalValueUsd ?? r.total_value_usd), SWAP_TABLE_LOCALE)
                             : "—"}
                         </td>
                         <td class="px-2 py-2 text-right font-mono text-[10px] tabular-nums text-slate-300 align-top">
                           {bqpStr}
                         </td>
-                        <td class="px-2 py-2 text-[10px] text-slate-300 align-top">
-                          <span class="text-emerald-400/90">+{buyStr}</span>
-                          {" / "}
-                          <span class="text-rose-400/80">−{sellStr}</span>
+                        <td class="px-2 py-2 align-top text-[11px] leading-snug text-slate-200">
+                          <div class="flex flex-col gap-1.5 min-w-[13rem]">
+                            <div class="rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-2 py-1.5">
+                              <div class="text-[9px] font-semibold uppercase tracking-wide text-emerald-400/95">
+                                {tp.value.swapLegIn}
+                              </div>
+                              <div class="mt-0.5 break-words text-slate-100">{buyStr}</div>
+                            </div>
+                            <div class="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2 py-1.5">
+                              <div class="text-[9px] font-semibold uppercase tracking-wide text-rose-400/95">
+                                {tp.value.swapLegOut}
+                              </div>
+                              <div class="mt-0.5 break-words text-slate-100">{sellStr}</div>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );

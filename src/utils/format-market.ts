@@ -5,17 +5,21 @@
 
 function toNum(input: number | string | null | undefined): number | null {
   if (input === null || input === undefined || input === "") return null;
-  const n = typeof input === "string" ? Number(input.trim()) : input;
+  const n = typeof input === "string" ? Number(input.trim().replace(/,/g, "")) : input;
   return Number.isFinite(n) ? n : null;
 }
 
-/** Single-token USD price (e.g. PEPE). No $ prefix. */
-export function formatTokenUsdPrice(input: number | string | null | undefined): string {
+/** Single-token USD price (e.g. PEPE). No $ prefix. Optional `locale` (e.g. en-US) for table consistency. */
+export function formatTokenUsdPrice(
+  input: number | string | null | undefined,
+  locale?: string,
+): string {
   const n = toNum(input);
   if (n === null) return "—";
   if (n === 0) return "0";
 
   const abs = Math.abs(n);
+  const loc = locale === undefined ? undefined : locale;
 
   const priceFmt = {
     minimumFractionDigits: 0,
@@ -24,38 +28,67 @@ export function formatTokenUsdPrice(input: number | string | null | undefined): 
   };
 
   if (abs >= 1000) {
-    return n.toLocaleString(undefined, priceFmt);
+    return n.toLocaleString(loc, priceFmt);
   }
   if (abs >= 1) {
     /* Same style as muchas apps: 2 decimales para precios “normales” (ej. TAO ~334,42). */
-    return n.toLocaleString(undefined, priceFmt);
+    return n.toLocaleString(loc, priceFmt);
   }
   if (abs >= 0.01) {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
+    return n.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
   }
 
   /* Sub-cent: pocas cifras significativas para no llenar la tarjeta (ej. CHEEMS). */
-  return n.toLocaleString(undefined, {
+  return n.toLocaleString(loc, {
     maximumSignificantDigits: 6,
     minimumSignificantDigits: 1,
   });
 }
 
-/** 24h volume, FDV, market cap–scale USD amounts. Includes $ prefix. */
-export function formatUsdLiquidity(input: number | string | null | undefined): string {
+/** Token amount on a DEX leg — trims extreme decimals so swap rows stay readable. */
+export function formatDexTokenAmount(input: number | string | null | undefined): string {
+  const n = toNum(input);
+  if (n === null) return "—";
+  if (n === 0) return "0";
+  const abs = Math.abs(n);
+  if (abs >= 1e18) return n.toExponential(4);
+  if (abs >= 1e12)
+    return (
+      (n / 1e12).toLocaleString("en-US", { maximumFractionDigits: 4, minimumFractionDigits: 0 }) + " T"
+    );
+  if (abs >= 1e9)
+    return (
+      (n / 1e9).toLocaleString("en-US", { maximumFractionDigits: 4, minimumFractionDigits: 0 }) + " B"
+    );
+  if (abs >= 1e6)
+    return (
+      (n / 1e6).toLocaleString("en-US", { maximumFractionDigits: 4, minimumFractionDigits: 0 }) + " M"
+    );
+  if (abs >= 10_000)
+    return n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  if (abs >= 1) return n.toLocaleString("en-US", { maximumFractionDigits: 4, minimumFractionDigits: 0 });
+  return n.toLocaleString("en-US", { maximumSignificantDigits: 8, maximumFractionDigits: 12 });
+}
+
+/** 24h volume, FDV, market cap–scale USD amounts. Includes $ prefix. Optional `locale` for dense tables. */
+export function formatUsdLiquidity(
+  input: number | string | null | undefined,
+  locale?: string,
+): string {
   const n = toNum(input);
   if (n === null) return "—";
   if (n === 0) return "$0";
 
   const abs = Math.abs(n);
   const prefix = "$";
+  const loc = locale === undefined ? undefined : locale;
 
   /* Intl "compact" en es-ES produce p. ej. "36,51 mil M" (mil millones); en tablas crypto suele leerse mejor B/M. */
   if (abs >= 1_000_000_000) {
     const v = n / 1_000_000_000;
     return (
       prefix +
-      v.toLocaleString(undefined, {
+      v.toLocaleString(loc, {
         maximumFractionDigits: 2,
         minimumFractionDigits: 0,
         useGrouping: "always",
@@ -67,7 +100,7 @@ export function formatUsdLiquidity(input: number | string | null | undefined): s
     const v = n / 1_000_000;
     return (
       prefix +
-      v.toLocaleString(undefined, {
+      v.toLocaleString(loc, {
         maximumFractionDigits: 2,
         minimumFractionDigits: 0,
         useGrouping: "always",
@@ -79,14 +112,14 @@ export function formatUsdLiquidity(input: number | string | null | undefined): s
   if (abs >= 1) {
     return (
       prefix +
-      n.toLocaleString(undefined, {
+      n.toLocaleString(loc, {
         maximumFractionDigits: abs >= 100 ? 0 : 2,
         minimumFractionDigits: 0,
       })
     );
   }
 
-  return prefix + n.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 0 });
+  return prefix + n.toLocaleString(loc, { maximumFractionDigits: 6, minimumFractionDigits: 0 });
 }
 
 /** Wallet / portfolio USD totals (grouping + decimals). Uses en-US so UI does not mix `1.234,56` vs `$1,234.56`. */
