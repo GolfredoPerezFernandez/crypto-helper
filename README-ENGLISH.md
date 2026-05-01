@@ -1,4 +1,4 @@
-KoolinArt — NFT Marketplace (Qwik + Viem + Base)
+asdasdKoolinArt — NFT Marketplace (Qwik + Viem + Base)
 =================================================
 
 Badges
