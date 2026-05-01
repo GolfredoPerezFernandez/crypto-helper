@@ -10,6 +10,11 @@ import {
   fetchMoralisNftsByContract,
 } from "~/server/crypto-helper/moralis-api";
 import { nftImage } from "~/server/crypto-helper/wallet-snapshot";
+import {
+  getOrFetchResource,
+  nftCollectionResourceKey,
+  nftCollectionSubKey,
+} from "~/server/crypto-helper/api-resource-cache";
 import { formatTokenUsdPrice } from "~/utils/format-market";
 import { HelpTooltip } from "~/components/ui/help-tooltip";
 
@@ -247,22 +252,94 @@ export const useNftCollectionLoader = routeLoader$(async (ev) => {
     };
   }
 
-  const [meta, stats, traits, salePrices, list] = await Promise.all([
-    fetchMoralisNftCollectionMetadata(contract, chain, true),
-    fetchMoralisNftCollectionStats(contract, chain),
-    fetchMoralisNftTraitsPaginate(contract, chain, {
-      limit: 50,
-      cursor: traitsCursor,
-      order: "DESC",
+  const collectionKey = nftCollectionResourceKey(contract, chain);
+  const isFirstListPage = !cursor;
+  const isFirstTraitsPage = !traitsCursor;
+
+  /**
+   * DB-first: any collection a user opens persists in `api_resource_snapshots`.
+   * Sync refreshes these rows daily; pages we cache:
+   *  - meta (very stable)
+   *  - stats (refreshed often during the daily sync)
+   *  - sales (per `sale_days` window)
+   *  - first page of NFTs and traits (stable; pagination always goes live)
+   */
+  const [metaCached, statsCached, salesCached, listCached, traitsCached] = await Promise.all([
+    getOrFetchResource<unknown>({
+      kind: "nft_collection",
+      key: collectionKey,
+      freshForSec: 12 * 60 * 60,
+      fetcher: () => fetchMoralisNftCollectionMetadata(contract, chain, true),
     }),
-    fetchMoralisNftCollectionSalePrices(contract, chain, saleDays),
-    fetchMoralisNftsByContract(contract, chain, {
-      limit: 40,
-      cursor,
-      include_prices: true,
-      media_items: true,
+    getOrFetchResource<unknown>({
+      kind: "nft_collection_stats",
+      key: collectionKey,
+      freshForSec: 1 * 60 * 60,
+      fetcher: () => fetchMoralisNftCollectionStats(contract, chain),
     }),
+    getOrFetchResource<unknown>({
+      kind: "nft_collection_sales",
+      key: nftCollectionSubKey(contract, chain, `sales-${saleDays}d`),
+      freshForSec: 30 * 60,
+      fetcher: () => fetchMoralisNftCollectionSalePrices(contract, chain, saleDays),
+    }),
+    isFirstListPage
+      ? getOrFetchResource<unknown>({
+          kind: "nft_collection_list",
+          key: nftCollectionSubKey(contract, chain, "list-page1"),
+          freshForSec: 60 * 60,
+          fetcher: () =>
+            fetchMoralisNftsByContract(contract, chain, {
+              limit: 40,
+              cursor: undefined,
+              include_prices: true,
+              media_items: true,
+            }),
+        })
+      : Promise.resolve({ ok: false, data: null, source: "miss" as const, updatedAt: null }),
+    isFirstTraitsPage
+      ? getOrFetchResource<unknown>({
+          kind: "nft_collection_traits",
+          key: nftCollectionSubKey(contract, chain, "traits-page1"),
+          freshForSec: 6 * 60 * 60,
+          fetcher: () =>
+            fetchMoralisNftTraitsPaginate(contract, chain, {
+              limit: 50,
+              cursor: undefined,
+              order: "DESC",
+            }),
+        })
+      : Promise.resolve({ ok: false, data: null, source: "miss" as const, updatedAt: null }),
   ]);
+
+  /** Build the per-resource result envelope expected by the UI (`ok`/`data`/`error`). */
+  const fromCache = <T,>(
+    r: Awaited<ReturnType<typeof getOrFetchResource<T>>>,
+  ): { ok: true; data: T } | { ok: false; error: string } =>
+    r.ok && r.data != null
+      ? { ok: true as const, data: r.data }
+      : { ok: false as const, error: typeof r.error === "string" ? r.error : "No disponible" };
+
+  const meta = fromCache(metaCached);
+  const stats = fromCache(statsCached);
+  const salePrices = fromCache(salesCached);
+
+  /** Subsequent pages still go straight to Moralis — only the first page is cached. */
+  const list = isFirstListPage
+    ? fromCache(listCached)
+    : await fetchMoralisNftsByContract(contract, chain, {
+        limit: 40,
+        cursor,
+        include_prices: true,
+        media_items: true,
+      });
+  const traits = isFirstTraitsPage
+    ? fromCache(traitsCached)
+    : await fetchMoralisNftTraitsPaginate(contract, chain, {
+        limit: 50,
+        cursor: traitsCursor,
+        order: "DESC",
+      });
 
   const nextCursor = list.ok ? cursorFromResponse(list.data) : null;
   const traitsNextCursor = traits.ok ? cursorFromResponse(traits.data) : null;

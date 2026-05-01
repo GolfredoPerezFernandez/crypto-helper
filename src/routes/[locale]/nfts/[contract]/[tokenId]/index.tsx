@@ -6,6 +6,11 @@ import {
   fetchMoralisNftMetadata,
 } from "~/server/crypto-helper/moralis-api";
 import { nftImage } from "~/server/crypto-helper/wallet-snapshot";
+import {
+  getOrFetchResource,
+  nftCollectionResourceKey,
+  nftTokenResourceKey,
+} from "~/server/crypto-helper/api-resource-cache";
 import { formatTokenUsdPrice } from "~/utils/format-market";
 import { EvmAddrLinks, TxHashLink } from "~/components/crypto-dashboard/evm-dash-links";
 
@@ -44,21 +49,43 @@ export const useNftTokenLoader = routeLoader$(async (ev) => {
     };
   }
 
-  const [nft, collMeta] = await Promise.all([
-    fetchMoralisNftMetadata(contract, tokenId, chain, {
-      include_prices: true,
-      media_items: true,
+  /**
+   * DB-first: each NFT a user opens persists into `api_resource_snapshots` so it
+   * survives Moralis hiccups and can be refreshed by the daily sync.
+   */
+  const [nftCached, collCached] = await Promise.all([
+    getOrFetchResource<unknown>({
+      kind: "nft_token",
+      key: nftTokenResourceKey(contract, tokenId, chain),
+      freshForSec: 6 * 60 * 60,
+      fetcher: () =>
+        fetchMoralisNftMetadata(contract, tokenId, chain, {
+          include_prices: true,
+          media_items: true,
+        }),
     }),
-    fetchMoralisNftCollectionMetadata(contract, chain, true),
+    getOrFetchResource<unknown>({
+      kind: "nft_collection",
+      key: nftCollectionResourceKey(contract, chain),
+      freshForSec: 12 * 60 * 60,
+      fetcher: () => fetchMoralisNftCollectionMetadata(contract, chain, true),
+    }),
   ]);
+
+  const fromCache = <T,>(
+    r: Awaited<ReturnType<typeof getOrFetchResource<T>>>,
+  ): { ok: true; data: T } | { ok: false; error: string } =>
+    r.ok && r.data != null
+      ? { ok: true as const, data: r.data }
+      : { ok: false as const, error: typeof r.error === "string" ? r.error : "No disponible" };
 
   return {
     contract,
     tokenId,
     chain,
     missingKey: false as const,
-    nft,
-    collMeta,
+    nft: fromCache(nftCached),
+    collMeta: fromCache(collCached),
   };
 });
 

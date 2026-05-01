@@ -541,30 +541,30 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
           </Link>
 
           <Link
-            class={`${navClass} ${navClassMdCollapsed} ${active("/whale-alert")}`}
+            class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/whale-alert")}`}
             href={`${base}/whale-alert/`}
-            title={d.value.whaleAlert}
+            title={`${d.value.whaleAlert} (${d.value.proBadge})`}
           >
             <LuWaves class={iconClass} />
             <span class={lbl}>{d.value.whaleAlert}</span>
+            <span
+              class={`text-[10px] px-1.5 py-px rounded bg-amber-500/25 text-amber-300 shrink-0 ${lbl}`}
+            >
+              {d.value.proBadge}
+            </span>
           </Link>
 
           <Link
             class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/alerts")}`}
             href={`${base}/alerts/`}
-            title={`${d.value.alertsHub} · ${d.value.push} / ${d.value.sse}`}
+            title={`${d.value.alertsHub} (${d.value.proBadge})`}
           >
             <LuBell class={iconClass} />
             <span class={lbl}>{d.value.alertsHub}</span>
             <span
-              class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
+              class={`text-[10px] px-1.5 py-px rounded bg-amber-500/25 text-amber-300 shrink-0 ${lbl}`}
             >
-              {d.value.push}
-            </span>
-            <span
-              class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/15 text-[#04E6E6]/90 shrink-0 ${lbl}`}
-            >
-              {d.value.sse}
+              {d.value.proBadge}
             </span>
           </Link>
           {hasPro ? (

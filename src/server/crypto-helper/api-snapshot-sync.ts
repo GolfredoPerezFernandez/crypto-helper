@@ -54,6 +54,7 @@ import {
 import { syncLogError, syncLogInfo, syncLogWarn } from "~/server/crypto-helper/sync-logger";
 import { recordNansenCall } from "~/server/crypto-helper/sync-usage-context";
 import { fetchWhaleAlertBundleForSync } from "~/server/crypto-helper/whale-alert-api";
+import { runUserBrowsedNftCollectionsRefresh } from "~/server/crypto-helper/api-resource-cache";
 
 export const GLOBAL_NFT_HOTTEST = "moralis_nft_hottest";
 export const GLOBAL_NFT_TOP = "moralis_nft_top";
@@ -1008,6 +1009,51 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       total: list.length,
       ms: Date.now() - walletPhaseStart,
     });
+
+    /**
+     * Aux step 5/5: refresh NFT collections + token detail rows that users have
+     * opened at least once (`api_resource_snapshots`). This phase NEVER deletes
+     * — it only re-fetches existing rows older than `NFT_RESOURCE_REFRESH_AFTER_SEC`.
+     * Toggle off with `NFT_RESOURCE_REFRESH=0`.
+     */
+    const nftRefreshOn = !/^0|false|no$/i.test(String(process.env.NFT_RESOURCE_REFRESH ?? "1"));
+    if (nftRefreshOn) {
+      const refreshStart = Date.now();
+      const olderThanSec = Math.max(
+        60,
+        Math.floor(Number(process.env.NFT_RESOURCE_REFRESH_AFTER_SEC ?? 6 * 60 * 60)),
+      );
+      const collectionsLimit = Math.max(
+        1,
+        Math.min(200, Math.floor(Number(process.env.NFT_RESOURCE_REFRESH_COLLECTIONS ?? 40))),
+      );
+      const itemsLimit = Math.max(
+        1,
+        Math.min(500, Math.floor(Number(process.env.NFT_RESOURCE_REFRESH_TOKENS ?? 80))),
+      );
+      syncLogInfo("aux step 5/5: user-browsed NFT resource refresh (start)", {
+        olderThanSec,
+        collectionsLimit,
+        itemsLimit,
+      });
+      try {
+        const r = await runUserBrowsedNftCollectionsRefresh({
+          olderThanSec,
+          collectionsLimit,
+          itemsLimit,
+        });
+        syncLogInfo("aux step 5/5 done — user-browsed NFT resource refresh", {
+          ms: Date.now() - refreshStart,
+          ...r,
+        });
+      } catch (e: unknown) {
+        syncLogWarn("user-browsed NFT resource refresh failed", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    } else {
+      syncLogInfo("aux step 5/5: user-browsed NFT resource refresh skipped (NFT_RESOURCE_REFRESH=0)");
+    }
 
     syncLogInfo("auxiliary API snapshot sync — done", {
       walletsOk: okW,

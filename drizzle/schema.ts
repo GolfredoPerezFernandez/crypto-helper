@@ -264,6 +264,28 @@ export const apiWalletSnapshots = table("api_wallet_snapshots", {
   updatedAt: t.int({ mode: "number" }).notNull(),
 });
 
+/**
+ * Generic cache for resources discovered by users (NFT collections, NFT tokens, tokens, …).
+ *
+ * Sync NEVER deletes rows here — only inserts new ones and updates existing payload + `updatedAt`.
+ * Each visit by a user populates a row if missing; the daily sync iterates every stored row to
+ * keep its payload fresh. `kind` typical values: `nft_collection`, `nft_token`, `market_token`.
+ */
+export const apiResourceSnapshots = table(
+  "api_resource_snapshots",
+  {
+    kind: t.text().notNull(),
+    key: t.text().notNull(),
+    payload: t.text().notNull(),
+    updatedAt: t.int({ mode: "number" }).notNull(),
+    firstSeenAt: t.int({ mode: "number" }).notNull(),
+  },
+  (tbl) => [
+    t.primaryKey({ columns: [tbl.kind, tbl.key] }),
+    t.index("api_resource_snapshots_kind_updated").on(tbl.kind, tbl.updatedAt),
+  ],
+);
+
 /** One row per on-chain USDT payment used to activate Pro (tx hash unique). */
 export const proPaymentReceipts = table("pro_payment_receipts", {
   txHash: t.text().primaryKey(),
@@ -290,5 +312,6 @@ export const schema = {
   demoTransactions,
   apiGlobalSnapshots,
   apiWalletSnapshots,
+  apiResourceSnapshots,
   proPaymentReceipts,
 };

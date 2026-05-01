@@ -369,19 +369,106 @@ export default component$(() => {
     Math.max(0, Math.min(100, Math.abs(n(t.percentChange24h)) * 5 + Math.abs(n(t.percentChange7d)) * 2.4));
   const opportunityScore = (t: Record<string, unknown>): number =>
     Math.round(momentumScore(t) * 0.45 + liquidityScore(t) * 0.35 + (100 - volatilityScore(t)) * 0.2);
-  const radarMomentum = [...data.value.topVolume]
+
+  type RadarUniverseId = "all" | "topvol" | "memes" | "ai" | "gaming" | "mineable" | "trending" | "mostvisited";
+  type RadarSortKey = "score" | "momentum" | "reversal" | "liquidity" | "trend30d";
+  /** Visible by default; user can flip a chip to relax the liquidity floor. */
+  const radarUniverseSig = useSignal<RadarUniverseId>("all");
+  const radarSortSig = useSignal<RadarSortKey>("score");
+  const radarHighLiquidityOnlySig = useSignal(true);
+  const radarTablePageSig = useSignal(1);
+
+  /**
+   * Build a single deduplicated token list from every list the loader already
+   * returned. This widens the radar universe from ~30 → ~200-400 tokens
+   * without any extra DB hit. Each source contributes by `cmcId / symbol`.
+   */
+  const radarSources: Record<Exclude<RadarUniverseId, "all">, any[]> = {
+    topvol: data.value.topVolume ?? [],
+    memes: data.value.meme ?? [],
+    ai: data.value.ai ?? [],
+    gaming: data.value.gaming ?? [],
+    mineable: data.value.mineable ?? [],
+    trending: data.value.trending?.rows ?? [],
+    mostvisited: data.value.mostVisited?.rows ?? [],
+  };
+
+  const buildRadarUniverse = (id: RadarUniverseId): any[] => {
+    const lists =
+      id === "all"
+        ? Object.values(radarSources)
+        : [radarSources[id] ?? []];
+    const seen = new Set<string>();
+    const out: any[] = [];
+    for (const list of lists) {
+      for (const t of list as any[]) {
+        if (!t) continue;
+        const key =
+          t.cmcId != null && Number.isFinite(Number(t.cmcId))
+            ? `cmc:${t.cmcId}`
+            : `s:${String(t.slug ?? "").toLowerCase()}|y:${String(t.symbol ?? "").toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(t);
+      }
+    }
+    return out;
+  };
+
+  const radarUniverseRaw = buildRadarUniverse(radarUniverseSig.value);
+  /** Drop dust by default so spam tokens with 0 liquidity don't pollute the picks. */
+  const RADAR_MIN_VOLUME_USD = 50_000;
+  const radarUniverse = radarHighLiquidityOnlySig.value
+    ? radarUniverseRaw.filter((t: any) => n(t.volume) >= RADAR_MIN_VOLUME_USD)
+    : radarUniverseRaw;
+
+  /** 6 picks per card so the radar feels less sparse. */
+  const RADAR_CARD_LIMIT = 6;
+  const radarMomentum = [...radarUniverse]
     .sort((a: any, b: any) => regimeScore(b) - regimeScore(a))
-    .slice(0, 4);
-  const radarReversal = [...data.value.topVolume]
+    .slice(0, RADAR_CARD_LIMIT);
+  const radarReversal = [...radarUniverse]
     .filter((t: any) => n(t.percentChange24h) < 0 && n(t.percentChange7d) > 0)
     .sort((a: any, b: any) => n(b.volume) - n(a.volume))
-    .slice(0, 4);
-  const radarVolume = [...data.value.topVolume]
+    .slice(0, RADAR_CARD_LIMIT);
+  const radarVolume = [...radarUniverse]
     .sort((a: any, b: any) => n(b.volume) - n(a.volume))
-    .slice(0, 4);
-  const radarBestSet = [...data.value.topVolume]
+    .slice(0, RADAR_CARD_LIMIT);
+  const radarTrend30d = [...radarUniverse]
+    .filter((t: any) => n(t.percentChange30d) > 0 && n(t.percentChange7d) > 0)
+    .sort(
+      (a: any, b: any) =>
+        n(b.percentChange30d) * 0.6 + n(b.percentChange7d) * 0.4 - (n(a.percentChange30d) * 0.6 + n(a.percentChange7d) * 0.4),
+    )
+    .slice(0, RADAR_CARD_LIMIT);
+  const radarBestSet = [...radarUniverse]
     .sort((a: any, b: any) => opportunityScore(b) - opportunityScore(a))
-    .slice(0, 6);
+    .slice(0, 60);
+
+  /** Detail table: top 20 ordered by current sort criterion. */
+  const radarSortFn = (key: RadarSortKey) => (a: any, b: any) => {
+    switch (key) {
+      case "momentum":
+        return regimeScore(b) - regimeScore(a);
+      case "reversal":
+        return n(b.percentChange7d) - n(a.percentChange7d) || n(a.percentChange24h) - n(b.percentChange24h);
+      case "liquidity":
+        return n(b.volume) - n(a.volume);
+      case "trend30d":
+        return n(b.percentChange30d) - n(a.percentChange30d);
+      case "score":
+      default:
+        return opportunityScore(b) - opportunityScore(a);
+    }
+  };
+  const radarTableAll = [...radarUniverse].sort(radarSortFn(radarSortSig.value)).slice(0, 60);
+  const RADAR_TABLE_PAGE_SIZE = 10;
+  const radarTableTotalPages = Math.max(1, Math.ceil(radarTableAll.length / RADAR_TABLE_PAGE_SIZE));
+  const radarTablePage = Math.min(Math.max(1, radarTablePageSig.value), radarTableTotalPages);
+  const radarTableRows = radarTableAll.slice(
+    (radarTablePage - 1) * RADAR_TABLE_PAGE_SIZE,
+    radarTablePage * RADAR_TABLE_PAGE_SIZE,
+  );
   const HelpTip = (text: string) => <HelpTooltip text={text} placement="top-right" widthClass="w-52" />;
   const InlineHelpTip = (text: string) => <HelpTooltip text={text} placement="inline" widthClass="w-52" />;
 
@@ -1270,12 +1357,74 @@ export default component$(() => {
               </p>
             </div>
           </div>
-          <span class="rounded-full border border-[#04E6E6]/30 bg-[#04E6E6]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9bf8f8]">
-            {tx("Vista accionable", "Actionable view")}
-          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full border border-[#04E6E6]/30 bg-[#04E6E6]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9bf8f8]">
+              {tx(`${radarUniverse.length} tokens analizados`, `${radarUniverse.length} tokens scanned`)}
+            </span>
+            <button
+              type="button"
+              onClick$={() => {
+                radarHighLiquidityOnlySig.value = !radarHighLiquidityOnlySig.value;
+                radarTablePageSig.value = 1;
+              }}
+              class={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                radarHighLiquidityOnlySig.value
+                  ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                  : "border-slate-600/50 bg-slate-800/40 text-slate-300 hover:border-slate-400/60"
+              }`}
+              title={tx("Filtra tokens con muy poco volumen", "Filter out tokens with very low volume")}
+            >
+              {radarHighLiquidityOnlySig.value
+                ? tx("Liquidez ≥ $50K", "Liquidity ≥ $50K")
+                : tx("Sin filtro liquidez", "No liquidity floor")}
+            </button>
+          </div>
         </header>
 
-        <div class="relative grid gap-3 p-4 lg:grid-cols-2 xl:grid-cols-4">
+        <div class="relative flex flex-wrap items-center gap-1.5 border-b border-[#0d5357]/55 px-4 py-2.5">
+          <span class="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            {tx("Universo", "Universe")}
+          </span>
+          {(
+            [
+              ["all", tx("Todos", "All")],
+              ["topvol", tx("Top volumen", "Top volume")],
+              ["trending", tx("Trending", "Trending")],
+              ["mostvisited", tx("Más visitados", "Most visited")],
+              ["memes", tx("Memes", "Memes")],
+              ["ai", tx("IA", "AI")],
+              ["gaming", tx("Gaming", "Gaming")],
+              ["mineable", tx("Minables", "Mineable")],
+            ] as Array<[RadarUniverseId, string]>
+          ).map(([id, label]) => {
+            const active = radarUniverseSig.value === id;
+            const count =
+              id === "all"
+                ? Object.values(radarSources).reduce((acc, list) => acc + (list?.length ?? 0), 0)
+                : radarSources[id]?.length ?? 0;
+            return (
+              <button
+                key={`radar-uni-${id}`}
+                type="button"
+                onClick$={() => {
+                  radarUniverseSig.value = id;
+                  radarTablePageSig.value = 1;
+                }}
+                class={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                  active
+                    ? "border-[#04E6E6] bg-[#04E6E6]/15 text-[#9bf8f8]"
+                    : "border-[#0d5357] bg-[#001a1f]/70 text-slate-300 hover:border-[#04E6E6]/40 hover:text-[#9bf8f8]"
+                }`}
+                aria-pressed={active}
+              >
+                {label}
+                <span class="ml-1 text-slate-500">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div class="relative grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           <article class="rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-transparent p-3">
             <div class="mb-2 flex items-center justify-between gap-2">
               <span class="inline-flex items-center gap-2">
@@ -1419,43 +1568,133 @@ export default component$(() => {
               )}
             </div>
             <ul class="space-y-1">
-              {radarBestSet.slice(0, 4).map((t: any) => (
-                <li key={`radar-s-${t.id}`}>
-                  <Link
-                    href={`/${L}/token/${t.id}/`}
-                    class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10"
-                  >
-                    <span class="flex min-w-0 items-center gap-2">
-                      <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
-                      <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
-                    </span>
-                    <span class="shrink-0 rounded-md border border-violet-400/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-violet-100">
-                      {opportunityScore(t)}
-                    </span>
-                  </Link>
+              {radarBestSet.length === 0 ? (
+                <li class="px-2 py-1.5 text-xs italic text-slate-500">{tx("Sin datos.", "No data.")}</li>
+              ) : (
+                radarBestSet.slice(0, RADAR_CARD_LIMIT).map((t: any) => (
+                  <li key={`radar-s-${t.id}`}>
+                    <Link
+                      href={`/${L}/token/${t.id}/`}
+                      class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                        <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                      </span>
+                      <span class="shrink-0 rounded-md border border-violet-400/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-violet-100">
+                        {opportunityScore(t)}
+                      </span>
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </article>
+
+          <article class="rounded-xl border border-sky-500/25 bg-gradient-to-b from-sky-500/[0.06] to-transparent p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-lg bg-sky-500/20 p-1.5 text-sky-300">
+                  <LuSparkles class="h-3.5 w-3.5" />
+                </span>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-sky-200">
+                  {tx("Tendencia sostenida 30d", "Sustained 30d trend")}
+                </h3>
+              </span>
+              {InlineHelpTip(
+                tx(
+                  "Tokens en verde a 7 d y 30 d: tendencia sostenida.",
+                  "Tokens green on 7d and 30d: sustained uptrend.",
+                ),
+              )}
+            </div>
+            <ul class="space-y-1">
+              {radarTrend30d.length === 0 ? (
+                <li class="px-2 py-1.5 text-xs italic text-slate-500">
+                  {tx("Sin tendencias claras ahora.", "No clear trends right now.")}
                 </li>
-              ))}
+              ) : (
+                radarTrend30d.map((t: any) => (
+                  <li key={`radar-t30-${t.id}`}>
+                    <Link
+                      href={`/${L}/token/${t.id}/`}
+                      class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-sky-500/10"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                        <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                      </span>
+                      <span class="flex shrink-0 items-center gap-1 text-[10px] tabular-nums">
+                        <span class="text-emerald-300">{n(t.percentChange7d).toFixed(1)}%</span>
+                        <span class="text-slate-600">/</span>
+                        <span class="text-sky-300">{n(t.percentChange30d).toFixed(1)}%</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))
+              )}
             </ul>
           </article>
         </div>
 
         <div class="relative px-4 pb-4">
-          <div class="mb-2 flex items-center justify-between gap-2">
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 class="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-slate-300">
               <LuSparkles class="mr-1.5 h-3.5 w-3.5 text-[#04E6E6]" />
-              {tx("Detalle de los tokens con mejor score", "Top scored tokens detail")}
+              {tx("Detalle de tokens del radar", "Radar tokens detail")}
+              <span class="ml-2 rounded-md border border-[#0d5357] bg-[#001a1f]/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-slate-300">
+                {radarTableAll.length}
+              </span>
             </h3>
             <span class="text-[10px] text-slate-500">
               {tx("Toca un token para ver su ficha", "Tap a token to open its page")}
             </span>
           </div>
+
+          <div class="mb-2 flex flex-wrap items-center gap-1.5">
+            <span class="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {tx("Ordenar por", "Sort by")}
+            </span>
+            {(
+              [
+                ["score", tx("Score", "Score")],
+                ["momentum", tx("Momentum", "Momentum")],
+                ["reversal", tx("Reversión", "Reversal")],
+                ["liquidity", tx("Liquidez", "Liquidity")],
+                ["trend30d", tx("Tendencia 30d", "30d trend")],
+              ] as Array<[RadarSortKey, string]>
+            ).map(([id, label]) => {
+              const active = radarSortSig.value === id;
+              return (
+                <button
+                  key={`radar-sort-${id}`}
+                  type="button"
+                  onClick$={() => {
+                    radarSortSig.value = id;
+                    radarTablePageSig.value = 1;
+                  }}
+                  class={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                    active
+                      ? "border-violet-400/60 bg-violet-500/15 text-violet-100"
+                      : "border-[#0d5357] bg-[#001a1f]/70 text-slate-300 hover:border-violet-400/40 hover:text-violet-100"
+                  }`}
+                  aria-pressed={active}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
           <div class="overflow-x-auto rounded-xl border border-[#0d5357]/70 bg-[#000d10]/60">
-            <table class="w-full min-w-[820px] text-xs">
+            <table class="w-full min-w-[920px] text-xs">
               <thead class="bg-[#00151a]/95 text-[10px] uppercase tracking-wide text-slate-400">
                 <tr>
                   <th class="px-3 py-2 text-left">{tx("Token", "Token")}</th>
+                  <th class="px-3 py-2 text-right">{tx("Precio", "Price")}</th>
                   <th class="px-3 py-2 text-right">24h</th>
                   <th class="px-3 py-2 text-right">7d</th>
+                  <th class="px-3 py-2 text-right">30d</th>
                   <th class="px-3 py-2 text-right">{tx("Liquidez", "Liquidity")}</th>
                   <th class="px-3 py-2 text-right">{tx("Volatilidad", "Volatility")}</th>
                   <th class="px-3 py-2 text-right">{tx("Tendencia", "Trend")}</th>
@@ -1463,16 +1702,17 @@ export default component$(() => {
                 </tr>
               </thead>
               <tbody>
-                {radarBestSet.length === 0 ? (
+                {radarTableRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} class="px-3 py-6 text-center text-xs italic text-slate-500">
+                    <td colSpan={9} class="px-3 py-6 text-center text-xs italic text-slate-500">
                       {tx("Sin datos disponibles ahora mismo.", "No data available right now.")}
                     </td>
                   </tr>
                 ) : (
-                  radarBestSet.map((t: any) => {
+                  radarTableRows.map((t: any) => {
                     const c24 = n(t.percentChange24h);
                     const c7 = n(t.percentChange7d);
+                    const c30 = n(t.percentChange30d);
                     const liq = Math.round(liquidityScore(t));
                     const vol = Math.round(volatilityScore(t));
                     const score = opportunityScore(t);
@@ -1480,10 +1720,10 @@ export default component$(() => {
                       score >= 75
                         ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
                         : score >= 60
-                        ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
-                        : score >= 45
-                        ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
-                        : "border-rose-400/40 bg-rose-500/15 text-rose-200";
+                          ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                          : score >= 45
+                            ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                            : "border-rose-400/40 bg-rose-500/15 text-rose-200";
                     const pctClass = (v: number) =>
                       v > 0 ? "text-emerald-300" : v < 0 ? "text-rose-300" : "text-slate-300";
                     return (
@@ -1502,6 +1742,9 @@ export default component$(() => {
                             </span>
                           </Link>
                         </td>
+                        <td class="px-3 py-2 text-right tabular-nums text-slate-200">
+                          {formatTokenUsdPrice(Number(t.price ?? 0))}
+                        </td>
                         <td class={`px-3 py-2 text-right tabular-nums ${pctClass(c24)}`}>
                           {c24 > 0 ? "+" : ""}
                           {c24.toFixed(2)}%
@@ -1510,19 +1753,25 @@ export default component$(() => {
                           {c7 > 0 ? "+" : ""}
                           {c7.toFixed(2)}%
                         </td>
+                        <td class={`px-3 py-2 text-right tabular-nums ${pctClass(c30)}`}>
+                          {c30 > 0 ? "+" : ""}
+                          {c30.toFixed(2)}%
+                        </td>
                         <td class="px-3 py-2 text-right">
-                          <div class="ml-auto flex w-28 items-center justify-end gap-2">
+                          <div class="ml-auto flex w-32 items-center justify-end gap-2">
                             <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-[#0d5357]/60">
                               <div
                                 class="h-full bg-cyan-400/75"
                                 style={{ width: `${Math.min(100, Math.max(0, liq))}%` }}
                               />
                             </div>
-                            <span class="w-7 text-right tabular-nums text-cyan-200">{liq}</span>
+                            <span class="w-12 text-right tabular-nums text-cyan-200">
+                              {formatUsdLiquidity(t.volume)}
+                            </span>
                           </div>
                         </td>
                         <td class="px-3 py-2 text-right">
-                          <div class="ml-auto flex w-28 items-center justify-end gap-2">
+                          <div class="ml-auto flex w-24 items-center justify-end gap-2">
                             <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-[#0d5357]/60">
                               <div
                                 class="h-full bg-amber-400/75"
@@ -1551,6 +1800,34 @@ export default component$(() => {
               </tbody>
             </table>
           </div>
+
+          {radarTableAll.length > RADAR_TABLE_PAGE_SIZE ? (
+            <div class="mt-2 flex items-center justify-end gap-3 text-[11px] text-slate-400">
+              <button
+                type="button"
+                onClick$={() => {
+                  radarTablePageSig.value = Math.max(1, radarTablePage - 1);
+                }}
+                disabled={radarTablePage <= 1}
+                class="rounded-md border border-[#0d5357] bg-[#001a1f]/70 px-2 py-1 hover:border-[#04E6E6]/40 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {tx("Anterior", "Previous")}
+              </button>
+              <span class="tabular-nums">
+                {tx("Página", "Page")} {radarTablePage} / {radarTableTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick$={() => {
+                  radarTablePageSig.value = Math.min(radarTableTotalPages, radarTablePage + 1);
+                }}
+                disabled={radarTablePage >= radarTableTotalPages}
+                class="rounded-md border border-[#0d5357] bg-[#001a1f]/70 px-2 py-1 hover:border-[#04E6E6]/40 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {tx("Siguiente", "Next")}
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 

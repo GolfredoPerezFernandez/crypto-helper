@@ -24,7 +24,7 @@ export const getNativeBalance = (address: string) =>
 
 /* ---------------- ERC20 Tokens ---------------- */
 export const getErc20Tokens = (address: string) =>
-  moralisFetch(`/wallets/${address}/tokens?chain=base&order=usd_value.DESC`);
+  moralisFetch(`/wallets/${address}/tokens?chain=base&order=DESC`);
 
 /* ---------------- Token Prices ---------------- */
 export const getTokenPrices = (addresses: string[]) =>
@@ -36,11 +36,11 @@ export const getTokenPrices = (addresses: string[]) =>
 
 /* ---------------- ERC20 Transfers ---------------- */
 export const getTokenTransfers = (address: string) =>
-  moralisFetch(`/wallets/${address}/erc20/transfers?chain=base&order=block_timestamp.DESC&limit=50`);
+  moralisFetch(`/wallets/${address}/erc20/transfers?chain=base&order=DESC&limit=50`);
 
 /* ---------------- Native Transactions ---------------- */
 export const getTransactions = (address: string) =>
-  moralisFetch(`/wallets/${address}/transactions?chain=base&order=block_timestamp.DESC&limit=50`);
+  moralisFetch(`/wallets/${address}/transactions?chain=base&order=DESC&limit=50`);
 
 /* ---------------- NFTs ---------------- */
 export const getNFTs = (address: string) =>

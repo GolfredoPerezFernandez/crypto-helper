@@ -1011,8 +1011,12 @@ export async function fetchMoralisWalletTransactions(
 ): Promise<MoralisWalletTokensResult> {
   if (!address) return { ok: false, error: "Missing address" };
   const ch = encodeURIComponent(chain);
+  /**
+   * Moralis enum: `order` must be `ASC | DESC` (the legacy `block_timestamp.DESC`
+   * notation is rejected with `"order must be a valid enum value"`).
+   */
   const primary = await moralisGet(
-    `/wallets/${encodeURIComponent(address)}/transactions?chain=${ch}&order=block_timestamp.DESC&limit=${limit}`,
+    `/wallets/${encodeURIComponent(address)}/transactions?chain=${ch}&order=DESC&limit=${limit}`,
   );
   // Fallback to the raw native tx endpoint for workspaces where `/wallets/:a/transactions`
   // is not available anymore.
@@ -1085,9 +1089,11 @@ export async function fetchMoralisErc20Transfers(
   const addr = encodeURIComponent(tokenAddress);
   const ch = encodeURIComponent(chain);
   const lim = encodeURIComponent(String(limit));
-  return moralisGet(
-    `/erc20/${addr}/transfers?chain=${ch}&limit=${lim}&order=block_timestamp.DESC`,
-  );
+  /**
+   * Moralis enum: `order` must be `ASC | DESC` (the legacy `block_timestamp.DESC`
+   * notation is rejected with `"order must be a valid enum value"`).
+   */
+  return moralisGet(`/erc20/${addr}/transfers?chain=${ch}&limit=${lim}&order=DESC`);
 }
 
 /**
