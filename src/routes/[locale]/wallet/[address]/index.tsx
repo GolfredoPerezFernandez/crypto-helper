@@ -93,6 +93,8 @@ type WalletViewData = {
   nftsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
   nftCollectionsBase?: { ok?: boolean; data?: unknown; error?: unknown };
   nftCollectionsEth?: { ok?: boolean; data?: unknown; error?: unknown };
+  /** Alias snapshot `nftsByChain.eth` (sync Moralis). */
+  nftsEth?: { ok?: boolean; data?: unknown; error?: unknown };
 };
 
 function walletLegendPct(part: number, total: number): string {
@@ -190,11 +192,56 @@ function walletNftsResultForChain(
   v: {
     nftsByChain?: Record<string, { ok?: boolean; data?: unknown; error?: unknown }>;
     nfts?: { ok?: boolean; data?: unknown; error?: unknown };
+    nftsEth?: { ok?: boolean; data?: unknown; error?: unknown };
   },
   chain: string,
 ) {
   const ch = chain.trim().toLowerCase();
-  return v.nftsByChain?.[ch] ?? (ch === "base" ? v.nfts : undefined);
+  return (
+    v.nftsByChain?.[ch] ??
+    (ch === "base" ? v.nfts : ch === "eth" ? v.nftsEth : undefined)
+  );
+}
+
+/** Error del endpoint de ítems solo para la cadena seleccionada (evita mezclar Base con Ethereum). */
+function nftItemsErrorForSelectedChain(
+  v: WalletViewData,
+  chain: string,
+  snap: { ok?: boolean; error?: unknown } | undefined,
+): string {
+  const ch = chain.trim().toLowerCase();
+  if (snap?.error != null) return cleanErrorText(snap.error);
+  if (snap === undefined && ch === "base" && v.nfts?.error != null) return cleanErrorText(v.nfts.error);
+  if (snap === undefined && ch === "eth" && v.nftsEth?.error != null) return cleanErrorText(v.nftsEth.error);
+  return "";
+}
+
+function nftCollectionRowsForChain(v: WalletViewData, chain: string): Record<string, unknown>[] {
+  const colSnap = nftCollectionsResultForChain(v, chain);
+  const payload =
+    colSnap?.ok && colSnap.data != null && typeof colSnap.data === "object"
+      ? (colSnap.data as Record<string, unknown>)
+      : null;
+  return Array.isArray(payload?.result) ? (payload!.result as Record<string, unknown>[]) : [];
+}
+
+/** Contador tab NFTs: suma ítems por cadena; si todo falla o está vacío, suma `count` en colecciones. */
+function walletNftTotalCountHint(v: WalletViewData): number {
+  const chains = nftSnapshotChainKeys(v);
+  let fromItems = 0;
+  for (const ch of chains) {
+    const snap = walletNftsResultForChain(v, ch);
+    if (snap?.ok) fromItems += nftItemsFromMoralis(snap.data).length;
+  }
+  if (fromItems > 0) return fromItems;
+  let fromCollections = 0;
+  for (const ch of chains) {
+    for (const row of nftCollectionRowsForChain(v, ch)) {
+      const cnt = typeof row.count === "number" ? row.count : 0;
+      fromCollections += cnt;
+    }
+  }
+  return fromCollections;
 }
 
 const CHAIN_PILL_META: Record<WalletChainFilterId, { label: string; dot: string }> = {
@@ -569,7 +616,16 @@ export default component$(() => {
 
   const walletNftSnap = walletNftsResultForChain(v, nftMcChain.value);
   const nfts = nftItemsFromMoralis(walletNftSnap?.ok ? walletNftSnap.data : null);
-  const nftsErr = cleanErrorText(walletNftSnap?.error ?? v.nfts?.error);
+  const nftsErr = nftItemsErrorForSelectedChain(v, nftMcChain.value, walletNftSnap);
+  const nftColRows = nftCollectionRowsForChain(v, nftMcChain.value);
+  const nftColSnap = nftCollectionsResultForChain(v, nftMcChain.value);
+  const nftColErr =
+    nftColSnap !== undefined && !nftColSnap.ok ? cleanErrorText(nftColSnap.error) : "";
+  const nftColStale =
+    nftColSnap === undefined && !v.snapshotMissing
+      ? "Las colecciones se mostrarán pronto, en cuanto se actualicen los datos."
+      : "";
+  const nftTabTotal = walletNftTotalCountHint(v);
   const nftMcKeys = nftSnapshotChainKeys(v);
   const baseAct = walletBaseActivityForUi(
     v.weekBase as Parameters<typeof walletBaseActivityForUi>[0],
@@ -677,25 +733,20 @@ export default component$(() => {
 
             {/* Cuerpo: columna KPI | columnas distribución */}
             <div class="mt-4 grid gap-5 xl:grid-cols-12 xl:gap-4 2xl:gap-5">
-              {/* KPI + address */}
-              <div class="flex flex-col xl:col-span-4 2xl:col-span-4">
-                <div class="rounded-xl border border-[#0c4b4f]/80 bg-gradient-to-br from-[#000d12]/90 to-[#000508]/80 p-3 ring-1 ring-white/[0.03] sm:p-3.5">
-                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Address</p>
-                  <p class="mt-1 min-w-0 break-all font-mono text-[11px] leading-snug text-[#04E6E6] sm:text-xs">{v.address}</p>
-                </div>
-
-                <div class="mt-4 flex flex-1 flex-col justify-end">
+              {/* KPI: patrimonio primero (hero), address debajo */}
+              <div class="flex min-h-0 flex-col xl:col-span-4 2xl:col-span-4">
+                <div class="min-w-0">
                   <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Patrimonio total (estimado)
                   </p>
                   {v.nw?.ok && nwTotalUsd != null ? (
-                    <p class="mt-1 text-3xl font-bold tabular-nums tracking-tight text-white sm:text-4xl 2xl:text-[2.35rem]">
+                    <p class="mt-0.5 text-4xl font-bold tabular-nums leading-[1.05] tracking-tight text-white sm:text-5xl xl:text-[3rem] 2xl:text-[3.35rem]">
                       ${formatUsdBalance(nwTotalUsd)}
                     </p>
                   ) : (
-                    <p class="mt-1 text-xl font-semibold text-slate-500">—</p>
+                    <p class="mt-0.5 text-2xl font-semibold text-slate-500">—</p>
                   )}
-                  <div class="mt-2 min-h-[1.25rem]">
+                  <div class="mt-1.5 min-h-[1.1rem]">
                     {change24h != null ? (
                       <span
                         class={
@@ -711,9 +762,16 @@ export default component$(() => {
                         <span class="text-[10px] font-normal text-slate-500">24h · pond.</span>
                       </span>
                     ) : (
-                      <span class="text-xs text-slate-500">Variación 24h no disponible</span>
+                      <span class="text-[11px] text-slate-500">Variación 24h no disponible</span>
                     )}
                   </div>
+                </div>
+
+                <div class="mt-3 rounded-lg border border-[#0c4b4f]/80 bg-gradient-to-br from-[#000d12]/90 to-[#000508]/80 px-2.5 py-2 ring-1 ring-white/[0.03] sm:px-3 sm:py-2">
+                  <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Address</p>
+                  <p class="mt-0.5 min-w-0 break-all font-mono text-[10px] leading-snug text-[#04E6E6] sm:text-[11px]">
+                    {v.address}
+                  </p>
                 </div>
               </div>
 
@@ -872,7 +930,7 @@ export default component$(() => {
             assetsTab.value = "nfts";
           }}
         >
-          NFTs ({nfts.length})
+          NFTs ({nftTabTotal})
           {assetsTab.value === "nfts" ? (
             <span class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#04E6E6] shadow-[0_0_12px_rgba(4,230,230,0.45)]" />
           ) : null}
@@ -1197,128 +1255,149 @@ export default component$(() => {
 
       <div class={`${assetsTab.value === "nfts" ? "mb-6" : "hidden"}`} aria-hidden={assetsTab.value !== "nfts"}>
         {nftMcKeys.length > 1 ? (
-          <div class="mb-3 flex flex-wrap gap-2">
-            {nftMcKeys.map((ch) => (
-              <button
-                type="button"
-                key={ch}
-                class={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  nftMcChain.value === ch
-                    ? "border-[#04E6E6]/50 bg-[#043234] text-[#04E6E6] ring-1 ring-inset ring-[#04E6E6]/25"
-                    : "border-[#043234] bg-[#000D0E]/60 text-slate-400 hover:border-[#04E6E6]/25 hover:text-slate-200"
-                }`}
-                onClick$={() => {
-                  nftMcChain.value = ch;
-                }}
-              >
-                {moralisNftChainLabel(ch)}
-              </button>
-            ))}
+          <div class="-mx-1 mb-3 overflow-x-auto pb-1">
+            <div class="flex w-max min-w-full flex-nowrap gap-2 px-1">
+              {nftMcKeys.map((ch) => (
+                <button
+                  type="button"
+                  key={ch}
+                  class={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    nftMcChain.value === ch
+                      ? "border-[#04E6E6]/50 bg-[#043234] text-[#04E6E6] ring-1 ring-inset ring-[#04E6E6]/25"
+                      : "border-[#043234] bg-[#000D0E]/60 text-slate-400 hover:border-[#04E6E6]/25 hover:text-slate-200"
+                  }`}
+                  onClick$={() => {
+                    nftMcChain.value = ch;
+                  }}
+                >
+                  {moralisNftChainLabel(ch)}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
-        <p class="mb-4 text-[11px] text-slate-500">
-          Vista previa NFT por cadena. Datos actualizados periódicamente.
-        </p>
-        <div class="grid gap-6 xl:grid-cols-12">
-      <section class="rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5 xl:col-span-5">
-        <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Ítems NFT · {moralisNftChainLabel(nftMcChain.value)}
-        </h2>
-        {walletNftSnap?.ok && nfts.length > 0 ? (
-          <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {nfts.map((n: Record<string, unknown>) => {
-              const img = nftImage(n);
-              const name = String((n.normalized_metadata as { name?: string })?.name ?? n.name ?? n.symbol ?? "NFT");
-              const ca = String(n.token_address ?? "").toLowerCase();
-              const tid = String(n.token_id ?? "");
-              const chainQ = encodeURIComponent(nftMcChain.value);
-              const nftDash =
-                /^0x[a-f0-9]{40}$/.test(ca) && tid
-                  ? `/${L}/nfts/${ca}/${encodeURIComponent(tid)}/?chain=${chainQ}`
-                  : null;
-              const inner = (
-                <>
-                  {img ? (
-                    <img src={img} alt="" class="w-full aspect-square object-cover" width={120} height={120} loading="lazy" />
-                  ) : (
-                    <div class="aspect-square bg-[#043234]/30 flex items-center justify-center text-[10px] text-gray-500 px-1 text-center">
-                      {String(n.symbol ?? "?")}
-                    </div>
-                  )}
-                  <p class="truncate px-1 py-1 text-[10px] text-slate-400" title={name}>
-                    {name}
-                  </p>
-                </>
-              );
-              return (
-                <div key={`${String(n.token_address)}-${String(n.token_id)}`} class="rounded-lg overflow-hidden border border-[#043234] bg-black/20">
-                  {nftDash ? (
-                    <Link href={nftDash} class="block hover:opacity-90 transition-opacity">
-                      {inner}
-                    </Link>
-                  ) : (
-                    inner
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : walletNftSnap?.ok ? (
-          <WalletEmptyState
-            title={`Sin NFTs en ${moralisNftChainLabel(nftMcChain.value)}`}
-            hint="No hay ítems en la muestra de esta cadena del último sync."
-          />
-        ) : nftsErr ? (
-          <WalletEmptyState
-            title="No se pudieron cargar los NFTs"
-            hint="Vuelve a intentarlo en unos minutos. Si el problema continúa, prueba recargar la página."
-            tone="warn"
-          />
-        ) : (
-          <WalletEmptyState
-            title="Sin NFTs registrados"
-            hint="Aún no hay datos de NFTs para esta wallet."
-          />
-        )}
-      </section>
-
-      <section class="rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5 xl:col-span-7">
-        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Colecciones NFT · {moralisNftChainLabel(nftMcChain.value)}
-            </h2>
-            <p class="mt-1 text-[11px] text-slate-500">
-              Agregado por contrato · misma cadena que la rejilla izquierda.
-            </p>
-          </div>
+        <div class="mb-4 max-w-4xl space-y-1.5">
+          <p class="text-[11px] leading-snug text-slate-400">
+            <span class="font-medium text-slate-300">Ítems</span> (panel izquierdo): listado + miniaturas vía Moralis{" "}
+            <code class="rounded bg-black/40 px-1 font-mono text-[10px] text-slate-400">GET …/wallets/…/nfts</code>.
+            {" "}
+            <span class="font-medium text-slate-300">Colecciones</span> (derecha): saldos agrupados por contrato vía{" "}
+            <code class="rounded bg-black/40 px-1 font-mono text-[10px] text-slate-400">GET …/nft/collections</code>.
+            Son dos APIs; si una falla en el sync, la otra puede seguir mostrando datos.
+          </p>
+          <p class="text-[10px] text-slate-600">Actualizado con el snapshot periódico (no en tiempo real).</p>
         </div>
-        {(() => {
-          const colSnap = nftCollectionsResultForChain(v, nftMcChain.value);
-          const colPayload =
-            colSnap?.ok && colSnap.data != null && typeof colSnap.data === "object"
-              ? (colSnap.data as Record<string, unknown>)
-              : null;
-          const colRows = Array.isArray(colPayload?.result)
-            ? (colPayload!.result as Record<string, unknown>[])
-            : [];
-          const colErr =
-            colSnap !== undefined && !colSnap.ok ? cleanErrorText(colSnap.error) : "";
-          const colStale =
-            colSnap === undefined && !v.snapshotMissing
-              ? "Las colecciones se mostrarán pronto, en cuanto se actualicen los datos."
-              : "";
+        <div class="grid gap-6 xl:grid-cols-12">
+          <section class="rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5 xl:col-span-5">
+            <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Ítems NFT · {moralisNftChainLabel(nftMcChain.value)}
+            </h2>
+            {walletNftSnap?.ok && nfts.length > 0 ? (
+              <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {nfts.map((n: Record<string, unknown>) => {
+                  const img = nftImage(n);
+                  const name = String(
+                    (n.normalized_metadata as { name?: string })?.name ?? n.name ?? n.symbol ?? "NFT",
+                  );
+                  const ca = String(n.token_address ?? "").toLowerCase();
+                  const tid = String(n.token_id ?? "");
+                  const chainQ = encodeURIComponent(nftMcChain.value);
+                  const nftDash =
+                    /^0x[a-f0-9]{40}$/.test(ca) && tid
+                      ? `/${L}/nfts/${ca}/${encodeURIComponent(tid)}/?chain=${chainQ}`
+                      : null;
+                  const inner = (
+                    <>
+                      {img ? (
+                        <img
+                          src={img}
+                          alt=""
+                          class="aspect-square w-full object-cover"
+                          width={120}
+                          height={120}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div class="flex aspect-square items-center justify-center bg-[#043234]/30 px-1 text-center text-[10px] text-gray-500">
+                          {String(n.symbol ?? "?")}
+                        </div>
+                      )}
+                      <p class="truncate px-1 py-1 text-[10px] text-slate-400" title={name}>
+                        {name}
+                      </p>
+                    </>
+                  );
+                  return (
+                    <div
+                      key={`${String(n.token_address)}-${String(n.token_id)}`}
+                      class="overflow-hidden rounded-lg border border-[#043234] bg-black/20"
+                    >
+                      {nftDash ? (
+                        <Link href={nftDash} class="block transition-opacity hover:opacity-90">
+                          {inner}
+                        </Link>
+                      ) : (
+                        inner
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : walletNftSnap?.ok && nfts.length === 0 && nftColRows.length > 0 ? (
+              <WalletEmptyState
+                tone="info"
+                title={`Sin miniaturas en ${moralisNftChainLabel(nftMcChain.value)}`}
+                hint="Moralis devolvió 0 ítems en esta muestra; a la derecha sí hay colecciones con saldo (otro endpoint y criterios)."
+              />
+            ) : walletNftSnap?.ok ? (
+              <WalletEmptyState
+                title={`Sin NFTs en ${moralisNftChainLabel(nftMcChain.value)}`}
+                hint="No hay ítems ni colecciones con saldo en esta cadena según el último sync."
+              />
+            ) : nftColRows.length > 0 && nftsErr ? (
+              <WalletEmptyState
+                tone="warn"
+                title="Vista de ítems no disponible"
+                hint={`${nftsErr} Las colecciones de esta cadena (derecha) sí se cargaron.`}
+              />
+            ) : nftColRows.length > 0 ? (
+              <WalletEmptyState
+                tone="info"
+                title="Ítems no incluidos en el snapshot"
+                hint="No hay respuesta usable de ítems para esta cadena; usa el panel de colecciones para ver contratos con saldo."
+              />
+            ) : nftsErr ? (
+              <WalletEmptyState
+                title="No se pudieron cargar los NFTs"
+                hint="Vuelve a intentarlo en unos minutos. Si el problema continúa, prueba recargar la página."
+                tone="warn"
+              />
+            ) : (
+              <WalletEmptyState
+                title="Sin NFTs registrados"
+                hint="Aún no hay datos de NFTs para esta wallet."
+              />
+            )}
+          </section>
 
-          if (colErr) {
-            return <p class="text-sm text-amber-400">{colErr}</p>;
-          }
-          if (colStale) {
-            return <p class="text-sm text-gray-500">{colStale}</p>;
-          }
-          if (colRows.length > 0) {
-            return (
+          <section class="rounded-2xl border border-[#043234] bg-[#001a1c]/90 p-4 shadow-lg shadow-black/20 sm:p-5 xl:col-span-7">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Colecciones NFT · {moralisNftChainLabel(nftMcChain.value)}
+                </h2>
+                <p class="mt-1 text-[11px] text-slate-500">
+                  Por contrato · misma cadena que el panel de ítems.
+                </p>
+              </div>
+            </div>
+            {nftColErr ? (
+              <p class="text-sm text-amber-400">{nftColErr}</p>
+            ) : nftColStale ? (
+              <p class="text-sm text-gray-500">{nftColStale}</p>
+            ) : nftColRows.length > 0 ? (
               <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {colRows.map((c) => {
+                {nftColRows.map((c) => {
                   const ca = String(c.token_address ?? "").toLowerCase();
                   const name = String(c.name ?? c.symbol ?? "Collection");
                   const sym = String(c.symbol ?? "");
@@ -1336,17 +1415,24 @@ export default component$(() => {
                       class="flex gap-3 rounded-lg border border-[#043234] bg-[#000D0E]/60 p-3 text-xs"
                     >
                       {logo ? (
-                        <img src={logo} alt="" class="h-14 w-14 shrink-0 rounded-lg object-cover" width={56} height={56} loading="lazy" />
+                        <img
+                          src={logo}
+                          alt=""
+                          class="h-14 w-14 shrink-0 rounded-lg object-cover"
+                          width={56}
+                          height={56}
+                          loading="lazy"
+                        />
                       ) : (
                         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#043234]/40 text-[10px] text-gray-500">
                           NFT
                         </div>
                       )}
                       <div class="min-w-0 flex-1">
-                        <p class="font-medium text-gray-200 truncate" title={name}>
+                        <p class="truncate font-medium text-gray-200" title={name}>
                           {name}
                         </p>
-                        {sym ? <p class="text-[10px] text-gray-500 truncate">{sym}</p> : null}
+                        {sym ? <p class="truncate text-[10px] text-gray-500">{sym}</p> : null}
                         <div class="mt-0.5">
                           <EvmAddrLinks locale={L} moralisChain={nftMcChain.value} address={ca} variant="nft" />
                         </div>
@@ -1366,15 +1452,12 @@ export default component$(() => {
                   );
                 })}
               </ul>
-            );
-          }
-          return (
-            <p class="text-sm text-gray-500">
-              Sin colecciones con saldo en {moralisNftChainLabel(nftMcChain.value)} según el último sync.
-            </p>
-          );
-        })()}
-      </section>
+            ) : (
+              <p class="text-sm text-gray-500">
+                Sin colecciones con saldo en {moralisNftChainLabel(nftMcChain.value)} según el último sync.
+              </p>
+            )}
+          </section>
         </div>
       </div>
 
@@ -1714,17 +1797,21 @@ export default component$(() => {
 type WalletEmptyStateProps = {
   title: string;
   hint?: string;
-  tone?: "neutral" | "warn";
+  tone?: "neutral" | "warn" | "info";
 };
 
 /** Friendly empty-state used everywhere we don't want to surface upstream errors. */
 const WalletEmptyState = component$<WalletEmptyStateProps>((props) => {
-  const tone = props.tone === "warn" ? "warn" : "neutral";
+  const tone =
+    props.tone === "warn" ? "warn" : props.tone === "info" ? "info" : "neutral";
   const containerCls =
     tone === "warn"
       ? "border-amber-500/25 bg-amber-500/5"
-      : "border-[#043234] bg-[#000D0E]/40";
-  const titleCls = tone === "warn" ? "text-amber-100/95" : "text-gray-300";
+      : tone === "info"
+        ? "border-[#04E6E6]/20 bg-cyan-950/35"
+        : "border-[#043234] bg-[#000D0E]/40";
+  const titleCls =
+    tone === "warn" ? "text-amber-100/95" : tone === "info" ? "text-slate-100" : "text-gray-300";
   return (
     <div class={`rounded-lg border ${containerCls} px-4 py-6 text-center`}>
       <p class={`text-sm font-medium ${titleCls}`}>{props.title}</p>

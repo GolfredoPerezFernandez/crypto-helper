@@ -42,6 +42,8 @@ export type WalletPageSnapshot = {
   tokBase: MoralisWalletTokensResult;
   tokEth: MoralisWalletTokensResult;
   nfts: MoralisWalletTokensResult;
+  /** Misma fuente que `nftsByChain.eth`; alias para snapshots y UI legacy. */
+  nftsEth?: MoralisWalletTokensResult;
   txBase: MoralisWalletTokensResult;
   txEth: MoralisWalletTokensResult;
   pnlBase: MoralisWalletTokensResult;
@@ -442,6 +444,7 @@ async function buildEvmWalletPageSnapshot(
   const nftCollectionsEth =
     nftCollectionsByChain.eth ?? disabledApiStub("nftCollectionsEth");
   const nfts = nftsByChain.base ?? disabledApiStub("nftsBase");
+  const nftsEth = nftsByChain.eth ?? disabledApiStub("nftsEth");
 
   const nftColMs = Date.now() - nftColT0;
 
@@ -552,6 +555,7 @@ async function buildEvmWalletPageSnapshot(
       tokBase: tokBase.ok,
       tokEth: tokEth.ok,
       nfts: nfts.ok,
+      nftsEth: nftsEth.ok,
       nftChains: nftChains.length,
       nftCollectionsBase: nftCollectionsBase.ok,
       nftCollectionsEth: nftCollectionsEth.ok,
@@ -581,6 +585,7 @@ async function buildEvmWalletPageSnapshot(
     tokBase,
     tokEth,
     nfts,
+    nftsEth,
     txBase,
     txEth,
     pnlBase,
@@ -659,6 +664,7 @@ export function summarizeWalletSnapshotApiResults(s: WalletPageSnapshot): Record
     }
   } else {
     base.nftsBase = s.nfts.ok;
+    if (s.nftsEth !== undefined) base.nftsEth = s.nftsEth.ok;
   }
   return base;
 }
