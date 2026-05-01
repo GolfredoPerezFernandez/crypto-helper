@@ -23,6 +23,7 @@ import {
   dexScreenerPathForNetwork,
 } from "~/utils/tradingview-symbol";
 import { EvmAddrLinks, TxHashLink, txExplorerBase } from "~/components/crypto-dashboard/evm-dash-links";
+import { upsertWatchlistItem } from "~/server/watchlist-actions";
 
 const CAT_LABEL: Record<string, string> = {
   memes: "Meme",
@@ -774,6 +775,7 @@ export default component$(() => {
   const setOverview = $(() => {
     tab.value = "overview";
   });
+  const addingFavorite = useSignal(false);
   const setHolders = $(() => {
     tab.value = "holders";
   });
@@ -814,6 +816,29 @@ export default component$(() => {
               Pro · Alerta de precio
             </Link>
           ) : null}
+          <button
+            type="button"
+            class="text-xs font-medium text-[#04E6E6] hover:text-cyan-100 underline-offset-2 hover:underline disabled:opacity-60"
+            disabled={addingFavorite.value}
+            onClick$={async () => {
+              addingFavorite.value = true;
+              try {
+                const r = await upsertWatchlistItem({
+                  itemType: "token",
+                  itemKey: String(t.id),
+                  label: `${String(t.name)} (${String(t.symbol)})`,
+                  meta: { symbol: String(t.symbol), name: String(t.name), logo: String(t.logo ?? "") },
+                });
+                if (!r.ok && r.requiresLogin) {
+                  window.alert("Debes iniciar sesión para guardar favoritos.");
+                }
+              } finally {
+                addingFavorite.value = false;
+              }
+            }}
+          >
+            ☆ Guardar en favoritos
+          </button>
         </div>
         <div class="rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 sm:p-5 shadow-lg shadow-black/30 ring-1 ring-white/[0.04]">
           <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
@@ -837,7 +862,7 @@ export default component$(() => {
                 <p class="text-xs text-slate-400 mt-1.5 leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span>{String(t.network)}</span>
                   <span class="text-[#043234]">·</span>
-                  <span>ID listado #{t.cmcId != null ? String(t.cmcId) : "—"}</span>
+                  <span>ID #{t.cmcId != null ? String(t.cmcId) : "—"}</span>
                   <span class="text-[#043234]">·</span>
                   <span class="font-mono text-slate-400">{moralisChain}</span>
                   {syncedAtLabel ? (
@@ -1641,22 +1666,12 @@ ERC-20
             <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
               {urls.website ? (
                 <a href={urls.website} target="_blank" rel="noreferrer" class="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline">
-                  Website (listado) ↗
+                  Sitio web ↗
                 </a>
               ) : null}
               {urls.explorer ? (
                 <a href={urls.explorer} target="_blank" rel="noreferrer" class="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline">
-                  Explorer (listado) ↗
-                </a>
-              ) : null}
-              {Number.isFinite(cmcId) ? (
-                <a
-                  href={`https://coinmarketcap.com/currencies/${encodeURIComponent(String(t.slug ?? "token"))}/`}
-                  target="_blank"
-                  rel="noreferrer"
-                  class="font-medium text-slate-400 hover:text-cyan-200 underline underline-offset-2"
-                >
-                  Listado ↗
+                  Explorador ↗
                 </a>
               ) : null}
             </div>

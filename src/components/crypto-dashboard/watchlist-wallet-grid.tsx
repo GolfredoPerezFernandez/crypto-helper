@@ -171,7 +171,7 @@ export const WatchlistWalletGrid = component$(
           {totalPages > 1 ? (
             <p class="mt-3 text-xs text-slate-500">
               Page <span class="font-mono text-slate-400">{props.page}</span> / {totalPages} ·{" "}
-              <span class="tabular-nums">{props.total}</span> wallets in watchlist
+              <span class="tabular-nums">{props.total}</span> tracked wallets
             </p>
           ) : (
             <p class="mt-3 text-xs text-slate-500">
@@ -207,7 +207,7 @@ export const WatchlistWalletGrid = component$(
                           >
                             {shortAddr}
                           </Link>
-                          <p class="text-[10px] text-slate-600">Watchlist</p>
+                          <p class="text-[10px] text-slate-600">Holder</p>
                         </div>
                       </div>
                       <button

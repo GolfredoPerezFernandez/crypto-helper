@@ -30,6 +30,7 @@ import {
   MORALIS_NFT_DEFAULT_MAINNET_CHAINS,
   moralisNftChainLabel,
 } from "~/server/crypto-helper/moralis-nft-sync-chains";
+import { upsertWatchlistItem } from "~/server/watchlist-actions";
 
 function staleErr(msg: string) {
   return { ok: false as const, error: msg };
@@ -323,6 +324,7 @@ export default component$(() => {
   const tokenPage = useSignal(1);
   const txTab = useSignal<"base" | "eth">("base");
   const copied = useSignal(false);
+  const savingFavorite = useSignal(false);
 
   /** Cadena Moralis para vista NFT del snapshot (multichain; sync diario). */
   const nftMcChain = useSignal(nftSnapshotChainKeys(v)[0] ?? "base");
@@ -514,6 +516,29 @@ export default component$(() => {
           <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              disabled={savingFavorite.value}
+              onClick$={async () => {
+                savingFavorite.value = true;
+                try {
+                  const r = await upsertWatchlistItem({
+                    itemType: "wallet",
+                    itemKey: String(v.address).toLowerCase(),
+                    label: `Wallet ${truncateWalletAddr(String(v.address).toLowerCase())}`,
+                    meta: { address: String(v.address).toLowerCase() },
+                  });
+                  if (!r.ok && r.requiresLogin) {
+                    window.alert("Debes iniciar sesión para guardar favoritos.");
+                  }
+                } finally {
+                  savingFavorite.value = false;
+                }
+              }}
+              class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-[#04E6E6] transition hover:border-[#04E6E6]/45 hover:text-cyan-100 disabled:opacity-60"
+            >
+              ☆ Favorito
+            </button>
+            <button
+              type="button"
               onClick$={copyAddress}
               aria-label="Copiar dirección"
               class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] bg-[#000D0E]/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-[#04E6E6]/40 hover:text-white"
@@ -560,7 +585,7 @@ export default component$(() => {
         <div class="relative">
           <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(4,230,230,0.07),transparent_52%)]" />
           <div class="relative grid gap-0 lg:grid-cols-12">
-            <div class="border-b border-[#043234]/80 p-6 sm:p-8 lg:col-span-7 lg:border-b-0 lg:border-r lg:border-[#043234]/80">
+            <div class="p-6 sm:p-8 lg:col-span-12">
               <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Patrimonio total (estimado)</p>
               {v.nw?.ok && nwTotalUsd != null ? (
                 <p class="mt-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl">
@@ -589,84 +614,6 @@ export default component$(() => {
               <p class="mt-6 font-mono text-sm text-[#04E6E6]/90" title={walletAddr}>
                 {truncateWalletAddr(walletAddr)}
               </p>
-            </div>
-            <div class="flex flex-col gap-6 p-6 sm:p-8 lg:col-span-5">
-              <div>
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Cadenas con balance</p>
-                <p class="mt-1 text-3xl font-bold tabular-nums text-white">
-                  {Math.max(0, chainsForPills.length - 1)}
-                </p>
-                {chainsForPills.length > 1 ? (
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    {chainsForPills
-                      .filter((cid) => cid !== "all")
-                      .map((cid) => (
-                        <span
-                          key={cid}
-                          class="inline-flex items-center gap-2 rounded-full border border-[#043234] bg-[#000D0E]/70 px-3 py-1.5 text-xs font-medium text-slate-200 motion-safe:transition-colors motion-safe:duration-200 hover:border-[#04E6E6]/40"
-                        >
-                          <span class={`h-2 w-2 shrink-0 rounded-full ${CHAIN_PILL_META[cid].dot}`} />
-                          {CHAIN_PILL_META[cid].label}
-                        </span>
-                      ))}
-                  </div>
-                ) : (
-                  <p class="mt-2 text-xs text-slate-500">Sin cadenas con saldo en el snapshot.</p>
-                )}
-              </div>
-              {v.interactBase ? (
-                <div class="border-t border-[#043234]/80 pt-5">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Contrapartes (muestra Base)</p>
-                  <p class="mt-1.5 text-[11px] leading-snug text-slate-500">
-                    Direcciones a las que esta wallet envió en la muestra de transacciones en caché; no es el historial
-                    on-chain completo.
-                  </p>
-                  <dl class="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <div class="rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-3 py-2">
-                      <dt class="text-[10px] uppercase tracking-wide text-slate-500">Envíos (muestra)</dt>
-                      <dd class="mt-0.5 font-semibold tabular-nums text-white">{v.interactBase.sentN}</dd>
-                    </div>
-                    <div class="rounded-lg border border-[#043234]/60 bg-[#000D0E]/50 px-3 py-2">
-                      <dt class="text-[10px] uppercase tracking-wide text-slate-500">Únicas recibidas</dt>
-                      <dd class="mt-0.5 font-semibold tabular-nums text-white">{v.interactBase.recvN}</dd>
-                    </div>
-                  </dl>
-                  {v.interactBase.sentPreview.length > 0 ? (
-                    <>
-                      <p class="mt-4 text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                        Destinos en la muestra
-                      </p>
-                      <ul class="mt-2 max-h-52 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                        {v.interactBase.sentPreview.slice(0, 8).map((a: string, i: number) => (
-                          <li
-                            key={a}
-                            class="motion-safe:animate-[walletFade_0.45s_ease-out_both]"
-                            style={{ animationDelay: `${i * 45}ms` }}
-                          >
-                            <Link
-                              href={`/${L}/wallet/${a}/`}
-                              title={a}
-                              class="flex items-center justify-between gap-2 rounded-xl border border-[#043234] bg-[#000D0E]/55 px-3 py-2.5 transition hover:border-[#04E6E6]/45 hover:bg-[#001014]/90"
-                            >
-                              <span class="min-w-0 truncate font-mono text-sm text-[#04E6E6]">
-                                {truncateWalletAddr(a)}
-                              </span>
-                              <span class="shrink-0 text-[10px] font-medium text-slate-500">Resumen</span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                      {v.interactBase.sentPreview.length > 8 ? (
-                        <p class="mt-2 text-[11px] text-slate-500">
-                          +{v.interactBase.sentPreview.length - 8} direcciones más en esta muestra (no listadas).
-                        </p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <p class="mt-3 text-xs text-slate-500">No hay direcciones de destino en la vista previa.</p>
-                  )}
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -697,9 +644,9 @@ export default component$(() => {
                 {chainSlices.length === 0 ? (
                   <li class="text-sm text-slate-500">Sin desglose por cadena.</li>
                 ) : (
-                  chainSlices.map((s) => (
+                  chainSlices.map((s, i) => (
                     <li
-                      key={s.label}
+                      key={`${s.label}-${i}`}
                       class="flex items-center gap-3 rounded-xl border border-[#043234]/70 bg-[#000D0E]/60 px-3 py-2.5 transition-all duration-300 hover:border-[#04E6E6]/35 hover:bg-[#001014]/80"
                     >
                       <span class="h-3 w-3 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
@@ -722,9 +669,9 @@ export default component$(() => {
                 {assetSlices.length === 0 ? (
                   <li class="text-sm text-slate-500">Sin tokens con valor en USD.</li>
                 ) : (
-                  assetSlices.map((s) => (
+                  assetSlices.map((s, i) => (
                     <li
-                      key={s.label}
+                      key={`${s.label}-${i}`}
                       class="flex items-center gap-3 rounded-xl border border-[#043234]/70 bg-[#000D0E]/60 px-3 py-2.5 transition-all duration-300 hover:border-[#04E6E6]/35 hover:bg-[#001014]/80"
                     >
                       <span class="h-3 w-3 shrink-0 rounded-full shadow-sm" style={{ backgroundColor: s.color }} />
@@ -1054,10 +1001,10 @@ export default component$(() => {
                       </tr>
                     </thead>
                     <tbody>
-                      {txRows.map((tx: Record<string, unknown>) => {
+                      {txRows.map((tx: Record<string, unknown>, i: number) => {
                         const h = String(tx.hash ?? "");
                         return (
-                          <tr key={h} class="border-b border-[#043234]/30 transition-colors hover:bg-[#04E6E6]/[0.03]">
+                          <tr key={`${h || "tx"}-${i}`} class="border-b border-[#043234]/30 transition-colors hover:bg-[#04E6E6]/[0.03]">
                             <td class="whitespace-nowrap px-1 py-1.5 align-top">
                               <TxHashLink locale={L} moralisChain={txTab.value} hash={h} mode="hash10" />
                             </td>

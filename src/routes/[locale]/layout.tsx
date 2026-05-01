@@ -41,13 +41,7 @@ import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
 import { DashboardShell, type DashboardAccessState } from '~/components/layout/dashboard-shell';
-
-/** Wallet-only placeholder emails (current + legacy rename). */
-function isWalletPlaceholderSessionEmail(email: string | undefined | null): boolean {
-    if (email == null || String(email).trim() === '') return false;
-    const e = String(email).toLowerCase();
-    return e.endsWith('@crypto-helper.internal') || e.endsWith('@crypto-ghost.internal');
-}
+import { isWalletPlaceholderEmail } from '~/constants';
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
@@ -367,9 +361,34 @@ export default component$(() => {
     );
     const t_appNavSection = useComputed$(() => inlineTranslate()('app.footer.appNavSection@@App'));
     const t_apiNavSection = useComputed$(() => inlineTranslate()('app.footer.apiNavSection@@API'));
+    const t_navCryptocurrencies = useComputed$(() =>
+        inlineTranslate()('app.footer.navCryptocurrencies@@Cryptocurrencies'),
+    );
+    const t_navDexScan = useComputed$(() => inlineTranslate()('app.footer.navDexScan@@DexScan'));
+    const t_navExchanges = useComputed$(() => inlineTranslate()('app.footer.navExchanges@@Exchanges'));
+    const t_navCommunity = useComputed$(() => inlineTranslate()('app.footer.navCommunity@@Community'));
+    const t_navProducts = useComputed$(() => inlineTranslate()('app.footer.navProducts@@Products'));
+    const t_navPortfolio = useComputed$(() => inlineTranslate()('app.footer.navPortfolio@@Portfolio'));
+    const t_navWatchlist = useComputed$(() => inlineTranslate()('app.footer.navWatchlist@@Watchlist'));
+    const t_navSearch = useComputed$(() => inlineTranslate()('app.footer.navSearch@@Search'));
     const t_healthLink = useComputed$(() => inlineTranslate()('app.footer.healthLink@@Health'));
     const t_rightsReserved = useComputed$(() =>
         inlineTranslate()('app.footer.rightsReserved@@All rights reserved.'),
+    );
+    const t_footerLegalSection = useComputed$(() => inlineTranslate()('app.footer.legalSection@@Legal'));
+    const t_footerResourcesSection = useComputed$(() =>
+        inlineTranslate()('app.footer.resourcesSection@@Resources'),
+    );
+    const t_footerDocumentation = useComputed$(() =>
+        inlineTranslate()('app.footer.documentationLink@@Documentation'),
+    );
+    const t_footerRiskDisclaimer = useComputed$(() =>
+        inlineTranslate()('app.footer.riskDisclaimer@@Risk disclaimer'),
+    );
+    const t_footerDisclaimerShort = useComputed$(() =>
+        inlineTranslate()(
+            'app.footer.footerDisclaimerShort@@Crypto Helper provides analytics and information tools only. Nothing here is financial, investment, tax, or legal advice. Third-party data may be delayed or inaccurate. Use at your own risk.',
+        ),
     );
     const t_upgradeNav = useComputed$(() => inlineTranslate()('app.proUpgrade.nav@@Upgrade Pro'));
 
@@ -485,61 +504,61 @@ export default component$(() => {
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                Cryptocurrencies
+                                {t_navCryptocurrencies.value}
                             </NavLink>
                             <NavLink
                                 href={`/${L}/home/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                Dashboard
+                                {t_dashboardNav.value}
                             </NavLink>
                             <NavLink
                                 href={`/${L}/top-traders-swaps/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                DexScan
+                                {t_navDexScan.value}
                             </NavLink>
                             <NavLink
                                 href={`/${L}/volume-coins/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                Exchanges
+                                {t_navExchanges.value}
                             </NavLink>
                             <NavLink
                                 href={`/${L}/top-traders/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                Community
+                                {t_navCommunity.value}
                             </NavLink>
                             <NavLink
                                 href={`/${L}/documentation/`}
                                 activeClass="bg-[#043234] text-[#04E6E6]"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                Products
+                                {t_navProducts.value}
                             </NavLink>
                             <a
                                 href="/api/crypto/health"
                                 class="rounded-lg px-2 py-2 text-sm font-medium text-slate-400 transition hover:bg-[#043234]/70 hover:text-white"
                             >
-                                API
+                                {t_apiNavSection.value}
                             </a>
                         </nav>
                     </div>
 
                     <div class="ml-auto hidden xl:flex items-center gap-2 text-xs text-slate-400 mr-3">
                         <NavLink href={`/${L}/top-traders/`} class="rounded-lg px-2 py-1 hover:text-white transition">
-                            Portfolio
+                            {t_navPortfolio.value}
                         </NavLink>
-                        <NavLink href={`/${L}/alerts/`} class="rounded-lg px-2 py-1 hover:text-white transition">
-                            Watchlist
+                        <NavLink href={`/${L}/favorites/`} class="rounded-lg px-2 py-1 hover:text-white transition">
+                            {t_navWatchlist.value}
                         </NavLink>
                         <div class="w-40 rounded-lg border border-[#043234] bg-[#001318] px-3 py-1.5 text-slate-500">
-                            Search
+                            {t_navSearch.value}
                         </div>
                     </div>
 
@@ -600,7 +619,7 @@ export default component$(() => {
                             title={
                                 auth.value?.isAuthenticated &&
                                 auth.value.sessionEmail &&
-                                !isWalletPlaceholderSessionEmail(auth.value.sessionEmail)
+                                !isWalletPlaceholderEmail(auth.value.sessionEmail)
                                     ? auth.value.sessionEmail
                                     : undefined
                             }
@@ -622,7 +641,7 @@ export default component$(() => {
                             </div>
                             {auth.value?.isAuthenticated &&
                             auth.value.sessionEmail &&
-                            !isWalletPlaceholderSessionEmail(auth.value.sessionEmail) ? (
+                            !isWalletPlaceholderEmail(auth.value.sessionEmail) ? (
                                 <span class="max-w-[9rem] truncate text-center text-[10px] font-normal leading-tight text-slate-400 sm:max-w-[13rem]">
                                     {auth.value.sessionEmail}
                                 </span>
@@ -699,7 +718,7 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
                                 <LuRadar class="h-5 w-5" />
                             </span>
-                            Dashboard
+                            {t_dashboardNav.value}
                         </NavLink>
                         <NavLink
                             href={`/${L}/tokens/`}
@@ -709,7 +728,7 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
                                 <LuCoins class="h-5 w-5" />
                             </span>
-                            Cryptocurrencies
+                            {t_navCryptocurrencies.value}
                         </NavLink>
                         <NavLink
                             href={`/${L}/bubbles/`}
@@ -729,7 +748,7 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
                                 <LuCoins class="h-5 w-5" />
                             </span>
-                            DexScan
+                            {t_navDexScan.value}
                         </NavLink>
                         <NavLink
                             href={`/${L}/top-traders/`}
@@ -739,7 +758,17 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
                                 <LuWallet class="h-5 w-5" />
                             </span>
-                            Community
+                            {t_navCommunity.value}
+                        </NavLink>
+                        <NavLink
+                            href={`/${L}/favorites/`}
+                            activeClass="bg-[#043234] text-[#04E6E6]"
+                            class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-[#043234]/60 hover:text-white"
+                        >
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
+                                <LuBell class="h-5 w-5" />
+                            </span>
+                            {t_navWatchlist.value}
                         </NavLink>
                         <NavLink
                             href={`/${L}/documentation/`}
@@ -749,7 +778,7 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400 group-[.active]:text-[#04E6E6]">
                                 <LuMenu class="h-5 w-5" />
                             </span>
-                            Products
+                            {t_navProducts.value}
                         </NavLink>
                         <a
                             href="/api/crypto/health"
@@ -758,7 +787,7 @@ export default component$(() => {
                             <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#043234]/80 text-slate-400">
                                 <LuZap class="h-5 w-5" />
                             </span>
-                            API
+                            {t_apiNavSection.value}
                         </a>
                         {auth.value?.isAuthenticated && auth.value?.hasPro === false ? (
                             <button
@@ -801,8 +830,8 @@ export default component$(() => {
                 </div>
             ) : null}
 
-            {/* MAIN CONTENT SLOT */}
-            <main class="flex-1">
+            {/* MAIN CONTENT SLOT — flex-1 so the global footer stays at the bottom on short pages */}
+            <main class="flex min-h-0 flex-1 flex-col">
                 {usePrimarySidebarShell.value ? (
                     <DashboardShell session={shellSession.value}>
                         <Slot />
@@ -810,7 +839,7 @@ export default component$(() => {
                 ) : (
                     <div
                         style={{ viewTransitionName: "cg-main-stage" }}
-                        class="relative isolate cg-vt-main-stage"
+                        class="relative isolate cg-vt-main-stage flex min-h-0 flex-1 flex-col"
                     >
                         {isSpaNavigating.value && (
                             <div class="fixed top-0 left-0 z-[60] h-1 w-full animate-pulse bg-gradient-to-r from-[#04E6E6] via-teal-300 to-[#04E6E6]" />
@@ -829,39 +858,53 @@ export default component$(() => {
                 })}
             />
 
-            {!usePrimarySidebarShell.value ? (
             <footer
                 style={{ viewTransitionName: "cg-chrome-footer" }}
-                class="cg-vt-chrome border-t border-[#043234] bg-[#000D0E]/95 pt-14 pb-8 backdrop-blur-sm"
+                class="cg-vt-chrome mt-auto border-t border-[#043234] bg-[#000808]/95 pb-10 pt-12 backdrop-blur-md"
             >
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
-                        <div class="space-y-3">
+                    <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="space-y-3 lg:col-span-1">
                             <div class="flex items-center gap-2">
-                                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#04E6E6] to-teal-600 text-[#001a1c] shadow-md shadow-[#04E6E6]/20">
+                                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#04E6E6] to-teal-600 text-[#001a1c] shadow-lg shadow-[#04E6E6]/25">
                                     <LuRadar class="h-5 w-5" />
                                 </div>
-                                <span class="text-xl font-bold text-white">{t_cryptoBrand.value}</span>
+                                <span class="text-lg font-bold tracking-tight text-white">{t_cryptoBrand.value}</span>
                             </div>
-                            <p class="max-w-sm text-sm leading-relaxed text-slate-400">{t_cryptoTagline.value}</p>
+                            <p class="max-w-xs text-sm leading-relaxed text-slate-400">{t_cryptoTagline.value}</p>
                         </div>
 
                         <div>
-                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">{t_appNavSection.value}</h3>
+                            <h3 class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                {t_appNavSection.value}
+                            </h3>
                             <ul class="mt-4 space-y-2.5">
                                 <li>
-                                    <Link href={`/${L}/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_homeNav.value}</Link>
+                                    <Link href={`/${L}/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_homeNav.value}
+                                    </Link>
                                 </li>
                                 <li>
-                                    <Link href={`/${L}/home/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_dashboardNav.value}</Link>
+                                    <Link href={`/${L}/home/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_dashboardNav.value}
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href={`/${L}/favorites/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_navWatchlist.value}
+                                    </Link>
                                 </li>
                                 {!auth.value?.isAuthenticated ? (
                                     <>
                                         <li>
-                                            <Link href={`/${L}/login/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_loginNav.value}</Link>
+                                            <Link href={`/${L}/login/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                                {t_loginNav.value}
+                                            </Link>
                                         </li>
                                         <li>
-                                            <Link href={`/${L}/register/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_registerNav.value}</Link>
+                                            <Link href={`/${L}/register/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                                {t_registerNav.value}
+                                            </Link>
                                         </li>
                                     </>
                                 ) : null}
@@ -869,27 +912,78 @@ export default component$(() => {
                         </div>
 
                         <div>
-                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">{t_apiNavSection.value}</h3>
+                            <h3 class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                {t_footerResourcesSection.value}
+                            </h3>
                             <ul class="mt-4 space-y-2.5">
                                 <li>
-                                    <a href="/api/crypto/health" class="text-sm text-slate-400 transition hover:text-[#04E6E6]">{t_healthLink.value}</a>
+                                    <Link
+                                        href={`/${L}/documentation/`}
+                                        class="text-sm text-slate-400 transition hover:text-[#04E6E6]"
+                                    >
+                                        {t_footerDocumentation.value}
+                                    </Link>
+                                </li>
+                                <li>
+                                    <a href="/api/crypto/health" class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_healthLink.value}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                {t_footerLegalSection.value}
+                            </h3>
+                            <ul class="mt-4 space-y-2.5">
+                                <li>
+                                    <Link href={`/${L}/privacy/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_footerPrivacy.value}
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href={`/${L}/terms/`} class="text-sm text-slate-400 transition hover:text-[#04E6E6]">
+                                        {t_footerTerms.value}
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link
+                                        href={`/${L}/terms/#risk-disclaimer`}
+                                        class="text-sm text-slate-400 transition hover:text-[#04E6E6]"
+                                    >
+                                        {t_footerRiskDisclaimer.value}
+                                    </Link>
                                 </li>
                             </ul>
                         </div>
                     </div>
 
-                    <div class="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[#043234] pt-8 sm:flex-row">
+                    <p class="mx-auto mt-10 max-w-4xl text-center text-[11px] leading-relaxed text-slate-600">
+                        {t_footerDisclaimerShort.value}
+                    </p>
+
+                    <div class="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#043234]/80 pt-8 sm:flex-row">
                         <p class="text-xs text-slate-500">
                             &copy; {new Date().getFullYear()} {t_cryptoBrand.value}. {t_rightsReserved.value}
                         </p>
-                        <div class="flex gap-6">
-                            <Link href={`/${L}/privacy/`} class="text-xs text-slate-500 transition hover:text-[#04E6E6]">{t_footerPrivacy.value}</Link>
-                            <Link href={`/${L}/terms/`} class="text-xs text-slate-500 transition hover:text-[#04E6E6]">{t_footerTerms.value}</Link>
+                        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                            <Link href={`/${L}/privacy/`} class="text-xs text-slate-500 transition hover:text-[#04E6E6]">
+                                {t_footerPrivacy.value}
+                            </Link>
+                            <Link href={`/${L}/terms/`} class="text-xs text-slate-500 transition hover:text-[#04E6E6]">
+                                {t_footerTerms.value}
+                            </Link>
+                            <Link
+                                href={`/${L}/terms/#risk-disclaimer`}
+                                class="text-xs text-slate-500 transition hover:text-[#04E6E6]"
+                            >
+                                {t_footerRiskDisclaimer.value}
+                            </Link>
                         </div>
                     </div>
                 </div>
             </footer>
-            ) : null}
         </div>
     );
 });

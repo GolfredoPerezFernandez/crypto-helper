@@ -6,7 +6,7 @@ import { encrypt, decrypt } from '~/utils/server/crypto';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { verifyMessage } from 'viem';
 import { eq } from 'drizzle-orm';
-import { ADMIN_WALLETS } from '~/constants';
+import { ADMIN_WALLETS, isWalletPlaceholderEmail } from '~/constants';
 
 /** Avoid static `import ~/lib/turso` — that pulls libsql into the browser when this file is loaded from layout. */
 async function loadTursoDb() {
@@ -17,11 +17,6 @@ const walletLoginChallenges = new Map<string, { message: string; exp: number }>(
 
 /** After a valid MetaMask signature, new wallets (or legacy placeholder emails) must submit a real email. */
 const pendingMetamaskSignups = new Map<string, { exp: number; userId?: number }>();
-
-function isReservedPlaceholderEmail(email: string): boolean {
-    const e = email.toLowerCase().trim();
-    return e.endsWith("@crypto-helper.internal") || e.endsWith("@crypto-ghost.internal");
-}
 
 function isValidEmailFormat(email: string): boolean {
     const s = email.trim();
@@ -196,7 +191,7 @@ export const loginWithWalletSignature = server$(async function (data: {
                 message: "Add your email to finish creating your account.",
             };
         }
-        if (user.email && isReservedPlaceholderEmail(user.email)) {
+        if (user.email && isWalletPlaceholderEmail(user.email)) {
             pendingMetamaskSignups.set(key, { exp: Date.now() + 10 * 60_000, userId: user.id });
             return {
                 success: false,
@@ -248,7 +243,7 @@ export const completeMetamaskSignup = server$(async function (data: {
     if (!emailNorm || !isValidEmailFormat(emailNorm)) {
         return { success: false, message: "Enter a valid email address." };
     }
-    if (isReservedPlaceholderEmail(emailNorm)) {
+    if (isWalletPlaceholderEmail(emailNorm)) {
         return { success: false, message: "Use a real email address." };
     }
 

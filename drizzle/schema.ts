@@ -42,6 +42,21 @@ export const userPriceAlerts = table(
   (tbl) => [uniqueIndex("user_price_alerts_user_token_dir").on(tbl.userId, tbl.tokenId, tbl.direction)],
 );
 
+/** User favorites/watchlist across app entities (token, wallet, nft_contract, nft_item, tx). */
+export const userWatchlistItems = table(
+  "user_watchlist_items",
+  {
+    id: t.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: t.int({ mode: "number" }).notNull(),
+    itemType: t.text().notNull(),
+    itemKey: t.text().notNull(),
+    label: t.text().default(""),
+    metaJson: t.text(),
+    createdAt: t.integer({ mode: "number" }).default(sql`(strftime('%s', 'now'))`),
+  },
+  (tbl) => [uniqueIndex("user_watchlist_items_unique").on(tbl.userId, tbl.itemType, tbl.itemKey)],
+);
+
 export const pushSubscriptions = table(
   "push_subscriptions",
   {
@@ -256,6 +271,7 @@ export const proPaymentReceipts = table("pro_payment_receipts", {
 export const schema = {
   users,
   userPriceAlerts,
+  userWatchlistItems,
   pushSubscriptions,
   cachedMarketTokens,
   signalWhales,

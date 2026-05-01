@@ -220,18 +220,34 @@ export async function getMarketTokenByAddressLoose(address: string) {
   );
 }
 
+/**
+ * Avoid `.select().from(syncRuns)` here because some environments are still on an older
+ * `sync_runs` schema without `usage_payload`. Selecting explicit legacy-safe columns keeps
+ * dashboard/status endpoints working until migrations catch up.
+ */
+const SYNC_RUN_SELECT_SAFE = {
+  id: syncRuns.id,
+  source: syncRuns.source,
+  status: syncRuns.status,
+  startedAt: syncRuns.startedAt,
+  finishedAt: syncRuns.finishedAt,
+  errorMessage: syncRuns.errorMessage,
+  durationMs: syncRuns.durationMs,
+} as const;
+
 /** Best row for “última actualización”: última corrida con `finishedAt` (más reciente primero). */
 export async function getLatestSyncRun() {
   return tursoSafe("getLatestSyncRun", async () => {
     const completed = await db
-      .select()
+      .select(SYNC_RUN_SELECT_SAFE)
       .from(syncRuns)
       .where(isNotNull(syncRuns.finishedAt))
       .orderBy(desc(syncRuns.finishedAt))
       .limit(1)
       .get();
-    if (completed) return completed;
-    return db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1).get();
+    if (completed) return { ...completed, usagePayload: null };
+    const latest = await db.select(SYNC_RUN_SELECT_SAFE).from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1).get();
+    return latest ? { ...latest, usagePayload: null } : latest;
   }, undefined);
 }
 
@@ -240,11 +256,12 @@ export async function queryRecentSyncRuns(limit: number) {
     "queryRecentSyncRuns",
     () =>
       db
-        .select()
+        .select(SYNC_RUN_SELECT_SAFE)
         .from(syncRuns)
         .orderBy(desc(sql`coalesce(${syncRuns.finishedAt}, ${syncRuns.startedAt})`))
         .limit(limit)
-        .all(),
+        .all()
+        .then((rows) => rows.map((r) => ({ ...r, usagePayload: null }))),
     [],
   );
 }

@@ -86,8 +86,8 @@ export default component$(() => {
 
       <WatchlistWalletGrid
         locale={L}
-        title="Top whales"
-        subtitle="Lista curada de wallets; métricas de cartera del último ciclo de actualización. Más abajo: mayores participaciones por activo y rendimiento destacado por contrato."
+        title="Top holders"
+        subtitle="Direcciones con mayor patrimonio en snapshots recientes, ordenadas por net worth. Más abajo: mayores participaciones por activo y rendimiento destacado por contrato."
         rows={v.rows}
         page={v.page}
         pageSize={PAGE_SIZE}

@@ -138,8 +138,8 @@ export const PriceAlertsSettings = component$(() => {
       <div class="rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 space-y-3">
         <h3 class="text-sm font-semibold text-[#04E6E6]">Pro: USD price threshold</h3>
         <p class="text-xs text-slate-400">
-          We check rules after each market sync (CMC). You get at most one push per rule every ~4 hours while the
-          condition holds. Requires Web Push enabled above.
+          We check rules after each market sync. You get at most one push per rule every ~4 hours while the condition
+          holds. Requires Web Push enabled above.
         </p>
 
         <div class="grid gap-2 text-sm">

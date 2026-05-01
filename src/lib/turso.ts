@@ -15,8 +15,10 @@ let _lastUrl: string | undefined;
 let _cachedMarketTokenMigrations: Promise<void> | null = null;
 let _usersSubscriberMigration: Promise<void> | null = null;
 let _syncRunsDurationMsMigration: Promise<void> | null = null;
+let _syncRunsUsagePayloadMigration: Promise<void> | null = null;
 let _proPaymentReceiptsMigration: Promise<void> | null = null;
 let _userPriceAlertsMigration: Promise<void> | null = null;
+let _userWatchlistItemsMigration: Promise<void> | null = null;
 
 function runCachedMarketTokenMigrations(client: Client): Promise<void> {
     if (!_cachedMarketTokenMigrations) {
@@ -63,6 +65,19 @@ function runSyncRunsDurationMsMigration(client: Client): Promise<void> {
         })();
     }
     return _syncRunsDurationMsMigration;
+}
+
+function runSyncRunsUsagePayloadMigration(client: Client): Promise<void> {
+    if (!_syncRunsUsagePayloadMigration) {
+        _syncRunsUsagePayloadMigration = (async () => {
+            try {
+                await client.execute("ALTER TABLE sync_runs ADD COLUMN usage_payload text");
+            } catch {
+                /* duplicate column / already applied */
+            }
+        })();
+    }
+    return _syncRunsUsagePayloadMigration;
 }
 
 function runProPaymentReceiptsMigration(client: Client): Promise<void> {
@@ -114,6 +129,32 @@ function runUserPriceAlertsMigration(client: Client): Promise<void> {
     return _userPriceAlertsMigration;
 }
 
+function runUserWatchlistItemsMigration(client: Client): Promise<void> {
+    if (!_userWatchlistItemsMigration) {
+        _userWatchlistItemsMigration = (async () => {
+            await client.execute(`
+                CREATE TABLE IF NOT EXISTS user_watchlist_items (
+                    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    userId integer NOT NULL,
+                    itemType text NOT NULL,
+                    itemKey text NOT NULL,
+                    label text DEFAULT '',
+                    metaJson text,
+                    createdAt integer DEFAULT (strftime('%s', 'now'))
+                )
+            `);
+            try {
+                await client.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS user_watchlist_items_unique ON user_watchlist_items (userId, itemType, itemKey)",
+                );
+            } catch {
+                /* index exists */
+            }
+        })();
+    }
+    return _userWatchlistItemsMigration;
+}
+
 /**
  * Await before any Drizzle query that touches `cached_market_tokens` new columns.
  * Called from root `onRequest`; `getTurso()` also schedules the same promise.
@@ -123,8 +164,10 @@ export async function waitForTursoMigrations(): Promise<void> {
     await runCachedMarketTokenMigrations(_client!);
     await runUsersSubscriberMigration(_client!);
     await runSyncRunsDurationMsMigration(_client!);
+    await runSyncRunsUsagePayloadMigration(_client!);
     await runProPaymentReceiptsMigration(_client!);
     await runUserPriceAlertsMigration(_client!);
+    await runUserWatchlistItemsMigration(_client!);
 }
 
 function resolveTursoUrl(explicitUrl?: string): string {
@@ -161,8 +204,10 @@ export function getTurso(url?: string, authToken?: string) {
     void runCachedMarketTokenMigrations(_client);
     void runUsersSubscriberMigration(_client);
     void runSyncRunsDurationMsMigration(_client);
+    void runSyncRunsUsagePayloadMigration(_client);
     void runProPaymentReceiptsMigration(_client);
     void runUserPriceAlertsMigration(_client);
+    void runUserWatchlistItemsMigration(_client);
 
     _db = drizzle(_client, { schema });
     return _db;

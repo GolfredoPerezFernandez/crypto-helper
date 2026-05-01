@@ -48,11 +48,11 @@
     "@types/node": "^20.19.0",
     "@types/node-cron": "^3.0.11",
     "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@vite-pwa/assets-generator": "^1.0.2",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.9",
     "better-sqlite3": "^11.8.1",
     "compression": "^1.7.4",
     "dotenv": "^17.2.3",
@@ -61,6 +61,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-qwik": "^1.19.2",
     "fast-glob": "^3.3.2",
+    "postcss": "^8.5.9",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.2",
@@ -98,6 +99,7 @@
     "qwik-speak": "^0.24.0",
     "viem": "^2.33.0",
     "web-push": "^3.6.7",
+    "ws": "^8.20.0",
     "zod": "^4.3.6"
   }
 }

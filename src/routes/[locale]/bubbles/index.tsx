@@ -6,6 +6,8 @@ import { desc, eq, sql } from "drizzle-orm";
 import {
   BubbleChartD3,
   pctForTimeframe,
+  type BubbleColorBy,
+  type BubbleContentBy,
   type BubbleSizeBy,
   type BubbleTimeframe,
   type BubbleToken,
@@ -28,6 +30,8 @@ import {
   parseTokenApiSnapshot,
 } from "~/server/crypto-helper/market-token-snapshot";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
+import { HelpTooltip } from "~/components/ui/help-tooltip";
+import { listMyWatchlist, removeWatchlistItem, upsertWatchlistItem } from "~/server/watchlist-actions";
 
 export const head: DocumentHead = {
   title: "Crypto Bubbles Heatmap | Crypto Helper",
@@ -140,9 +144,15 @@ export const useBubblesLoader = routeLoader$(async () => {
   }
 });
 
+export const useBubblesWatchlistLoader = routeLoader$(async () => {
+  const rows = await listMyWatchlist();
+  return rows.filter((r) => r.itemType === "token").map((r) => r.itemKey);
+});
+
 export default component$(() => {
-  useDashboardAuth();
+  const auth = useDashboardAuth();
   const data = useBubblesLoader();
+  const watchlistTokens = useBubblesWatchlistLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
 
@@ -150,10 +160,14 @@ export default component$(() => {
   const rankPreset = useSignal<(typeof RANK_OPTIONS)[number]["v"]>("100");
   const timeframe = useSignal<BubbleTimeframe>("24h");
   const sizeBy = useSignal<BubbleSizeBy>("fdv");
+  const colorBy = useSignal<BubbleColorBy>("performance");
+  const contentBy = useSignal<BubbleContentBy>("symbol-change");
   const view = useSignal<"bubbles" | "list">("bubbles");
   const chartHost = useSignal<HTMLDivElement | undefined>(undefined);
   const quoteId = useSignal<BubbleQuoteId>("USD");
   const quoteHydrated = useSignal(false);
+  const watchSet = useSignal<Set<string>>(new Set(watchlistTokens.value));
+  const watchBusy = useSignal<Record<string, boolean>>({});
 
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(({ track }) => {
@@ -169,6 +183,12 @@ export default component$(() => {
     } catch {
       /* ignore */
     }
+  });
+
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(({ track }) => {
+    track(() => watchlistTokens.value.join("|"));
+    watchSet.value = new Set(watchlistTokens.value);
   });
 
   const quoteCtx = useComputed$(() =>
@@ -212,12 +232,47 @@ export default component$(() => {
   const qScale = quoteCtx.value.factor;
   const qId = quoteId.value;
 
+  const toggleTokenWatch = $(async (t: BubbleToken) => {
+    const key = String(t.id);
+    if (watchBusy.value[key]) return;
+    watchBusy.value = { ...watchBusy.value, [key]: true };
+    try {
+      if (watchSet.value.has(key)) {
+        const r = await removeWatchlistItem({ itemType: "token", itemKey: key });
+        if (r.ok) {
+          const next = new Set(watchSet.value);
+          next.delete(key);
+          watchSet.value = next;
+        }
+      } else {
+        const r = await upsertWatchlistItem({
+          itemType: "token",
+          itemKey: key,
+          label: `${t.name} (${t.symbol})`,
+          meta: { symbol: t.symbol, name: t.name, logo: t.logo ?? null },
+        });
+        if (r.ok) {
+          const next = new Set(watchSet.value);
+          next.add(key);
+          watchSet.value = next;
+        } else if (r.requiresLogin && typeof window !== "undefined") {
+          window.alert("Debes iniciar sesión para guardar favoritos.");
+        }
+      }
+    } finally {
+      watchBusy.value = { ...watchBusy.value, [key]: false };
+    }
+  });
+
   return (
     <div class="relative text-gray-200">
       <header class="mb-4 rounded-xl border border-[#1e3638] bg-[#0a1214] px-3 py-3 sm:px-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-lg font-black tracking-tight text-[#04E6E6]">CRYPTO BUBBLES</span>
+            <span class="inline-flex items-center text-lg font-black tracking-tight text-[#04E6E6]">
+              CRYPTO BUBBLES
+              <HelpTooltip text="Mapa interactivo: tamaño por FDV/volumen y color por variación del periodo seleccionado." />
+            </span>
             <span class="text-[10px] font-medium uppercase tracking-wider text-gray-600">CryptoHelper</span>
           </div>
           <div class="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-center lg:max-w-xl">
@@ -282,11 +337,10 @@ export default component$(() => {
             </div>
             <button
               type="button"
-              class="rounded-lg border border-[#043234] p-2 text-gray-400 hover:border-[#04E6E6]/50 hover:text-[#04E6E6]"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-[#043234] px-2.5 py-2 text-xs font-medium text-gray-300 hover:border-[#04E6E6]/50 hover:text-[#04E6E6]"
               onClick$={goFullscreen}
               title="Fullscreen chart"
             >
-              <span class="sr-only">Fullscreen</span>
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   stroke-linecap="round"
@@ -295,6 +349,7 @@ export default component$(() => {
                   d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
                 />
               </svg>
+              Fullscreen
             </button>
           </div>
         </div>
@@ -319,8 +374,9 @@ export default component$(() => {
             ))}
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-lg border border-[#043234] bg-[#060d0e] px-3 py-1.5 text-xs font-medium text-gray-400">
+            <span class="inline-flex items-center rounded-lg border border-[#043234] bg-[#060d0e] px-3 py-1.5 text-xs font-medium text-gray-400">
               {metricLabel.value}
+              <HelpTooltip text="Métrica activa para tamaño y variación de las burbujas." />
             </span>
             <select
               class="rounded-lg border border-[#043234] bg-[#060d0e] px-2 py-1.5 text-xs text-gray-300"
@@ -332,6 +388,87 @@ export default component$(() => {
               <option value="fdv">Size: FDV (market cap proxy)</option>
               <option value="volume">Size: 24h volume</option>
             </select>
+          </div>
+        </div>
+
+        <div class="mt-3 grid gap-2 rounded-lg border border-[#043234]/60 bg-[#060d0e]/70 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <p class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Period</p>
+            <div class="flex flex-wrap gap-1">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={`tf-chip-${tf.id}`}
+                  type="button"
+                  class={`rounded-md px-2 py-1 text-[11px] ${
+                    timeframe.value === tf.id ? "bg-[#04E6E6]/20 text-[#7ffdfd]" : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/70"
+                  }`}
+                  onClick$={() => (timeframe.value = tf.id)}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Bubble size</p>
+            <div class="flex flex-wrap gap-1">
+              {([
+                { id: "fdv", label: "Market cap" },
+                { id: "volume", label: "24h volume" },
+              ] as const).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  class={`rounded-md px-2 py-1 text-[11px] ${
+                    sizeBy.value === o.id ? "bg-[#04E6E6]/20 text-[#7ffdfd]" : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/70"
+                  }`}
+                  onClick$={() => (sizeBy.value = o.id)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Bubble content</p>
+            <div class="flex flex-wrap gap-1">
+              {([
+                { id: "symbol-change", label: "Symbol + %" },
+                { id: "symbol", label: "Symbol" },
+                { id: "name", label: "Name" },
+              ] as const).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  class={`rounded-md px-2 py-1 text-[11px] ${
+                    contentBy.value === o.id ? "bg-[#04E6E6]/20 text-[#7ffdfd]" : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/70"
+                  }`}
+                  onClick$={() => (contentBy.value = o.id)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p class="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Bubble color</p>
+            <div class="flex flex-wrap gap-1">
+              {([
+                { id: "performance", label: "Performance" },
+                { id: "neutral", label: "Neutral" },
+              ] as const).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  class={`rounded-md px-2 py-1 text-[11px] ${
+                    colorBy.value === o.id ? "bg-[#04E6E6]/20 text-[#7ffdfd]" : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/70"
+                  }`}
+                  onClick$={() => (colorBy.value = o.id)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
@@ -346,6 +483,11 @@ export default component$(() => {
         Mostrando {list.length} de {rawCount} tokens del tablero de volumen · verde / rojo = variación en el periodo.{" "}
         <span class="text-gray-500">La vista anual usa ~90d % de cambio (alternativa 30d).</span>
       </p>
+      <p class="mb-3 text-xs text-slate-500">
+        {auth.value.hasPro !== undefined
+          ? "Usa ☆ para guardar tokens en favoritos. Se requiere sesión iniciada."
+          : "Inicia sesión para guardar favoritos."}
+      </p>
 
       {rawCount === 0 ? (
         <p class="text-gray-500 text-sm">No hay datos de mercado para mostrar todavía. Volvé más tarde.</p>
@@ -356,6 +498,9 @@ export default component$(() => {
               list={list}
               timeframe={timeframe.value}
               sizeBy={sizeBy.value}
+              colorBy={colorBy.value}
+              contentBy={contentBy.value}
+              highlightedTokenIds={Array.from(watchSet.value).map((x) => Number(x)).filter((n) => Number.isFinite(n))}
               quoteScale={qScale}
               quoteId={qId}
             />
@@ -363,6 +508,84 @@ export default component$(() => {
           <p class="text-[11px] text-gray-600 mt-3">
             Drag bubbles to rearrange. Click opens token detail. Hover dims the opposite direction.
           </p>
+          <div class="mt-6">
+            <div class="mb-2 flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-white">List format</h3>
+              <button
+                type="button"
+                class="rounded-md border border-[#043234] px-2 py-1 text-[11px] text-slate-300 hover:border-[#04E6E6]/40 hover:text-[#04E6E6]"
+                onClick$={() => {
+                  view.value = "list";
+                }}
+              >
+                Focus list view
+              </button>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-[#043234]">
+              <table class="w-full text-sm">
+                <thead class="bg-[#043234]/40 text-left text-gray-500">
+                  <tr>
+                    <th class="p-3">#</th>
+                    <th class="p-3">Token</th>
+                    <th class="p-3">% ({timeframe.value})</th>
+                    <th class="p-3">
+                      {sizeBy.value === "fdv" ? "FDV" : "Vol"} ({qId})
+                    </th>
+                    <th class="p-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((t, i) => {
+                    const p = pctForTimeframe(t, timeframe.value);
+                    const sizeVal =
+                      sizeBy.value === "fdv"
+                        ? Number(t.fullyDilutedValuation || 0)
+                        : Number(t.volume || 0);
+                    return (
+                      <tr key={`list-inline-${t.id}`} class="border-t border-[#043234]/60 hover:bg-[#001a1c]">
+                        <td class="p-3 text-gray-500">{i + 1}</td>
+                        <td class="p-3">
+                          <span class="flex items-center gap-2">
+                            <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={32} />
+                            <span>
+                              {t.name} <span class="text-gray-500">{t.symbol}</span>
+                            </span>
+                          </span>
+                        </td>
+                        <td class="p-3 tabular-nums">
+                          <span class={p >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                            {p > 0 ? "+" : ""}
+                            {p.toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                          </span>
+                        </td>
+                        <td class="p-3 text-gray-400 tabular-nums">
+                          {formatBubbleMetricFromUsd(sizeVal, qId, qScale)}
+                        </td>
+                        <td class="p-3">
+                          <button
+                            type="button"
+                            class={`mr-3 rounded px-2 py-1 text-xs ${
+                              watchSet.value.has(String(t.id))
+                                ? "border border-amber-400/50 bg-amber-400/15 text-amber-300"
+                                : "border border-[#043234] text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                            }`}
+                            onClick$={() => toggleTokenWatch(t)}
+                            disabled={watchBusy.value[String(t.id)]}
+                            title="Toggle favorite"
+                          >
+                            {watchSet.value.has(String(t.id)) ? "★" : "☆"}
+                          </button>
+                          <Link href={`/${L}/token/${t.id}/`} class="text-[#04E6E6] hover:underline text-xs">
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </>
       ) : (
         <div class="overflow-x-auto rounded-xl border border-[#043234]">
@@ -406,6 +629,19 @@ export default component$(() => {
                       {formatBubbleMetricFromUsd(sizeVal, qId, qScale)}
                     </td>
                     <td class="p-3">
+                      <button
+                        type="button"
+                        class={`mr-3 rounded px-2 py-1 text-xs ${
+                          watchSet.value.has(String(t.id))
+                            ? "border border-amber-400/50 bg-amber-400/15 text-amber-300"
+                            : "border border-[#043234] text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                        }`}
+                        onClick$={() => toggleTokenWatch(t)}
+                        disabled={watchBusy.value[String(t.id)]}
+                        title="Toggle favorite"
+                      >
+                        {watchSet.value.has(String(t.id)) ? "★" : "☆"}
+                      </button>
                       <Link href={`/${L}/token/${t.id}/`} class="text-[#04E6E6] hover:underline text-xs">
                         View
                       </Link>

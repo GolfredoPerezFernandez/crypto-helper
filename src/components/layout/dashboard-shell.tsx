@@ -15,6 +15,7 @@ import {
   LuRadar,
   LuSparkles,
   LuWallet,
+  LuWaves,
   LuZap,
 } from "@qwikest/icons/lucide";
 export type DashboardAccessState = {
@@ -71,9 +72,10 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       tradersCollapsedTitle: tr("dashboard.tradersCollapsedTitle@@Traders · Most profitable"),
       mostProfitable: tr("dashboard.mostProfitable@@Most profitable"),
       bySwaps: tr("dashboard.bySwaps@@By swaps (Icarus)"),
-      topWhales: tr("dashboard.topWhales@@Top whales (watchlist)"),
+      topWhales: tr("dashboard.topWhales@@Top holders"),
       nfts: tr("dashboard.nfts@@NFTs"),
       block: tr("dashboard.block@@Block"),
+      whaleAlert: tr("dashboard.whaleAlert@@Whale Alert"),
       signalNotifications: tr("dashboard.signalNotifications@@Signal notifications"),
       /** Unified /alerts — push prefs + live whale/trader streams */
       alertsHub: tr("dashboard.alertsHub@@Alerts & notifications"),
@@ -94,9 +96,6 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       proBadge: tr("dashboard.proBadge@@Pro"),
       openMenu: tr("dashboard.openMenu@@Open menu"),
       closeMenu: tr("dashboard.closeMenu@@Close menu"),
-      footerTagline: tr("dashboard.footerTagline@@Markets, signals and real-time analytics."),
-      privacy: tr("app.footer.privacy@@Privacy"),
-      terms: tr("app.footer.terms@@Terms"),
       solanaNavTitle: tr("dashboard.solanaNavTitle@@Solana"),
       solanaOverview: tr("dashboard.solanaOverview@@Overview"),
       walletApi: tr("dashboard.walletApi@@Wallet"),
@@ -165,7 +164,7 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
   });
 
   return (
-    <div class="min-h-screen bg-[#000D0E] text-white flex flex-col md:flex-row">
+    <div class="flex min-h-0 flex-1 flex-col bg-[#000D0E] text-white md:flex-row">
       <aside
         style={{ viewTransitionName: "cg-dash-sidebar" }}
         class={[
@@ -542,6 +541,15 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
           </Link>
 
           <Link
+            class={`${navClass} ${navClassMdCollapsed} ${active("/whale-alert")}`}
+            href={`${base}/whale-alert/`}
+            title={d.value.whaleAlert}
+          >
+            <LuWaves class={iconClass} />
+            <span class={lbl}>{d.value.whaleAlert}</span>
+          </Link>
+
+          <Link
             class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/alerts")}`}
             href={`${base}/alerts/`}
             title={`${d.value.alertsHub} · ${d.value.push} / ${d.value.sse}`}
@@ -592,26 +600,11 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       </aside>
       <main
         style={{ viewTransitionName: "cg-dash-stage" }}
-        class="cg-vt-dash-stage flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 border-t md:border-t-0 border-[#043234]/50 flex flex-col"
+        class="cg-vt-dash-stage flex min-h-0 flex-1 flex-col border-t border-[#043234]/50 p-4 md:border-t-0 md:p-8"
       >
-        <Slot />
-        <footer class="mt-auto pt-10 rounded-2xl border border-[#043234] bg-gradient-to-r from-[#001318] via-[#001a1c] to-[#001318] px-5 py-4">
-          <div class="flex flex-col items-center justify-center gap-2 text-center">
-            <div>
-              <p class="text-sm font-semibold text-[#04E6E6]">{d.value.brand}</p>
-              <p class="text-xs text-slate-400">{d.value.footerTagline}</p>
-            </div>
-            <div class="flex items-center justify-center gap-4 text-xs">
-              <Link href={`/${L}/privacy/`} class="text-slate-400 transition hover:text-[#04E6E6]">
-                {d.value.privacy}
-              </Link>
-              <Link href={`/${L}/terms/`} class="text-slate-400 transition hover:text-[#04E6E6]">
-                {d.value.terms}
-              </Link>
-              <span class="text-slate-500">© {new Date().getFullYear()}</span>
-            </div>
-          </div>
-        </footer>
+        <div class="flex min-h-0 w-full max-w-full flex-1 flex-col">
+          <Slot />
+        </div>
       </main>
     </div>
   );

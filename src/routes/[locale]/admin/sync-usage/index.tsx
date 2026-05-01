@@ -85,7 +85,7 @@ export const useSyncUsageAdminLoader = routeLoader$(async (ev) => {
     enriched,
     sums: { sum7, sum30, now },
     note:
-      "Nansen: suma de créditos reportados por cabecera/respuesta cuando existen. Moralis (headers): suma de CUs si la API envía el header reconocido. Moralis (est. CMC): aproximación según docs Data API solo para la fase de tokens CMC; wallets/NFT se reflejan mejor en la columna de headers.",
+      "Nansen: suma de créditos reportados por cabecera/respuesta cuando existen. Moralis (headers): suma de CUs si la API envía el header reconocido. Moralis (est. tokens): aproximación según docs Data API solo para la fase de sincronización de tokens; wallets/NFT se reflejan mejor en la columna de headers.",
   };
 });
 
@@ -120,7 +120,7 @@ export default component$(() => {
               <dd class="tabular-nums text-cyan-200">{data.value.sums.sum7.moralisH.toLocaleString()}</dd>
             </div>
             <div class="flex justify-between gap-2">
-              <dt class="text-slate-400">Moralis est. fase CMC</dt>
+              <dt class="text-slate-400">Moralis est. (tokens)</dt>
               <dd class="tabular-nums text-amber-200/90">{data.value.sums.sum7.moralisEst.toLocaleString()}</dd>
             </div>
           </dl>
@@ -138,7 +138,7 @@ export default component$(() => {
               <dd class="tabular-nums text-cyan-200">{data.value.sums.sum30.moralisH.toLocaleString()}</dd>
             </div>
             <div class="flex justify-between gap-2">
-              <dt class="text-slate-400">Moralis est. fase CMC</dt>
+              <dt class="text-slate-400">Moralis est. (tokens)</dt>
               <dd class="tabular-nums text-amber-200/90">{data.value.sums.sum30.moralisEst.toLocaleString()}</dd>
             </div>
           </dl>
@@ -153,11 +153,11 @@ export default component$(() => {
               <th class="px-3 py-2">Estado</th>
               <th class="px-3 py-2">Fin (UTC)</th>
               <th class="px-3 py-2">Duración</th>
-              <th class="px-3 py-2">CMC HTTP</th>
+              <th class="px-3 py-2">HTTP mercado</th>
               <th class="px-3 py-2">Icarus</th>
               <th class="px-3 py-2">Nansen Σ</th>
               <th class="px-3 py-2">Moralis CU Σ</th>
-              <th class="px-3 py-2">Est. CMC Moralis</th>
+              <th class="px-3 py-2">Est. Moralis (tokens)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#043234]/60">

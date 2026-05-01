@@ -58,3 +58,16 @@ export const TOKENS = {
 export const ADMIN_WALLETS = [
   '0xf6657F7019E481204D26882D6b1BED1da1541896'
 ];
+
+/** Synthetic emails for wallet-only accounts before the user adds a real address. */
+const WALLET_PLACEHOLDER_EMAIL_SUFFIXES = [
+  '@crypto-helper.internal',
+  '@cryptohelper.internal',
+  '@crypto-ghost.internal',
+] as const;
+
+export function isWalletPlaceholderEmail(email: string | undefined | null): boolean {
+  if (email == null || String(email).trim() === '') return false;
+  const e = String(email).toLowerCase().trim();
+  return WALLET_PLACEHOLDER_EMAIL_SUFFIXES.some((suf) => e.endsWith(suf));
+}

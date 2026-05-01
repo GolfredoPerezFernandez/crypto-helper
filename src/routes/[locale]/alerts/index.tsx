@@ -128,15 +128,15 @@ export default component$(() => {
         <section class="space-y-3">
           <h2 class="text-lg font-semibold text-white">Token price alerts (Pro)</h2>
           <p class="text-sm text-slate-400">
-            USD thresholds per token (CMC id). Evaluated after each market sync — combines with wallet alerts in your
-            notification tray when push is enabled.
+            USD thresholds per token (by token id in this app). Evaluated after each market sync — combines with wallet
+            alerts in your notification tray when push is enabled.
           </p>
           <PriceAlertsSettings />
         </section>
       ) : (
         <p class="text-sm text-slate-500 max-w-lg">
           <span class="text-slate-400">Pro:</span> subscribe to set USD thresholds per token and get push when cached
-          price crosses them after CMC sync.
+          price crosses them after a market sync.
         </p>
       )}
     </div>

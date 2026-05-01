@@ -7,6 +7,8 @@ export type BubbleTimeframe = "1h" | "24h" | "7d" | "30d" | "90d";
 
 /** Bubble radius ~ sqrt(metric). `fdv` uses fully diluted valuation as a market-cap proxy. */
 export type BubbleSizeBy = "volume" | "fdv";
+export type BubbleColorBy = "performance" | "neutral";
+export type BubbleContentBy = "symbol" | "symbol-change" | "name";
 
 export interface BubbleToken {
   id: number;
@@ -22,7 +24,14 @@ export interface BubbleToken {
   percentChange90d?: string | number;
 }
 
-type SimNode = BubbleToken & { x?: number; y?: number; fx?: number | null; fy?: number | null };
+type SimNode = BubbleToken & {
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
+  tx?: number;
+  ty?: number;
+};
 
 const POS_STROKE = "rgba(0, 255, 160, 0.95)";
 const NEG_STROKE = "rgba(255, 82, 82, 0.95)";
@@ -78,11 +87,30 @@ function formatPct(p: number): string {
   return `${Number(0).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 }
 
+function gridTargets(count: number, width: number, height: number): { x: number; y: number }[] {
+  const n = Math.max(1, count);
+  const cols = Math.max(1, Math.ceil(Math.sqrt((n * width) / Math.max(height, 1))));
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    pts.push({
+      x: ((col + 0.5) * width) / cols,
+      y: ((row + 0.5) * height) / rows,
+    });
+  }
+  return pts;
+}
+
 export const BubbleChartD3 = component$(
   (props: {
     list: BubbleToken[];
     timeframe: BubbleTimeframe;
     sizeBy: BubbleSizeBy;
+    colorBy?: BubbleColorBy;
+    contentBy?: BubbleContentBy;
+    highlightedTokenIds?: number[];
     quoteScale?: number;
     quoteId?: BubbleQuoteId;
   }) => {
@@ -91,6 +119,9 @@ export const BubbleChartD3 = component$(
     useVisibleTask$(async ({ track, cleanup }) => {
       track(() => props.timeframe);
       track(() => props.sizeBy);
+      track(() => props.colorBy ?? "performance");
+      track(() => props.contentBy ?? "symbol-change");
+      track(() => (props.highlightedTokenIds ?? []).join(","));
       track(() => props.quoteScale ?? 1);
       track(() => props.quoteId ?? "USD");
       track(() => props.list.length);
@@ -113,6 +144,9 @@ export const BubbleChartD3 = component$(
       const rawList = props.list;
       const timeframe = props.timeframe;
       const sizeBy = props.sizeBy;
+      const colorBy = props.colorBy ?? "performance";
+      const contentBy = props.contentBy ?? "symbol-change";
+      const highlighted = new Set((props.highlightedTokenIds ?? []).map((n) => Number(n)));
       const quoteScale = props.quoteScale ?? 1;
       const quoteId = props.quoteId ?? "USD";
       const host = hostRef.value;
@@ -135,12 +169,16 @@ export const BubbleChartD3 = component$(
         const isMobile = width < 768;
         const isWide = width >= 1400;
         const isUltraWide = width >= 1900;
+        const isTvWide = width >= 2400;
         const count = Math.max(rawList.length, 1);
-        const densityBoost = isUltraWide ? 1.34 : isWide ? 1.2 : 1;
-        const countBoost = count <= 120 ? 1.16 : count <= 180 ? 1.08 : 1;
-        const radiusBoost = densityBoost * countBoost;
-        const minR = (isMobile ? 20 : 24) * (isMobile ? 1 : Math.min(radiusBoost, 1.28));
-        const maxR = (isMobile ? 52 : 76) * (isMobile ? 1 : Math.min(radiusBoost, 1.36));
+        const area = width * height;
+        const densityTarget = isTvWide ? 0.74 : isUltraWide ? 0.7 : isWide ? 0.66 : 0.6;
+        const baseRadius = Math.sqrt((area * densityTarget) / (Math.PI * count));
+        const countBoost = count <= 100 ? 1.2 : count <= 150 ? 1.12 : count <= 220 ? 1.06 : 1;
+        const densityBoost = isTvWide ? 1.35 : isUltraWide ? 1.24 : isWide ? 1.14 : 1;
+        const radiusBoost = countBoost * densityBoost;
+        const minR = Math.max(isMobile ? 18 : 24, Math.min((baseRadius * (isMobile ? 0.64 : 0.72)) * radiusBoost, isTvWide ? 68 : 52));
+        const maxR = Math.max(minR + 12, Math.min((baseRadius * (isMobile ? 1.95 : 2.3)) * radiusBoost, isTvWide ? 250 : isUltraWide ? 210 : 172));
         const labelThreshold = isMobile ? 28 : 32;
 
         const sizes = rawList.map((t) => bubbleDisplaySize(t, sizeBy, quoteScale));
@@ -150,9 +188,17 @@ export const BubbleChartD3 = component$(
         const scaleR = d3.scaleSqrt().domain([minS, maxS]).range([minR, maxR]).clamp(true);
 
         const nodes: SimNode[] = rawList.map((t) => ({ ...t }));
-        nodes.forEach((d) => {
-          d.x = Math.random() * width;
-          d.y = Math.random() * height;
+        const targets = gridTargets(nodes.length, width, height);
+        // Place larger bubbles first on grid targets so packing is more uniform.
+        const bySize = [...nodes]
+          .map((n) => ({ n, s: bubbleDisplaySize(n, sizeBy, quoteScale) }))
+          .sort((a, b) => b.s - a.s);
+        bySize.forEach(({ n }, i) => {
+          const p = targets[i % targets.length] ?? { x: width / 2, y: height / 2 };
+          n.tx = p.x;
+          n.ty = p.y;
+          n.x = p.x;
+          n.y = p.y;
         });
 
         d3.select(host!).selectAll("svg").remove();
@@ -203,17 +249,22 @@ export const BubbleChartD3 = component$(
         };
 
         simulation?.stop();
+        const collidePad = isTvWide ? 3.2 : isUltraWide ? 4 : isWide ? 4.8 : 5.8;
         simulation = d3
           .forceSimulation<SimNode>(nodes)
           .force(
             "collide",
-            d3.forceCollide<SimNode>().radius((d) => radiusFor(d) + (isWide ? 5 : 7)).strength(0.95),
+            d3
+              .forceCollide<SimNode>()
+              .radius((d) => radiusFor(d) + 5 + collidePad)
+              .strength(1)
+              .iterations(3),
           )
-          .force("center", d3.forceCenter(width / 2, height / 2).strength(isWide ? 0.048 : 0.036))
-          .force("x", d3.forceX(width / 2).strength(isWide ? 0.026 : 0.02))
-          .force("y", d3.forceY(height / 2).strength(isWide ? 0.026 : 0.02))
-          .force("charge", d3.forceManyBody().strength(isWide ? -20 : -28))
-          .alphaTarget(0.22)
+          .force("center", d3.forceCenter(width / 2, height / 2).strength(0.014))
+          .force("x", d3.forceX<SimNode>((d) => d.tx ?? width / 2).strength(isTvWide ? 0.048 : isWide ? 0.042 : 0.036))
+          .force("y", d3.forceY<SimNode>((d) => d.ty ?? height / 2).strength(isTvWide ? 0.048 : isWide ? 0.042 : 0.036))
+          .force("charge", d3.forceManyBody().strength(isTvWide ? -22 : isWide ? -28 : -34).distanceMax(Math.max(width, height)))
+          .alphaTarget(0.16)
           .restart();
 
         const node = svg.selectAll<SVGGElement, SimNode>("g").data(nodes).enter().append("g");
@@ -223,7 +274,7 @@ export const BubbleChartD3 = component$(
           .attr("class", "bubble-halo")
           .attr("r", (d) => radiusFor(d) + 5)
           .attr("fill", "none")
-          .attr("stroke", (d) => (pctForTimeframe(d, timeframe) >= 0 ? POS_STROKE : NEG_STROKE))
+          .attr("stroke", (d) => (colorBy === "neutral" ? "rgba(120, 225, 255, 0.9)" : pctForTimeframe(d, timeframe) >= 0 ? POS_STROKE : NEG_STROKE))
           .attr("stroke-width", 2)
           .style("opacity", 0.55)
           .style("filter", (d) => (pctForTimeframe(d, timeframe) >= 0 ? `url(#${filtGlowPos})` : `url(#${filtGlowNeg})`))
@@ -235,9 +286,10 @@ export const BubbleChartD3 = component$(
           .attr("r", (d) => radiusFor(d))
           .style("fill", (d) => {
             const p = pctForTimeframe(d, timeframe);
+            if (colorBy === "neutral") return "rgba(19, 36, 40, 0.88)";
             return p >= 0 ? `url(#${gradPos})` : `url(#${gradNeg})`;
           })
-          .attr("stroke", (d) => (pctForTimeframe(d, timeframe) >= 0 ? POS_STROKE : NEG_STROKE))
+          .attr("stroke", (d) => (colorBy === "neutral" ? "rgba(96, 210, 232, 0.95)" : pctForTimeframe(d, timeframe) >= 0 ? POS_STROKE : NEG_STROKE))
           .style("stroke-width", 3)
           .style("cursor", "grab");
 
@@ -288,18 +340,20 @@ export const BubbleChartD3 = component$(
               .style("fill", "#ffffff")
               .style("pointer-events", "none")
               .style("text-shadow", "0 1px 3px rgba(0,0,0,0.85)")
-              .text(d.symbol);
+              .text(contentBy === "name" ? d.name : d.symbol);
 
-            g.append("text")
-              .attr("x", 0)
-              .attr("y", r * 0.52)
-              .attr("text-anchor", "middle")
-              .style("font-size", `${Math.max(r / 4.2, 10)}px`)
-              .style("font-weight", "600")
-              .style("fill", "#f5f5f5")
-              .style("pointer-events", "none")
-              .style("text-shadow", "0 1px 2px rgba(0,0,0,0.8)")
-              .text(pctStr);
+            if (contentBy === "symbol-change") {
+              g.append("text")
+                .attr("x", 0)
+                .attr("y", r * 0.52)
+                .attr("text-anchor", "middle")
+                .style("font-size", `${Math.max(r / 4.2, 10)}px`)
+                .style("font-weight", "600")
+                .style("fill", "#f5f5f5")
+                .style("pointer-events", "none")
+                .style("text-shadow", "0 1px 2px rgba(0,0,0,0.8)")
+                .text(pctStr);
+            }
           } else if (r > 22) {
             g.append("text")
               .attr("x", 0)
@@ -310,6 +364,26 @@ export const BubbleChartD3 = component$(
               .style("fill", "#fff")
               .style("pointer-events", "none")
               .text(d.symbol);
+          }
+
+          if (highlighted.has(Number(d.id)) && r > 16) {
+            g.append("circle")
+              .attr("cx", r * 0.56)
+              .attr("cy", -r * 0.56)
+              .attr("r", Math.max(7, Math.min(12, r * 0.2)))
+              .attr("fill", "rgba(245, 186, 48, 0.95)")
+              .attr("stroke", "rgba(255,255,255,0.8)")
+              .attr("stroke-width", 1.4)
+              .style("pointer-events", "none");
+            g.append("text")
+              .attr("x", r * 0.56)
+              .attr("y", -r * 0.56 + 3)
+              .attr("text-anchor", "middle")
+              .style("font-size", `${Math.max(9, r * 0.16)}px`)
+              .style("font-weight", "800")
+              .style("fill", "#1b1200")
+              .style("pointer-events", "none")
+              .text("★");
           }
         });
 
@@ -378,7 +452,7 @@ export const BubbleChartD3 = component$(
     return (
       <div
         ref={hostRef}
-        class="h-[min(84vh,960px)] w-full min-h-[460px] overflow-hidden rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114] 2xl:h-[min(86vh,1100px)]"
+        class="h-[min(86vh,1060px)] w-full min-h-[500px] overflow-hidden rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114] 2xl:h-[min(90vh,1320px)] min-[2200px]:h-[min(92vh,1520px)]"
       />
     );
   },

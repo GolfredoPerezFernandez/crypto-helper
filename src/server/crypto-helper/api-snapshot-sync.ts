@@ -53,6 +53,7 @@ import {
 } from "~/server/crypto-helper/wallet-snapshot";
 import { syncLogError, syncLogInfo, syncLogWarn } from "~/server/crypto-helper/sync-logger";
 import { recordNansenCall } from "~/server/crypto-helper/sync-usage-context";
+import { fetchWhaleAlertBundleForSync } from "~/server/crypto-helper/whale-alert-api";
 
 export const GLOBAL_NFT_HOTTEST = "moralis_nft_hottest";
 export const GLOBAL_NFT_TOP = "moralis_nft_top";
@@ -104,6 +105,8 @@ export const GLOBAL_NANSEN_TOKEN_SCREENER = "nansen_token_screener";
 export const GLOBAL_TOP_PERFORMERS_BY_TOKEN = "top_performers_by_token_bundle";
 /** Wallets aggregated from DEX trade panel — derived during main market sync (neutral key). */
 export const GLOBAL_DEX_ACTIVITY_HIGHLIGHT = "dex_activity_highlight";
+/** Whale Alert — Enterprise + deprecated v1 sample responses (auxiliary sync). */
+export const GLOBAL_WHALE_ALERT_BUNDLE = "whale_alert_bundle";
 
 const NANSEN_SMART_MONEY_SNAPSHOT_KEYS: Record<SmartMoneySection, string> = {
   netflow: GLOBAL_NANSEN_SMART_MONEY_NETFLOW,
@@ -764,6 +767,29 @@ export async function runNansenSmartMoneyGlobalSnapshotSync(): Promise<void> {
  * Moralis + Icarus — runs once per successful daily market sync.
  * Populates `api_global_snapshots` and `api_wallet_snapshots` so dashboards do not call APIs per request.
  */
+async function runWhaleAlertSnapshotSync(): Promise<void> {
+  const enabled = /^1|true|yes$/i.test(String(process.env.WHALE_ALERT_SYNC ?? "1"));
+  if (!enabled) {
+    syncLogInfo("Whale Alert snapshot — skipped (WHALE_ALERT_SYNC unset/false)");
+    return;
+  }
+  const t0 = Date.now();
+  try {
+    const bundle = await fetchWhaleAlertBundleForSync();
+    await upsertGlobalSnapshot(GLOBAL_WHALE_ALERT_BUNDLE, bundle);
+    syncLogInfo("Whale Alert snapshot — ok", {
+      ms: Date.now() - t0,
+      configured: bundle.configured,
+      endpoints: bundle.results.length,
+    });
+  } catch (e: unknown) {
+    syncLogWarn("Whale Alert snapshot — failed", {
+      ms: Date.now() - t0,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
   const moralisConfigured = Boolean(process.env.MORALIS_API_KEY?.trim());
   const auxStart = Date.now();
@@ -783,6 +809,9 @@ export async function runAuxiliaryApiSnapshotSync(): Promise<void> {
       key: GLOBAL_ICARUS_TOP_USERS,
       tradersStored: traders.length,
     });
+
+    syncLogInfo("aux: Whale Alert bundle (cached for /whale-alert)");
+    await runWhaleAlertSnapshotSync();
 
     if (!moralisConfigured) {
       syncLogWarn("MORALIS_API_KEY missing — skip Moralis NFT globals + wallet snapshots");

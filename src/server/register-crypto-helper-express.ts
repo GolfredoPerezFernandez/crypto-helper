@@ -44,6 +44,9 @@
  * - GET /api/crypto/moralis/wallet/:address/stats?chain= (session; wallet stats)
  * - GET /api/crypto/moralis/wallet/:address/chains?chains= (session; active chains)
  * - GET /api/crypto/traders/icarus-swaps?limit=&offset=
+ *
+ * Express-only streams:
+ * - GET /api/stream/whale-alert (SSE; Pro; server WHALE_ALERT_API_KEY; bridges wss://leviathan.whale-alert.io/ws)
  */
 import type { Express, Request, Response } from "express";
 import cron from "node-cron";
@@ -55,6 +58,7 @@ import { smartEmitter, traderEmitter, whaleEmitter } from "./realtime/emitters";
 import { startUsdtWatcher } from "./crypto-helper/usdt-watcher";
 import { db } from "~/lib/turso";
 import { syncRuns } from "../../drizzle/schema";
+import { attachWhaleAlertSse } from "./crypto-helper/whale-alert-sse";
 
 const BOOL_TRUE_RE = /^1|true|yes$/i;
 const DEFAULT_BOOT_SYNC_FRESHNESS_HOURS = 20;
@@ -116,6 +120,7 @@ export function registerCryptoHelperRoutes(app: Express): void {
   app.get("/api/stream/whales", attachSse(whaleEmitter, "new-message"));
   app.get("/api/stream/traders", attachSse(traderEmitter, "new-message"));
   app.get("/api/stream/smart", attachSmartSse);
+  app.get("/api/stream/whale-alert", attachWhaleAlertSse);
 
   app.post("/api/webhook/moralis/whales", async (req, res) => {
     try {

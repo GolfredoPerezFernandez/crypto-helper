@@ -86,9 +86,9 @@ export const WalletActivityLineChart = component$((props: { labels: string[]; va
     if (!ctx) return;
 
     const grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 200);
-    grad.addColorStop(0, "rgba(4, 230, 230, 0.38)");
-    grad.addColorStop(0.45, "rgba(16, 185, 129, 0.14)");
-    grad.addColorStop(1, "rgba(4, 230, 230, 0)");
+    grad.addColorStop(0, "rgba(167, 139, 250, 0.34)");
+    grad.addColorStop(0.5, "rgba(34, 211, 238, 0.2)");
+    grad.addColorStop(1, "rgba(244, 114, 182, 0)");
 
     const chart = new Chart(ctx, {
       type: "line",
@@ -97,14 +97,14 @@ export const WalletActivityLineChart = component$((props: { labels: string[]; va
         datasets: [
           {
             data: props.values,
-            borderColor: "#04E6E6",
+            borderColor: "#a78bfa",
             backgroundColor: grad,
             borderWidth: 2,
             fill: true,
             tension: 0.42,
             pointRadius: 0,
             pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#5eead4",
+            pointHoverBackgroundColor: "#f59e0b",
           },
         ],
       },

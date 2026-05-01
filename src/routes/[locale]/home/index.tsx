@@ -23,34 +23,10 @@ import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
 import { buildSeo, localeFromParams } from "~/utils/seo";
-import type { MoralisDiscoveryHomePack } from "~/server/crypto-helper/dashboard-home-loader";
-
-function moralisRowsFromSnap(snap: unknown, max = 12): Record<string, unknown>[] {
-  if (!snap || typeof snap !== "object") return [];
-  const s = snap as { ok?: boolean; data?: unknown };
-  if (!s.ok || s.data == null) return [];
-  const d = s.data;
-  if (Array.isArray(d)) return d.slice(0, max) as Record<string, unknown>[];
-  if (typeof d === "object") {
-    const o = d as Record<string, unknown>;
-    for (const k of ["result", "tokens", "pairs", "rows", "items"]) {
-      const v = o[k];
-      if (Array.isArray(v)) return v.slice(0, max) as Record<string, unknown>[];
-    }
-  }
-  return [];
-}
-
-function moralisTokenLabel(row: Record<string, unknown>): string {
-  const sym = row.symbol ?? row.token_symbol ?? row.ticker;
-  const name = row.name ?? row.token_name;
-  if (sym && name) return `${String(name)} (${String(sym)})`;
-  if (sym) return String(sym);
-  if (name) return String(name);
-  const addr = row.token_address ?? row.address ?? row.mint;
-  if (addr && String(addr).length > 8) return `${String(addr).slice(0, 6)}…${String(addr).slice(-4)}`;
-  return "—";
-}
+import { HelpTooltip } from "~/components/ui/help-tooltip";
+import { MarketChangePill } from "~/components/crypto-dashboard/market-change-pill";
+import { MiniSparkline } from "~/components/crypto-dashboard/mini-sparkline";
+import { MarketRegimeBadge } from "~/components/crypto-dashboard/market-regime-badge";
 
 export const head: DocumentHead = ({ url, params }) => {
   const locale = localeFromParams(params);
@@ -75,6 +51,8 @@ export default component$(() => {
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
   const base = `/${L}`;
+  const isEs = L.toLowerCase().startsWith("es");
+  const tx = (es: string, en: string) => (isEs ? es : en);
 
   const syncBusy = useSignal(false);
   const syncError = useSignal("");
@@ -101,15 +79,18 @@ export default component$(() => {
     try {
       const r = await triggerOwnerFullMarketSync();
       if (r.ok) {
-        fullSyncSuccess.value = "Actualizacion completa finalizada con exito. Recargando panel...";
+        fullSyncSuccess.value = tx(
+          "Actualizacion completa finalizada con exito. Recargando panel...",
+          "Full refresh finished successfully. Reloading dashboard...",
+        );
         await new Promise((resolve) => setTimeout(resolve, 1400));
         willReload = true;
         window.location.reload();
         return;
       }
-      fullSyncError.value = r.error || "No se pudo completar la actualización.";
+      fullSyncError.value = r.error || tx("No se pudo completar la actualización.", "Could not complete the update.");
     } catch (e: unknown) {
-      fullSyncError.value = e instanceof Error ? e.message : "No se pudo completar la actualización.";
+      fullSyncError.value = e instanceof Error ? e.message : tx("No se pudo completar la actualización.", "Could not complete the update.");
     } finally {
       if (!willReload) fullSyncBusy.value = false;
     }
@@ -126,9 +107,9 @@ export default component$(() => {
         window.location.reload();
         return;
       }
-      syncError.value = r.error || "No se pudo actualizar";
+      syncError.value = r.error || tx("No se pudo actualizar", "Could not update");
     } catch (e: unknown) {
-      syncError.value = e instanceof Error ? e.message : "No se pudo actualizar";
+      syncError.value = e instanceof Error ? e.message : tx("No se pudo actualizar", "Could not update");
     } finally {
       if (!willReload) syncBusy.value = false;
     }
@@ -148,15 +129,15 @@ export default component$(() => {
   const avgRsiValue = Math.max(0, Math.min(100, pulse.avgRsi ?? 50));
   const fearGreedLabel =
     fearGreedValue >= 75
-      ? "Extreme greed"
+      ? tx("Codicia extrema", "Extreme greed")
       : fearGreedValue >= 60
-        ? "Greed"
+        ? tx("Codicia", "Greed")
         : fearGreedValue >= 40
-          ? "Neutral"
+          ? tx("Neutral", "Neutral")
           : fearGreedValue >= 25
-            ? "Fear"
-            : "Extreme fear";
-  const rsiLabel = avgRsiValue >= 70 ? "Overbought" : avgRsiValue <= 30 ? "Oversold" : "Neutral";
+            ? tx("Miedo", "Fear")
+            : tx("Miedo extremo", "Extreme fear");
+  const rsiLabel = avgRsiValue >= 70 ? tx("Sobrecompra", "Overbought") : avgRsiValue <= 30 ? tx("Sobreventa", "Oversold") : tx("Neutral", "Neutral");
   const fearGreedNeedleDeg = 180 + fearGreedValue * 1.8;
   const fgCenterX = 110;
   const fgCenterY = 110;
@@ -176,26 +157,6 @@ export default component$(() => {
     return [] as Record<string, unknown>[];
   })();
 
-  const moralisPack = data.value.moralisDiscovery as MoralisDiscoveryHomePack | null;
-  const moralisTrendingEthRows = moralisPack ? moralisRowsFromSnap(moralisPack.trendingEth, 10) : [];
-  const moralisTrendingBaseRows = moralisPack ? moralisRowsFromSnap(moralisPack.trendingBase, 10) : [];
-  const moralisTokenSearchRows = moralisPack ? moralisRowsFromSnap(moralisPack.tokenSearch, 15) : [];
-  const moralisPumpNewRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunNew, 8) : [];
-  const moralisPumpBondRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunBonding, 8) : [];
-  const moralisPumpGradRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunGraduated, 8) : [];
-  const moralisEntitySearchRows = moralisPack ? moralisRowsFromSnap(moralisPack.entitySearch, 8) : [];
-  const moralisVolumeChainRows = moralisPack ? moralisRowsFromSnap(moralisPack.volumeChains, 12) : [];
-  const showMoralisPanel =
-    moralisPack != null &&
-    (moralisTrendingEthRows.length > 0 ||
-      moralisTrendingBaseRows.length > 0 ||
-      moralisTokenSearchRows.length > 0 ||
-      moralisPumpNewRows.length > 0 ||
-      moralisPumpBondRows.length > 0 ||
-      moralisPumpGradRows.length > 0 ||
-      moralisEntitySearchRows.length > 0 ||
-      moralisVolumeChainRows.length > 0);
-
   const last = st.lastSync;
   const lastSyncFinishedLabel =
     last?.finishedAt != null
@@ -204,7 +165,7 @@ export default component$(() => {
           timeStyle: "medium",
         })
       : last?.startedAt != null
-        ? `En curso · inicio ${new Date(last.startedAt * 1000).toLocaleString(undefined, { timeStyle: "short" })}`
+        ? `${tx("En curso · inicio", "Running · start")} ${new Date(last.startedAt * 1000).toLocaleString(undefined, { timeStyle: "short" })}`
         : "—";
   const lastSyncDurationLabel =
     last?.finishedAt != null ? formatDurationMs(effectiveSyncDurationMs(last)) : null;
@@ -221,113 +182,133 @@ export default component$(() => {
   const quickLinks = [
     {
       href: `${base}/bubbles/`,
-      title: "Crypto bubbles",
-      desc: "Mapa por volumen, FDV y timeframes.",
+      title: tx("Burbujas cripto", "Crypto bubbles"),
+      desc: tx("Mapa por volumen, FDV y periodos.", "Map by volume, FDV, and timeframes."),
       icon: LuBarChart3,
     },
     {
       href: `${base}/volume-coins/`,
-      title: "Top volume",
-      desc: "Ranking 24h por volumen.",
+      title: tx("Top volumen", "Top volume"),
+      desc: tx("Ranking 24h por volumen.", "24h ranking by volume."),
       icon: LuActivity,
     },
     {
       href: `${base}/trending-coins/`,
-      title: "Trending",
-      desc: data.value.trending.usedFallback ? "Mayores subidas y bajadas (7 días)." : "Mayores subidas y bajadas.",
+      title: tx("Tendencia", "Trending"),
+      desc: data.value.trending.usedFallback ? tx("Mayores subidas y bajadas (7 días).", "Top gainers and losers (7 days).") : tx("Mayores subidas y bajadas.", "Top gainers and losers."),
       icon: LuSparkles,
     },
     {
       href: `${base}/earlybird-coins/`,
-      title: "New listings",
-      desc: "Nuevas monedas listadas recientemente.",
+      title: tx("Nuevos listados", "New listings"),
+      desc: tx("Monedas listadas recientemente.", "Recently listed coins."),
       icon: LuSparkles,
     },
     {
       href: `${base}/meme-coins/`,
-      title: "Meme",
-      desc: "Monedas meme destacadas.",
+      title: tx("Meme", "Meme"),
+      desc: tx("Monedas meme destacadas.", "Featured meme coins."),
       icon: LuCoins,
     },
     {
       href: `${base}/ai-coins/`,
-      title: "AI & big data",
-      desc: "Monedas de inteligencia artificial y datos.",
+      title: tx("IA y big data", "AI & big data"),
+      desc: tx("Monedas de inteligencia artificial y datos.", "AI and big-data related coins."),
       icon: LuBot,
     },
     {
       href: `${base}/gaming-coins/`,
-      title: "Gaming",
-      desc: "Monedas del ecosistema gaming.",
+      title: tx("Gaming", "Gaming"),
+      desc: tx("Monedas del ecosistema gaming.", "Gaming ecosystem coins."),
       icon: LuActivity,
     },
     {
       href: `${base}/mineable-coins/`,
-      title: "Mineable",
-      desc: "Monedas minables.",
+      title: tx("Minables", "Mineable"),
+      desc: tx("Monedas minables.", "Mineable coins."),
       icon: LuLayers,
     },
     {
       href: `${base}/most-visit-coins/`,
-      title: "Most visited",
-      desc: "Monedas más visitadas por usuarios.",
+      title: tx("Más visitadas", "Most visited"),
+      desc: tx("Monedas más visitadas por usuarios.", "Most visited coins by users."),
       icon: LuRadar,
     },
     {
       href: `${base}/tokens/`,
-      title: "Todos los tokens",
-      desc: `${st.totalTokens.toLocaleString()} tokens disponibles.`,
+      title: tx("Todos los tokens", "All tokens"),
+      desc: tx(`${st.totalTokens.toLocaleString()} tokens disponibles.`, `${st.totalTokens.toLocaleString()} tokens available.`),
       icon: LuLayers,
     },
     {
       href: `${base}/nfts/`,
-      title: "NFT collections",
+      title: tx("Colecciones NFT", "NFT collections"),
       desc:
         data.value.nftGlobal.ok && data.value.nftGlobal.hottestCount > 0
-          ? `Explorar colecciones destacadas (${data.value.nftGlobal.hottestCount}).`
-          : "Colecciones y detalle por contrato y token ID.",
+          ? tx(`Explorar colecciones destacadas (${data.value.nftGlobal.hottestCount}).`, `Explore featured collections (${data.value.nftGlobal.hottestCount}).`)
+          : tx("Colecciones y detalle por contrato y token ID.", "Collections and detail by contract and token ID."),
       icon: LuImage,
     },
     {
       href: `${base}/top-traders/`,
-      title: "Traders",
-      desc: "Watchlist de wallets rentables y vista cartera (Base/Eth).",
+      title: tx("Traders", "Traders"),
+      desc: tx("Direcciones destacadas por rendimiento y vista de cartera (Base/Eth).", "Top addresses by performance and wallet view (Base/Eth)."),
       icon: LuRadar,
     },
     {
       href: `${base}/top-traders-swaps/`,
-      title: "By swap activity",
-      desc: "Ranking de traders por actividad de swaps.",
+      title: tx("Por actividad de swaps", "By swap activity"),
+      desc: tx("Ranking de traders por actividad de swaps.", "Trader ranking by swap activity."),
       icon: LuActivity,
     },
     {
       href: `${base}/top-traders-whales/`,
-      title: "Top whales",
-      desc: "Monitoreo de wallets ballena.",
+      title: tx("Top holders", "Top holders"),
+      desc: tx("Direcciones con mayor patrimonio en snapshots recientes.", "Addresses with highest holdings in recent snapshots."),
       icon: LuWaves,
     },
     {
       href: `${base}/block/`,
-      title: "Block",
-      desc: "Señales y actividad on-chain reciente.",
+      title: tx("Block", "Block"),
+      desc: tx("Señales y actividad on-chain reciente.", "Recent on-chain activity and signals."),
       icon: LuLayers,
     },
     {
       href: `${base}/alerts/`,
-      title: "Alertas y notificaciones",
-      desc: "Push, ballenas y smart money en vivo (Pro), alertas de precio por token (Pro).",
+      title: tx("Alertas y notificaciones", "Alerts & notifications"),
+      desc: tx("Push, ballenas y smart money en vivo (Pro), alertas de precio por token (Pro).", "Push, whale and live smart-money alerts (Pro), and token price alerts (Pro)."),
       icon: LuBell,
     },
     {
       href: `${base}/db-insight/`,
-      title: "DB insight",
-      desc: "Análisis asistido para usuarios Pro.",
+      title: tx("DB insight", "DB insight"),
+      desc: tx("Análisis asistido para usuarios Pro.", "Assisted analysis for Pro users."),
       icon: LuBot,
       requiresPro: true,
     },
   ];
 
   const anySyncBusy = fullSyncBusy.value || syncBusy.value;
+  const n = (v: unknown): number => {
+    const x = Number(v ?? 0);
+    return Number.isFinite(x) ? x : 0;
+  };
+  const nOrNull = (v: unknown): number | null => {
+    if (v == null || String(v).trim() === "") return null;
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  };
+  const sparkFromToken = (t: Record<string, unknown>): { x: number; y: number }[] =>
+    [
+      { x: 1, y: nOrNull(t.percentChange1h) },
+      { x: 24, y: nOrNull(t.percentChange24h) },
+      { x: 24 * 7, y: nOrNull(t.percentChange7d) },
+      { x: 24 * 30, y: nOrNull(t.percentChange30d) },
+      { x: 24 * 90, y: nOrNull(t.percentChange90d) },
+    ]
+      .filter((p): p is { x: number; y: number } => p.y != null)
+      .map((p) => ({ x: p.x, y: p.y as number }));
+  const regimeScore = (t: Record<string, unknown>): number => n(t.percentChange24h) * 0.55 + n(t.percentChange7d) * 0.45;
   const PAGE_SIZE = 10;
   const pageOf = (key: string) => Math.max(1, listPages.value[key] ?? 1);
   const totalPagesFor = (rows: any[]) => Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -348,32 +329,18 @@ export default component$(() => {
   const visibleQuickLinks = showMoreSections.value
     ? [...prioritizedQuickLinks, ...secondaryQuickLinks]
     : prioritizedQuickLinks;
-  const HelpTip = (text: string, positionClass: string = "right-2 top-2") => (
-    <span class={`pointer-events-none absolute z-10 group ${positionClass}`}>
-      <span
-        class="pointer-events-auto inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#0a5b5f] bg-[#002629] text-[11px] font-bold text-[#7af4f4] shadow-sm shadow-black/30"
-        aria-label="Más información"
-      >
-        ?
-      </span>
-      <span class="pointer-events-none absolute right-0 top-6 w-52 rounded-md border border-[#0a5b5f] bg-[#001a1c] px-2.5 py-2 text-[11px] leading-relaxed text-gray-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
-        {text}
-      </span>
-    </span>
-  );
-  const InlineHelpTip = (text: string) => (
-    <span class="relative group inline-flex align-middle ml-2">
-      <span
-        class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#0a5b5f] bg-[#002629] text-[11px] font-bold text-[#7af4f4] shadow-sm shadow-black/30"
-        aria-label="Más información"
-      >
-        ?
-      </span>
-      <span class="pointer-events-none absolute left-1/2 top-6 z-20 w-52 -translate-x-1/2 rounded-md border border-[#0a5b5f] bg-[#001a1c] px-2.5 py-2 text-[11px] leading-relaxed text-gray-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
-        {text}
-      </span>
-    </span>
-  );
+  const radarMomentum = [...data.value.topVolume]
+    .sort((a: any, b: any) => regimeScore(b) - regimeScore(a))
+    .slice(0, 3);
+  const radarReversal = [...data.value.topVolume]
+    .filter((t: any) => n(t.percentChange24h) < 0 && n(t.percentChange7d) > 0)
+    .sort((a: any, b: any) => n(b.volume) - n(a.volume))
+    .slice(0, 3);
+  const radarVolume = [...data.value.topVolume]
+    .sort((a: any, b: any) => n(b.volume) - n(a.volume))
+    .slice(0, 3);
+  const HelpTip = (text: string) => <HelpTooltip text={text} placement="top-right" widthClass="w-52" />;
+  const InlineHelpTip = (text: string) => <HelpTooltip text={text} placement="inline" widthClass="w-52" />;
 
   return (
     <>
@@ -392,7 +359,10 @@ export default component$(() => {
                 {fullSyncBusy.value ? "Actualizando datos completos…" : "Actualizando mercado…"}
               </p>
               <p class="mt-2 text-xs text-slate-400 leading-relaxed">
-                Estamos refrescando rankings y métricas. Puede tardar varios minutos; mantén esta pestaña abierta.
+                {tx(
+                  "Estamos refrescando rankings y métricas. Puede tardar varios minutos; mantén esta pestaña abierta.",
+                  "Refreshing rankings and metrics. This can take several minutes; keep this tab open.",
+                )}
               </p>
             </div>
           </div>
@@ -402,21 +372,25 @@ export default component$(() => {
       <header class="flex flex-col gap-4 2xl:gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-xs font-medium uppercase tracking-wider text-[#04E6E6]/80">Crypto Helper</p>
-          <h1 class="text-3xl 2xl:text-4xl font-bold text-white mt-1">Overview</h1>
+          <h1 class="text-3xl 2xl:text-4xl font-bold text-white mt-1">{tx("Resumen", "Overview")}</h1>
           <p class="text-gray-400 text-sm 2xl:text-base mt-2 max-w-xl 2xl:max-w-2xl leading-relaxed">
-            Resumen de mercado, fichas de tokens, NFTs, cartera en Base, burbujas y herramientas para traders. Las
-            señales en vivo y el asistente IA están en el plan Pro.
+            {tx(
+              "Resumen de mercado, fichas de tokens, NFTs, cartera en Base, burbujas y herramientas para traders. Las señales en vivo y el asistente IA están en el plan Pro.",
+              "Market overview, token pages, NFTs, Base wallet, bubbles, and trader tools. Live signals and the AI assistant are part of Pro.",
+            )}
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
           {canFullSync ? (
             <>
               <span class="rounded-lg border border-[#043234] bg-[#001a1c] px-3 py-2 leading-snug">
-                <span class="text-[10px] uppercase tracking-wide text-gray-600">Última actualización de datos</span>
+                <span class="text-[10px] uppercase tracking-wide text-gray-600">
+                  {tx("Última actualización de datos", "Last data update")}
+                </span>
                 <span class="block text-gray-300 mt-0.5 tabular-nums">{lastSyncFinishedLabel}</span>
                 {lastSyncDurationLabel ? (
                   <span class="block text-gray-500 mt-0.5">
-                    Duración: <span class="text-gray-400">{lastSyncDurationLabel}</span>
+                    {tx("Duración", "Duration")}: <span class="text-gray-400">{lastSyncDurationLabel}</span>
                   </span>
                 ) : null}
               </span>
@@ -426,17 +400,20 @@ export default component$(() => {
                   disabled={anySyncBusy}
                   onClick$={runFullMarketSync}
                   class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                  title="Actualizar rankings de mercado y datos relacionados (operación de mantenimiento)"
+                  title={tx(
+                    "Actualizar rankings de mercado y datos relacionados (operación de mantenimiento)",
+                    "Refresh market rankings and related cached data (maintenance operation)",
+                  )}
                 >
                   {fullSyncBusy.value ? (
                     <>
                       <LuLoader2 class="h-3.5 w-3.5 animate-spin" />
-                      Actualizando…
+                      {tx("Actualizando…", "Updating…")}
                     </>
                   ) : (
                     <>
                       <LuRefreshCw class="h-3.5 w-3.5" />
-                      Actualizar datos
+                      {tx("Actualizar datos", "Update data")}
                     </>
                   )}
                 </button>
@@ -464,7 +441,9 @@ export default component$(() => {
               onClick$={goProOffer}
                 class="group relative w-full text-left rounded-xl border border-amber-500/35 bg-amber-950/10 p-4 2xl:p-5 transition hover:border-amber-400/50 hover:bg-amber-950/20"
             >
-              {HelpTip("Esta sección es Pro. Suscríbete para desbloquearla.")}
+              {HelpTip(
+                tx("Esta sección es Pro. Suscríbete para desbloquearla.", "This section is Pro. Subscribe to unlock it."),
+              )}
               <div class="flex items-start justify-between gap-2 pr-8">
                 <span class="rounded-lg bg-amber-500/20 p-2 text-amber-300">
                   <Icon class="h-5 w-5" />
@@ -474,7 +453,9 @@ export default component$(() => {
                 </span>
               </div>
               <h3 class="font-semibold text-white mt-3">{q.title}</h3>
-              <p class="pr-7 text-xs text-amber-100/75 mt-1 leading-relaxed">Disponible con suscripción Pro.</p>
+              <p class="pr-7 text-xs text-amber-100/75 mt-1 leading-relaxed">
+                {tx("Disponible con suscripción Pro.", "Available with Pro subscription.")}
+              </p>
             </button>
           ) : (
             <Link
@@ -504,18 +485,80 @@ export default component$(() => {
               }}
               class="rounded-lg border border-[#043234] bg-[#001a1c]/70 px-3 py-1.5 text-xs font-medium text-[#04E6E6] transition hover:border-[#04E6E6]/40 hover:bg-[#043234]/40"
             >
-              {showMoreSections.value ? "Ver menos secciones" : `Ver más secciones (${secondaryQuickLinks.length})`}
+              {showMoreSections.value
+                ? tx("Ver menos secciones", "Show fewer sections")
+                : tx(`Ver más secciones (${secondaryQuickLinks.length})`, `Show more sections (${secondaryQuickLinks.length})`)}
             </button>
           </div>
         ) : null}
       </div>
+
+      <section class="rounded-2xl border border-[#043234] bg-gradient-to-br from-[#001317] via-[#001117] to-[#000d10] p-4 sm:p-5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 class="inline-flex items-center text-sm font-semibold text-white">
+            Opportunity Radar
+            <HelpTooltip
+              text={tx(
+                "Señales visuales rápidas para encontrar oportunidades: momentum, reversión y liquidez.",
+                "Quick visual signals for opportunities: momentum, reversal, and liquidity.",
+              )}
+            />
+          </h2>
+          <span class="text-[11px] text-slate-500">{tx("Vista accionable", "Actionable view")}</span>
+        </div>
+        <div class="grid gap-3 lg:grid-cols-3">
+          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Momentum líder", "Momentum leaders")}</p>
+            <ul class="mt-2 space-y-2">
+              {radarMomentum.map((t: any) => (
+                <li key={`radar-m-${t.id}`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
+                    <span class="truncate text-xs text-slate-200">{t.symbol}</span>
+                    <MarketRegimeBadge score={regimeScore(t)} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Reversión potencial", "Potential reversals")}</p>
+            <ul class="mt-2 space-y-2">
+              {radarReversal.length === 0 ? (
+                <li class="text-xs text-slate-500">{tx("Sin señales claras ahora.", "No clear signals right now.")}</li>
+              ) : (
+                radarReversal.map((t: any) => (
+                  <li key={`radar-r-${t.id}`}>
+                    <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
+                      <span class="truncate text-xs text-slate-200">{t.symbol}</span>
+                      <span class="text-[10px] tabular-nums text-amber-300">{n(t.percentChange24h).toFixed(2)}% / {n(t.percentChange7d).toFixed(2)}%</span>
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Liquidez alta", "High liquidity")}</p>
+            <ul class="mt-2 space-y-2">
+              {radarVolume.map((t: any) => (
+                <li key={`radar-v-${t.id}`}>
+                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
+                    <span class="truncate text-xs text-slate-200">{t.symbol}</span>
+                    <span class="text-[10px] tabular-nums text-[#04E6E6]">{formatUsdLiquidity(t.volume)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <section class="overflow-x-auto pb-1">
         <div class={`grid gap-3 ${showBtcDominance ? "min-w-[980px] grid-cols-5" : "min-w-[780px] grid-cols-4"}`}>
           <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-3">
             {HelpTip(
               pulse.hasGlobalMetrics
-                ? "Capitalización global real desde CoinMarketCap global-metrics."
+                ? "Capitalización total del mercado agregada (métricas globales sincronizadas)."
                 : "Capitalización total de las monedas que ves en esta app.",
             )}
             <p class="text-[10px] uppercase tracking-wide text-gray-500">
@@ -531,7 +574,7 @@ export default component$(() => {
           <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-3">
             {HelpTip(
               pulse.hasGlobalMetrics
-                ? "Volumen global real de 24h desde CoinMarketCap global-metrics."
+                ? "Volumen de trading en 24h agregado a nivel de mercado (métricas globales sincronizadas)."
                 : "Volumen de 24h sumado de las monedas mostradas.",
             )}
             <p class="text-[10px] uppercase tracking-wide text-gray-500">
@@ -539,7 +582,7 @@ export default component$(() => {
             </p>
             <p class="text-lg font-semibold text-white mt-1 tabular-nums">${formatUsdBalance(pulse.volume24h)}</p>
             <p class="text-[11px] text-gray-500 mt-1">
-              {pulse.hasGlobalMetrics ? "Fuente: CoinMarketCap" : "Total de esta vista"}
+              {pulse.hasGlobalMetrics ? "Agregado global (24h)" : "Total de esta vista"}
             </p>
           </article>
           <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-3">
@@ -620,162 +663,6 @@ export default component$(() => {
               </tbody>
             </table>
           </div>
-        </section>
-      ) : null}
-
-      {showMoralisPanel ? (
-        <section class="rounded-xl border border-[#043234] bg-[#001a1c]/70 overflow-hidden space-y-4 p-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-white">Moralis · datos en caché</h2>
-            <span class="text-[10px] text-gray-500">
-              Actualizado en el sync auxiliar (sin llamadas Moralis al abrir esta ruta)
-            </span>
-          </div>
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
-                Trending · Ethereum
-              </div>
-              <ul class="divide-y divide-[#043234]/50 text-xs text-slate-300 max-h-[220px] overflow-y-auto">
-                {moralisTrendingEthRows.length === 0 ? (
-                  <li class="px-3 py-3 text-gray-500">Sin filas en snapshot.</li>
-                ) : (
-                  moralisTrendingEthRows.map((r, i) => (
-                    <li key={`m-te-${i}`} class="px-3 py-2">
-                      <span class="text-white">{moralisTokenLabel(r)}</span>
-                      {r.chain != null ? (
-                        <span class="ml-2 text-[10px] text-gray-500">{String(r.chain)}</span>
-                      ) : null}
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
-                Trending · Base
-              </div>
-              <ul class="divide-y divide-[#043234]/50 text-xs text-slate-300 max-h-[220px] overflow-y-auto">
-                {moralisTrendingBaseRows.length === 0 ? (
-                  <li class="px-3 py-3 text-gray-500">Sin filas en snapshot.</li>
-                ) : (
-                  moralisTrendingBaseRows.map((r, i) => (
-                    <li key={`m-tb-${i}`} class="px-3 py-2">
-                      <span class="text-white">{moralisTokenLabel(r)}</span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </div>
-          {moralisVolumeChainRows.length > 0 ? (
-            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
-                Volumen por cadena (Moralis)
-              </div>
-              <ul class="grid sm:grid-cols-2 md:grid-cols-3 gap-1 p-2 text-[11px] text-slate-300">
-                {moralisVolumeChainRows.map((r, i) => (
-                  <li key={`m-vc-${i}`} class="rounded border border-[#043234]/40 px-2 py-1.5">
-                    <span class="text-white font-medium">{String(r.chain ?? r.name ?? r.network ?? "—")}</span>
-                    {r.total_volume_usd_24h != null ? (
-                      <span class="block text-gray-500">
-                        Vol 24h ${formatUsdLiquidity(Number(r.total_volume_usd_24h))}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {moralisTokenSearchRows.length > 0 ? (
-            <div class="rounded-lg border border-[#043234]/80 overflow-hidden">
-              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
-                Búsqueda de tokens (sync)
-              </div>
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                  <thead class="bg-[#001317] text-[10px] uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th class="px-3 py-2 font-medium">Token</th>
-                      <th class="px-3 py-2 font-medium">Precio</th>
-                      <th class="px-3 py-2 font-medium">Vol 24h</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-[#043234]/70 text-slate-300">
-                    {moralisTokenSearchRows.map((r, i) => (
-                      <tr key={`m-ts-${i}`} class="hover:bg-[#001a1c]/60">
-                        <td class="px-3 py-2">
-                          <div class="font-medium text-white">{moralisTokenLabel(r)}</div>
-                          <div class="text-[10px] text-gray-500">{String(r.chain ?? "")}</div>
-                        </td>
-                        <td class="px-3 py-2">${formatTokenUsdPrice(Number(r.usd_price ?? r.price_usd ?? 0))}</td>
-                        <td class="px-3 py-2">${formatUsdLiquidity(Number(r.volume_24h_usd ?? r.total_volume_usd_24h ?? 0))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-          {moralisEntitySearchRows.length > 0 ? (
-            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
-                Entidades (búsqueda en sync)
-              </div>
-              <ul class="divide-y divide-[#043234]/50 text-xs p-0">
-                {moralisEntitySearchRows.map((r, i) => (
-                  <li key={`m-es-${i}`} class="px-3 py-2 text-slate-300">
-                    <span class="text-white">{String(r.name ?? r.entity_name ?? r.title ?? "—")}</span>
-                    {r.category != null ? (
-                      <span class="ml-2 text-[10px] text-gray-500">{String(r.category)}</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {(moralisPumpNewRows.length > 0 ||
-            moralisPumpBondRows.length > 0 ||
-            moralisPumpGradRows.length > 0) ? (
-            <div class="grid gap-3 md:grid-cols-3">
-              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-emerald-300/90">
-                  Solana pump.fun · new
-                </div>
-                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
-                  {moralisPumpNewRows.map((r, i) => (
-                    <li key={`m-pn-${i}`} class="px-3 py-1.5">
-                      {moralisTokenLabel(r)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-amber-200/90">
-                  pump.fun · bonding
-                </div>
-                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
-                  {moralisPumpBondRows.map((r, i) => (
-                    <li key={`m-pb-${i}`} class="px-3 py-1.5">
-                      {moralisTokenLabel(r)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
-                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-cyan-200/90">
-                  pump.fun · graduated
-                </div>
-                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
-                  {moralisPumpGradRows.map((r, i) => (
-                    <li key={`m-pg-${i}`} class="px-3 py-1.5">
-                      {moralisTokenLabel(r)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : null}
         </section>
       ) : null}
 
@@ -950,7 +837,7 @@ export default component$(() => {
               {InlineHelpTip("Monedas con mayor volumen de trading en 24h.")}
             </h2>
             <Link href={`${base}/volume-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -974,6 +861,8 @@ export default component$(() => {
                       <div class="text-[#04E6E6] text-sm">${formatTokenUsdPrice(t.price)}</div>
                       <div class="text-gray-500 text-xs">{formatUsdLiquidity(t.volume)}</div>
                     </div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -981,9 +870,9 @@ export default component$(() => {
           </ul>
           {data.value.topVolume.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("topVolume")} / {totalPagesFor(data.value.topVolume)}</span>
-              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("topVolume", data.value.topVolume.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -995,7 +884,7 @@ export default component$(() => {
               {InlineHelpTip("Monedas que más se movieron en los últimos 7 días.")}
             </h2>
             <Link href={`${base}/trending-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1015,11 +904,14 @@ export default component$(() => {
                       <div class="font-medium text-white truncate">
                         {t.name} <span class="text-gray-500 text-sm">({t.symbol})</span>
                       </div>
-                      <div class="text-xs text-amber-200/80">7d {t.percentChange7d ?? "—"}%</div>
+                      <div class="text-xs text-slate-500">{t.network}</div>
                     </div>
                     <div class="text-right shrink-0 text-sm text-[#04E6E6]">
                       ${formatTokenUsdPrice(t.price)}
                     </div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketRegimeBadge score={regimeScore(t)} />
+                    <MarketChangePill value={t.percentChange7d} label="7d" />
                   </Link>
                 </li>
               ))
@@ -1027,9 +919,9 @@ export default component$(() => {
           </ul>
           {data.value.trending.rows.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("trending")} / {totalPagesFor(data.value.trending.rows)}</span>
-              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("trending", data.value.trending.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1043,7 +935,7 @@ export default component$(() => {
               {InlineHelpTip("Monedas meme con su precio y red principal.")}
             </h2>
             <Link href={`${base}/meme-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1064,6 +956,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1071,9 +965,9 @@ export default component$(() => {
           </ul>
           {data.value.meme.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("meme")} / {totalPagesFor(data.value.meme)}</span>
-              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("meme", data.value.meme.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1085,7 +979,7 @@ export default component$(() => {
               {InlineHelpTip("Monedas de IA y big data con precios actualizados.")}
             </h2>
             <Link href={`${base}/ai-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1106,6 +1000,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1113,9 +1009,9 @@ export default component$(() => {
           </ul>
           {data.value.ai.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("ai")} / {totalPagesFor(data.value.ai)}</span>
-              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("ai", data.value.ai.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1126,7 +1022,7 @@ export default component$(() => {
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">New listings</h2>
             <Link href={`${base}/earlybird-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1142,6 +1038,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1149,9 +1047,9 @@ export default component$(() => {
           </ul>
           {data.value.earlybird.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("earlybird")} / {totalPagesFor(data.value.earlybird)}</span>
-              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("earlybird", data.value.earlybird.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1160,7 +1058,7 @@ export default component$(() => {
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">Most visited</h2>
             <Link href={`${base}/most-visit-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1176,6 +1074,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1183,9 +1083,9 @@ export default component$(() => {
           </ul>
           {data.value.mostVisited.rows.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("mostVisited")} / {totalPagesFor(data.value.mostVisited.rows)}</span>
-              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("mostVisited", data.value.mostVisited.rows.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1196,7 +1096,7 @@ export default component$(() => {
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">Gaming</h2>
             <Link href={`${base}/gaming-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1212,6 +1112,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1219,9 +1121,9 @@ export default component$(() => {
           </ul>
           {data.value.gaming.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("gaming")} / {totalPagesFor(data.value.gaming)}</span>
-              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("gaming", data.value.gaming.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1230,7 +1132,7 @@ export default component$(() => {
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#043234]">
             <h2 class="text-sm font-semibold text-white">Mineable</h2>
             <Link href={`${base}/mineable-coins/`} class="text-xs text-[#04E6E6] hover:underline">
-              Ver tabla
+              {tx("Ver tabla","View table")}
             </Link>
           </div>
           <ul class="divide-y divide-[#043234]/80">
@@ -1246,6 +1148,8 @@ export default component$(() => {
                       <div class="text-xs text-gray-500 truncate">{t.network}</div>
                     </div>
                     <div class="text-[#04E6E6] text-sm shrink-0">${formatTokenUsdPrice(t.price)}</div>
+                    <MiniSparkline points={sparkFromToken(t)} />
+                    <MarketChangePill value={t.percentChange24h} label="24h" />
                   </Link>
                 </li>
               ))
@@ -1253,9 +1157,9 @@ export default component$(() => {
           </ul>
           {data.value.mineable.length > PAGE_SIZE ? (
             <div class="flex items-center justify-between px-4 py-2 border-t border-[#043234] text-xs text-gray-400">
-              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Anterior</button>
+              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, -1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Anterior","Previous")}</button>
               <span>Página {pageOf("mineable")} / {totalPagesFor(data.value.mineable)}</span>
-              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">Siguiente</button>
+              <button type="button" onClick$={() => changePage("mineable", data.value.mineable.length, 1)} class="rounded px-2 py-1 border border-[#043234] hover:bg-[#043234]/50">{tx("Siguiente","Next")}</button>
             </div>
           ) : null}
         </section>
@@ -1341,3 +1245,4 @@ export default component$(() => {
     </>
   );
 });
+

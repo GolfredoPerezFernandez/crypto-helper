@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   "/earlybird-coins/",
   "/most-visit-coins/",
   "/volume-coins/",
+  "/whale-alert/",
 ] as const;
 
 function xmlEscape(value: string): string {

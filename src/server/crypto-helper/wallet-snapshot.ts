@@ -849,14 +849,18 @@ export function chainFiltersPresentInRows(rows: CrossChainTokenRow[]): Exclude<W
 export type WalletChartSlice = { label: string; value: number; color: string };
 
 export const WALLET_CHART_COLORS = [
-  "#04E6E6",
-  "#34d399",
-  "#5eead4",
-  "#10b981",
-  "#2dd4bf",
-  "#6ee7b7",
-  "#14b8a6",
-  "#a7f3d0",
+  "#22d3ee", // cyan
+  "#a78bfa", // violet
+  "#f472b6", // pink
+  "#f59e0b", // amber
+  "#34d399", // emerald
+  "#60a5fa", // blue
+  "#fb7185", // rose
+  "#facc15", // yellow
+  "#c084fc", // purple
+  "#2dd4bf", // teal
+  "#f97316", // orange
+  "#93c5fd", // light blue
 ];
 
 function nwChainUsd(c: Record<string, unknown>): number {
