@@ -24,7 +24,18 @@ import {
 import { EvmAddrLinks, TxHashLink, txExplorerBase } from "~/components/crypto-dashboard/evm-dash-links";
 import { upsertWatchlistItem } from "~/server/watchlist-actions";
 import { MiniSparkline } from "~/components/crypto-dashboard/mini-sparkline";
-import { LuWaves } from "@qwikest/icons/lucide";
+import {
+  LuBadgeCheck,
+  LuCalendar,
+  LuCopy,
+  LuExternalLink,
+  LuFileText,
+  LuGlobe,
+  LuLayers,
+  LuLink2,
+  LuSearch,
+  LuWaves,
+} from "@qwikest/icons/lucide";
 
 const CAT_LABEL: Record<string, string> = {
   memes: "Meme",
@@ -175,6 +186,32 @@ function holderWallet(r: Record<string, unknown>): string {
 
 function gainerWallet(r: Record<string, unknown>): string {
   return String(r.address ?? r.wallet_address ?? r.wallet ?? "").toLowerCase();
+}
+
+/** Shorter display for large token amounts (holder balances, transfer values). */
+function formatCompactAmount(raw: unknown): string {
+  if (raw == null) return "—";
+  const n = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, "").replace(/\s/g, ""));
+  if (!Number.isFinite(n)) return String(raw);
+  const abs = Math.abs(n);
+  if (abs >= 1e12)
+    return `${(n / 1e12).toLocaleString(undefined, { maximumFractionDigits: 3 })}T`;
+  if (abs >= 1e9)
+    return `${(n / 1e9).toLocaleString(undefined, { maximumFractionDigits: 3 })}B`;
+  if (abs >= 1e6)
+    return `${(n / 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 })}M`;
+  if (abs >= 1e3) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (abs >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return n.toLocaleString(undefined, { maximumSignificantDigits: 8 });
+}
+
+function holderSharePct(balanceRaw: unknown, totalSupplyStr: string | undefined): string | null {
+  const total = Number(String(totalSupplyStr ?? "").replace(/,/g, ""));
+  const bal = Number(String(balanceRaw ?? "").replace(/,/g, ""));
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(bal)) return null;
+  const pct = (bal / total) * 100;
+  if (!Number.isFinite(pct) || pct <= 0) return null;
+  return pct < 0.0001 ? "<0.0001%" : `${pct.toLocaleString(undefined, { maximumFractionDigits: 4 })}%`;
 }
 
 function shortenContract(addr: string): string {
@@ -423,17 +460,17 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     ok: false as const,
     error: "Sin datos on-chain en caché (contrato, claves del servidor o fila antigua).",
   };
-  const topGainers = snap?.topGainers ?? evmOrSnapHint;
-  const owners = snap?.owners ?? evmOrSnapHint;
+  let topGainers = snap?.topGainers ?? evmOrSnapHint;
+  let owners = snap?.owners ?? evmOrSnapHint;
   const moralisPrice = snap?.moralisPrice ?? evmOrSnapHint;
-  const moralisTransfers = snap?.moralisTransfers ?? evmOrSnapHint;
+  let moralisTransfers = snap?.moralisTransfers ?? evmOrSnapHint;
   const moralisMeta = snap?.moralisMeta ?? evmOrSnapHint;
-  const moralisSwaps =
+  let moralisSwaps =
     snap?.moralisSwaps ??
     ({
       ok: false as const,
       error:
-        "Sin swaps en caché. Vuelve a ejecutar la actualización o usa la carga en vivo si está disponible.",
+        "Sin swaps en caché. Activa MORALIS_SYNC_TOKEN_SWAPS=1 en el sync o MORALIS_TOKEN_PAGE_LIVE_SWAPS=1 en el servidor para esta vista.",
     } as const);
 
   const moralisTokenAnalytics =
@@ -443,6 +480,70 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
       error:
         "Sin analytics en caché. Prueba la carga en vivo o espera a la próxima actualización.",
     } as const);
+
+  const addr = String(row.address || "").trim().toLowerCase();
+  const evm = /^0x[a-f0-9]{40}$/.test(addr);
+  const moralisKey = Boolean(process.env.MORALIS_API_KEY?.trim());
+  const liveSwapsOn = /^1|true|yes$/i.test(String(process.env.MORALIS_TOKEN_PAGE_LIVE_SWAPS ?? ""));
+
+  if (evm && moralisKey) {
+    const {
+      fetchMoralisErc20Transfers,
+      fetchMoralisErc20Swaps,
+      fetchMoralisErc20TopGainers,
+      fetchMoralisErc20Owners,
+    } = await import("~/server/crypto-helper/moralis-api");
+    const {
+      isStaleMoralisOrderCacheError,
+      tokenSnapshotNeverHadSwaps,
+      ownersLimitForTokenSync,
+    } = await import("~/server/crypto-helper/token-detail-moralis-heal");
+
+    let healed = false;
+
+    if (!moralisTransfers.ok && isStaleMoralisOrderCacheError(moralisTransfers.error)) {
+      moralisTransfers = await fetchMoralisErc20Transfers(addr, moralisChain, 25);
+      healed = true;
+    }
+    if (!owners.ok && isStaleMoralisOrderCacheError(owners.error)) {
+      owners = await fetchMoralisErc20Owners(addr, moralisChain, ownersLimitForTokenSync());
+      healed = true;
+    }
+    if (!topGainers.ok && isStaleMoralisOrderCacheError(topGainers.error)) {
+      topGainers = await fetchMoralisErc20TopGainers(addr, moralisChain, 20);
+      healed = true;
+    }
+
+    const shouldFetchSwapsLive =
+      (!moralisSwaps.ok && isStaleMoralisOrderCacheError(moralisSwaps.error)) ||
+      (liveSwapsOn && tokenSnapshotNeverHadSwaps(snap));
+
+    if (shouldFetchSwapsLive) {
+      moralisSwaps = await fetchMoralisErc20Swaps(addr, moralisChain, 18, "DESC");
+      healed = true;
+    }
+
+    if (healed) {
+      const prev = parseTokenApiSnapshot(row.apiSnapshot ?? null) ?? {};
+      const merged = {
+        ...prev,
+        topGainers,
+        owners,
+        moralisTransfers,
+        moralisSwaps,
+        moralisChain,
+        syncedAt: Math.floor(Date.now() / 1000),
+      };
+      try {
+        await db
+          .update(cachedMarketTokens)
+          .set({ apiSnapshot: JSON.stringify(merged) })
+          .where(eq(cachedMarketTokens.id, id));
+      } catch (e) {
+        console.error("[useTokenDetailLoader] persist healed snapshot", e);
+      }
+    }
+  }
 
   const {
     getGlobalSnapshotJson,
@@ -503,6 +604,7 @@ export default component$(() => {
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
   const t = token.value as Record<string, unknown>;
+  const totalSupplyStr = String(t.totalSupply ?? "");
   const cat = String(t.category || "");
   const seg = CATEGORY_DASHBOARD_PATH[cat];
 
@@ -544,8 +646,35 @@ export default component$(() => {
       transfersSnapshotFailed: tr(
         "transfersSnapshotFailed@@Could not load cached transfers.",
       ),
+      colWhen: tr("colWhen@@When"),
+      colBlock: tr("colBlock@@Block"),
+      holderRank: tr("holderRank@@#"),
+      holderOwner: tr("holderOwner@@Owner"),
+      supplyPct: tr("supplyPct@@% supply"),
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
+      tradersNoData: tr(
+        "tradersNoData@@Moralis has no indexed profit data for this pair yet, or the sync has not run.",
+      ),
       swapsDex: tr("swapsDex@@DEX swaps"),
+      swapsEnvHint: tr(
+        "swapsEnvHint@@To load DEX swaps on this page, set MORALIS_TOKEN_PAGE_LIVE_SWAPS=1 on the server, or MORALIS_SYNC_TOKEN_SWAPS=1 in the daily sync (then re-sync).",
+      ),
+      resourcesCardTitle: tr("resourcesCardTitle@@Resources & information"),
+      resourcesQuickLinks: tr("resourcesQuickLinks@@Quick links"),
+      resourcesAbout: tr("resourcesAbout@@About"),
+      resourcesContract: tr("resourcesContract@@Contract"),
+      resourcesCopy: tr("resourcesCopy@@Copy"),
+      resourcesCopied: tr("resourcesCopied@@Copied"),
+      resourcesSeeMore: tr("resourcesSeeMore@@Show full description"),
+      resourcesSeeLess: tr("resourcesSeeLess@@Collapse"),
+      resourcesMarketSnap: tr("resourcesMarketSnap@@Market snapshot"),
+      resourcesMcap: tr("resourcesMcap@@Market cap"),
+      resourcesCreated: tr("resourcesCreated@@Contract deployed"),
+      resourcesOtherChains: tr("resourcesOtherChains@@Bridged / other chains"),
+      resourcesWebsite: tr("resourcesWebsite@@Website"),
+      resourcesExplorer: tr("resourcesExplorer@@Explorer"),
+      resourcesDex: tr("resourcesDex@@DEX chart"),
+      resourcesVerified: tr("resourcesVerified@@Verified"),
     };
   });
   const back = seg ? `/${L}/${seg}/` : `/${L}/home/`;
@@ -554,6 +683,8 @@ export default component$(() => {
   const dexEmbedUrl = dexScreenerEmbedUrl(String(t.network), String(t.address));
   const moralisChain = String(t.moralisChain ?? "base");
   const tab = useSignal<TabId>("overview");
+  const resourceDescExpanded = useSignal(false);
+  const resourcesCopied = useSignal(false);
   /** Sidebar ref + dynamic chart height: chart matches sidebar height on lg+ screens. */
   const sidebarRef = useSignal<HTMLElement>();
   const chartHeight = useSignal<number>(620);
@@ -1067,76 +1198,205 @@ export default component$(() => {
             const isVerified = morMeta0?.verified_contract === true || String(morMeta0?.verified_contract) === "true";
             const isSpam = morMeta0?.possible_spam === true || String(morMeta0?.possible_spam) === "true";
             const createdRaw = morMeta0?.created_at;
-            const hasAnything = urls.website || urls.explorer || urls.desc || dexUrl || socialEntries.length > 0 || categories.length > 0 || isVerified || isSpam || createdRaw;
+            const hasAddr = Boolean(String(t.address || "").trim());
+            const hasAnything =
+              hasAddr ||
+              urls.website ||
+              urls.explorer ||
+              urls.desc ||
+              dexUrl ||
+              socialEntries.length > 0 ||
+              categories.length > 0 ||
+              isVerified ||
+              isSpam ||
+              createdRaw;
             if (!hasAnything) return null;
+            const descText = urls.desc ? String(urls.desc) : "";
+            const descLong = descText.length > 280;
+            const sym = String(t.symbol ?? "");
+            const netLabel = String(t.network ?? "—");
             return (
-              <div class="mt-3 rounded-lg border border-[#0d5357]/55 bg-black/35 p-2.5 space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recursos</div>
-                  <div class="flex items-center gap-1">
+              <div class="mt-4 rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-[#001f24]/95 via-[#001319] to-[#00080c] p-4 shadow-xl shadow-black/40 ring-1 ring-white/[0.04] space-y-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/25 to-cyan-600/10 text-cyan-200 ring-1 ring-cyan-400/35">
+                      <LuLayers class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <h3 class="text-sm font-bold tracking-tight text-white leading-tight">{tp.value.resourcesCardTitle}</h3>
+                      <p class="mt-1 text-[11px] text-slate-400 leading-snug">
+                        <span class={`inline-flex items-center gap-1 rounded-md px-1.5 py-px ${chainBadgeClass(moralisChain)}`}>
+                          {netLabel}
+                        </span>
+                        {sym ? (
+                          <span class="text-slate-500">
+                            {" "}
+                            · {sym}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-center justify-end gap-1.5">
                     {isVerified ? (
-                      <span class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-500/30">
-                        Verificado
+                      <span class="inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+                        <LuBadgeCheck class="h-3.5 w-3.5" />
+                        {tp.value.resourcesVerified}
                       </span>
                     ) : null}
                     {isSpam ? (
-                      <span class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/35">
+                      <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/35">
                         Spam?
                       </span>
                     ) : null}
                   </div>
                 </div>
-                {(urls.website || urls.explorer || dexUrl || socialEntries.length > 0) ? (
-                  <div class="flex flex-wrap gap-1">
-                    {urls.website ? (
-                      <a
-                        href={urls.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
-                      >
-                        Web ↗
-                      </a>
-                    ) : null}
-                    {urls.explorer ? (
-                      <a
-                        href={urls.explorer}
-                        target="_blank"
-                        rel="noreferrer"
-                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
-                      >
-                        Explorador ↗
-                      </a>
-                    ) : null}
-                    {dexUrl ? (
-                      <a
-                        href={dexUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
-                      >
-                        DEX ↗
-                      </a>
-                    ) : null}
-                    {socialEntries.slice(0, 6).map((s, i) => (
-                      <a
-                        key={`soc-${i}`}
-                        href={s.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/40 bg-black/30 px-1.5 py-0.5 text-[9px] font-medium text-slate-300 hover:bg-cyan-500/10 hover:border-cyan-400/45 hover:text-cyan-100 transition-colors"
-                      >
-                        {s.label} ↗
-                      </a>
-                    ))}
+
+                {live &&
+                (live.price != null ||
+                  live.pct24 != null ||
+                  live.mcap != null ||
+                  live.vol24 != null ||
+                  live.rank != null) ? (
+                  <div class="rounded-xl border border-[#0d5357]/60 bg-black/45 px-3 py-3">
+                    <div class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <LuFileText class="h-3.5 w-3.5 text-cyan-400/80" />
+                      {tp.value.resourcesMarketSnap}
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {live.price != null ? (
+                        <div>
+                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.price}</div>
+                          <div class="text-[15px] font-bold tabular-nums text-white leading-tight">
+                            ${formatTokenUsdPrice(live.price)}
+                          </div>
+                        </div>
+                      ) : null}
+                      {live.pct24 != null ? (
+                        <div>
+                          <div class="text-[10px] uppercase tracking-wide text-slate-500">24h</div>
+                          <div class={`text-[15px] font-bold tabular-nums leading-tight ${percentToneClass(live.pct24)}`}>
+                            {live.pct24 > 0 ? "+" : ""}
+                            {live.pct24.toFixed(2)}%
+                          </div>
+                        </div>
+                      ) : null}
+                      {live.mcap != null ? (
+                        <div>
+                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.resourcesMcap}</div>
+                          <div class="text-[13px] font-semibold tabular-nums text-slate-100 leading-tight">
+                            {formatUsdLiquidity(live.mcap)}
+                          </div>
+                        </div>
+                      ) : null}
+                      {live.vol24 != null ? (
+                        <div>
+                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.volume}</div>
+                          <div class="text-[13px] font-semibold tabular-nums text-slate-100 leading-tight">
+                            {formatUsdLiquidity(live.vol24)}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
+
+                {hasAddr ? (
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-[#0d5357]/55 bg-[#000d10]/80 px-3 py-2.5">
+                    <div class="min-w-0 flex-1">
+                      <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{tp.value.resourcesContract}</div>
+                      <code class="mt-0.5 block font-mono text-[12px] text-cyan-100/95 truncate" title={String(t.address)}>
+                        {String(t.address)}
+                      </code>
+                    </div>
+                    <button
+                      type="button"
+                      class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 transition-colors"
+                      aria-label={tp.value.resourcesCopy}
+                      onClick$={$(async () => {
+                        try {
+                          await navigator.clipboard.writeText(String(t.address));
+                          resourcesCopied.value = true;
+                          window.setTimeout(() => {
+                            resourcesCopied.value = false;
+                          }, 2000);
+                        } catch {
+                          /** clipboard denied */
+                        }
+                      })}
+                    >
+                      <LuCopy class="h-3.5 w-3.5" />
+                      {resourcesCopied.value ? tp.value.resourcesCopied : tp.value.resourcesCopy}
+                    </button>
+                  </div>
+                ) : null}
+
+                {(urls.website || urls.explorer || dexUrl || socialEntries.length > 0) ? (
+                  <div>
+                    <div class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <LuLink2 class="h-3.5 w-3.5 text-violet-300/90" />
+                      {tp.value.resourcesQuickLinks}
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {urls.website ? (
+                        <a
+                          href={urls.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          class="group flex items-center gap-2 rounded-xl border border-[#0d5357]/55 bg-[#000d10]/70 px-3 py-2.5 text-[13px] font-semibold text-slate-100 transition-all hover:border-cyan-400/45 hover:bg-cyan-500/[0.08]"
+                        >
+                          <LuGlobe class="h-4 w-4 shrink-0 text-cyan-400" />
+                          <span class="truncate">{tp.value.resourcesWebsite}</span>
+                          <LuExternalLink class="ml-auto h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100" />
+                        </a>
+                      ) : null}
+                      {urls.explorer ? (
+                        <a
+                          href={urls.explorer}
+                          target="_blank"
+                          rel="noreferrer"
+                          class="group flex items-center gap-2 rounded-xl border border-[#0d5357]/55 bg-[#000d10]/70 px-3 py-2.5 text-[13px] font-semibold text-slate-100 transition-all hover:border-cyan-400/45 hover:bg-cyan-500/[0.08]"
+                        >
+                          <LuSearch class="h-4 w-4 shrink-0 text-sky-400" />
+                          <span class="truncate">{tp.value.resourcesExplorer}</span>
+                          <LuExternalLink class="ml-auto h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100" />
+                        </a>
+                      ) : null}
+                      {dexUrl ? (
+                        <a
+                          href={dexUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          class="group flex items-center gap-2 rounded-xl border border-[#0d5357]/55 bg-[#000d10]/70 px-3 py-2.5 text-[13px] font-semibold text-slate-100 transition-all hover:border-cyan-400/45 hover:bg-cyan-500/[0.08]"
+                        >
+                          <LuWaves class="h-4 w-4 shrink-0 text-emerald-400" />
+                          <span class="truncate">{tp.value.resourcesDex}</span>
+                          <LuExternalLink class="ml-auto h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100" />
+                        </a>
+                      ) : null}
+                      {socialEntries.slice(0, 8).map((s, i) => (
+                        <a
+                          key={`soc-${i}`}
+                          href={s.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          class="group flex items-center gap-2 rounded-xl border border-[#0d5357]/45 bg-black/35 px-3 py-2.5 text-[13px] font-medium text-slate-200 transition-all hover:border-violet-400/40 hover:bg-violet-500/[0.07]"
+                        >
+                          <LuLink2 class="h-4 w-4 shrink-0 text-violet-300/90" />
+                          <span class="truncate">{s.label}</span>
+                          <LuExternalLink class="ml-auto h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {categories.length > 0 ? (
-                  <div class="flex flex-wrap gap-1">
-                    {categories.slice(0, 5).map((c, i) => (
+                  <div class="flex flex-wrap gap-2">
+                    {categories.slice(0, 8).map((c, i) => (
                       <span
                         key={`cat-${i}`}
-                        class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#043234]/55 text-slate-300 border border-[#043234]/80 truncate max-w-[10rem]"
+                        class="rounded-full border border-slate-600/50 bg-slate-900/60 px-2.5 py-1 text-[11px] font-medium text-slate-200 shadow-sm truncate max-w-[14rem]"
                         title={c}
                       >
                         {c}
@@ -1150,12 +1410,12 @@ export default component$(() => {
                     : [];
                   if (impls.length === 0) return null;
                   return (
-                    <div class="border-t border-[#043234]/40 pt-1.5 space-y-1">
+                    <div class="rounded-xl border border-[#0d5357]/45 bg-black/30 px-3 py-2.5 space-y-2">
                       <div class="flex items-center justify-between gap-2">
-                        <span class="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
-                          Disponible en otras redes
+                        <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          {tp.value.resourcesOtherChains}
                         </span>
-                        <span class="text-[9px] tabular-nums text-slate-400">{impls.length}</span>
+                        <span class="text-[10px] tabular-nums font-semibold text-slate-500">{impls.length}</span>
                       </div>
                       <div class="flex flex-wrap gap-1">
                         {impls.slice(0, 8).map((imp, i) => {
@@ -1200,15 +1460,44 @@ export default component$(() => {
                   );
                 })()}
                 {createdRaw ? (
-                  <div class="flex items-center justify-between gap-2 text-[9px] border-t border-[#043234]/40 pt-1.5">
-                    <span class="text-slate-500 uppercase tracking-wider font-semibold">Contrato creado</span>
-                    <span class="text-slate-300 truncate" title={String(createdRaw)}>{formatDateMaybe(createdRaw)}</span>
+                  <div class="flex items-center justify-between gap-3 rounded-xl border border-[#0d5357]/45 bg-black/25 px-3 py-2.5">
+                    <span class="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <LuCalendar class="h-4 w-4 text-cyan-400/90 shrink-0" />
+                      {tp.value.resourcesCreated}
+                    </span>
+                    <span class="text-[12px] font-medium text-slate-100 tabular-nums text-right" title={String(createdRaw)}>
+                      {formatDateMaybe(createdRaw)}
+                    </span>
                   </div>
                 ) : null}
-                {urls.desc ? (
-                  <p class="text-[10px] text-slate-400 leading-relaxed line-clamp-3 border-t border-[#043234]/40 pt-1.5" title={urls.desc}>
-                    {urls.desc}
-                  </p>
+                {descText ? (
+                  <div class="border-t border-cyan-500/15 pt-3">
+                    <div class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <LuFileText class="h-3.5 w-3.5 text-slate-400" />
+                      {tp.value.resourcesAbout}
+                    </div>
+                    <p
+                      class={
+                        resourceDescExpanded.value
+                          ? "text-[12px] text-slate-300/95 leading-relaxed whitespace-pre-line"
+                          : "text-[12px] text-slate-300/95 leading-relaxed line-clamp-6"
+                      }
+                      title={descLong && !resourceDescExpanded.value ? descText : undefined}
+                    >
+                      {descText}
+                    </p>
+                    {descLong ? (
+                      <button
+                        type="button"
+                        class="mt-2 text-[11px] font-semibold text-cyan-400 hover:text-cyan-200 underline-offset-2 hover:underline"
+                        onClick$={$(() => {
+                          resourceDescExpanded.value = !resourceDescExpanded.value;
+                        })}
+                      >
+                        {resourceDescExpanded.value ? tp.value.resourcesSeeLess : tp.value.resourcesSeeMore}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             );
@@ -1439,37 +1728,60 @@ export default component$(() => {
       </div>
 
       {tab.value === "overview" ? (
-        <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
-          <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">{tp.value.recentTransfers}</h2>
-          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Transferencias recientes del token en <span class="font-mono">{moralisChain}</span>.
-          </p>
-          <div class="overflow-x-auto text-xs font-mono">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                  <th class="py-2 pr-2">{tp.value.colTx}</th>
-                  <th class="py-2 pr-2">{tp.value.colFrom}</th>
-                  <th class="py-2 pr-2">{tp.value.colTo}</th>
-                  <th class="py-2">{tp.value.colValue}</th>
+        <section class="mt-6 rounded-2xl border border-[#0d5357]/70 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25" role="tabpanel">
+          <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.recentTransfers}</h2>
+              <p class="text-xs text-slate-400 mt-1 leading-relaxed max-w-xl">
+                On-chain ERC-20 transfers on <span class="font-mono text-cyan-100/90">{moralisChain}</span>
+                {syncedAtLabel ? (
+                  <span class="text-slate-500">
+                    {" "}
+                    · snapshot {syncedAtLabel}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          </header>
+          <div class="overflow-x-auto rounded-xl border border-[#0d5357]/60 bg-[#000d10]/55">
+            <table class="w-full min-w-[880px] text-left text-[13px]">
+              <thead class="sticky top-0 z-10 bg-[#00151a]/98 text-[10px] uppercase tracking-wide text-slate-400 backdrop-blur-sm border-b border-[#0d5357]/80">
+                <tr>
+                  <th class="px-3 py-2.5 font-semibold">{tp.value.colTx}</th>
+                  <th class="px-3 py-2.5 font-semibold">{tp.value.colWhen}</th>
+                  <th class="px-3 py-2.5 font-semibold text-right">{tp.value.colBlock}</th>
+                  <th class="px-3 py-2.5 font-semibold">{tp.value.colFrom}</th>
+                  <th class="px-3 py-2.5 font-semibold">{tp.value.colTo}</th>
+                  <th class="px-3 py-2.5 font-semibold text-right">{tp.value.colValue}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="text-slate-200">
                 {transferRows.length > 0 ? (
                   transferRows.map((r: Record<string, unknown>, i: number) => {
                     const h = String(r.transaction_hash ?? r.hash ?? i);
+                    const tsRaw = r.block_timestamp ?? r.blockTimestamp ?? r.timestamp;
+                    const blk = r.block_number ?? r.blockNumber;
                     return (
-                      <tr key={h} class="border-b border-[#043234]/40 text-slate-200">
-                        <td class="py-2 pr-2">
+                      <tr
+                        key={h}
+                        class="border-t border-[#043234]/35 odd:bg-black/[0.12] hover:bg-cyan-500/[0.06] transition-colors"
+                      >
+                        <td class="px-3 py-2.5 align-top">
                           <TxHashLink
                             locale={L}
                             moralisChain={moralisChain}
                             hash={h}
                             mode="hash10"
-                            linkClass="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline"
+                            linkClass="font-mono text-[12px] font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline"
                           />
                         </td>
-                        <td class="py-2 pr-2 align-top max-w-[140px]">
+                        <td class="px-3 py-2.5 align-top text-[12px] text-slate-300 whitespace-nowrap">
+                          {formatDateMaybe(tsRaw)}
+                        </td>
+                        <td class="px-3 py-2.5 align-top text-right font-mono text-[11px] text-slate-400 tabular-nums">
+                          {blk != null && String(blk).trim() ? String(blk) : "—"}
+                        </td>
+                        <td class="px-3 py-2.5 align-top max-w-[min(200px,28vw)]">
                           <EvmAddrLinks
                             locale={L}
                             moralisChain={moralisChain}
@@ -1477,7 +1789,7 @@ export default component$(() => {
                             variant="wallet"
                           />
                         </td>
-                        <td class="py-2 pr-2 align-top max-w-[140px]">
+                        <td class="px-3 py-2.5 align-top max-w-[min(200px,28vw)]">
                           <EvmAddrLinks
                             locale={L}
                             moralisChain={moralisChain}
@@ -1485,20 +1797,22 @@ export default component$(() => {
                             variant="wallet"
                           />
                         </td>
-                        <td class="py-2">{String(r.value_decimal ?? r.value ?? "—")}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-slate-100 font-medium">
+                          {formatCompactAmount(r.value_decimal ?? r.value)}
+                        </td>
                       </tr>
                     );
                   })
                 ) : mt?.ok ? (
                   <tr>
-                    <td colSpan={4} class="py-10 text-center text-slate-400">
+                    <td colSpan={6} class="px-3 py-12 text-center text-slate-400">
                       {tp.value.noTransfersSnapshot}
                     </td>
                   </tr>
                 ) : (
                   <tr>
-                    <td colSpan={4} class="py-10 text-center text-slate-400">
-                      <p class="text-slate-300 mb-2">{tp.value.transfersSnapshotFailed}</p>
+                    <td colSpan={6} class="px-3 py-12 text-center text-slate-400">
+                      <p class="text-slate-200 mb-2 font-medium">{tp.value.transfersSnapshotFailed}</p>
                       {mt?.error ? (
                         <p class="text-slate-500 text-xs font-mono break-words max-w-xl mx-auto leading-relaxed">
                           {String(mt.error)}
@@ -1547,47 +1861,66 @@ export default component$(() => {
       ) : null}
 
       {tab.value === "holders" ? (
-        <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
-          <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">Token holders</h2>
-          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Principales holders en <span class="font-mono">{moralisChain}</span>.
-          </p>
-          <div class="overflow-x-auto text-xs">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                  <th class="py-2 pr-2">Owner</th>
-                  <th class="py-2">Balance</th>
+        <section class="mt-6 rounded-2xl border border-[#0d5357]/70 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25" role="tabpanel">
+          <header class="mb-4">
+            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.tabHolders}</h2>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed max-w-xl">
+              Top token balances on <span class="font-mono text-cyan-100/90">{moralisChain}</span> (Moralis
+              token owners).{""}
+              {totalSupplyStr ? (
+                <span class="text-slate-500"> % supply uses CMC total supply when available.</span>
+              ) : null}
+            </p>
+          </header>
+          <div class="overflow-x-auto rounded-xl border border-[#0d5357]/60 bg-[#000d10]/55">
+            <table class="w-full min-w-[640px] text-left text-[13px]">
+              <thead class="sticky top-0 z-10 bg-[#00151a]/98 text-[10px] uppercase tracking-wide text-slate-400 backdrop-blur-sm border-b border-[#0d5357]/80">
+                <tr>
+                  <th class="px-3 py-2.5 w-10 text-center font-semibold">{tp.value.holderRank}</th>
+                  <th class="px-3 py-2.5 font-semibold">{tp.value.holderOwner}</th>
+                  <th class="px-3 py-2.5 text-right font-semibold">{tp.value.colValue}</th>
+                  <th class="px-3 py-2.5 text-right font-semibold">{tp.value.supplyPct}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="text-slate-200">
                 {owners?.ok && holderRows.length > 0 ? (
-                  holderRows.map((r: Record<string, unknown>) => {
+                  holderRows.map((r: Record<string, unknown>, idx: number) => {
                     const w = holderWallet(r);
+                    const rawBal = r.balance_formatted ?? r.balance ?? r.owner_balance;
+                    const pct = holderSharePct(rawBal, totalSupplyStr);
                     return (
-                      <tr key={w || JSON.stringify(r)} class="border-b border-[#043234]/40 text-slate-200">
-                        <td class="py-2 pr-2 font-mono">
+                      <tr
+                        key={w || JSON.stringify(r)}
+                        class="border-t border-[#043234]/35 odd:bg-black/[0.12] hover:bg-violet-500/[0.05] transition-colors"
+                      >
+                        <td class="px-3 py-2.5 text-center text-[11px] font-semibold tabular-nums text-slate-500">
+                          {idx + 1}
+                        </td>
+                        <td class="px-3 py-2.5 align-top">
                           {w ? (
                             <EvmAddrLinks locale={L} moralisChain={moralisChain} address={w} variant="wallet" />
                           ) : (
-                            "—"
+                            <span class="font-mono text-slate-500">—</span>
                           )}
                         </td>
-                        <td class="py-2 tabular-nums">
-                          {String(r.balance_formatted ?? r.balance ?? r.owner_balance ?? "—")}
+                        <td class="px-3 py-2.5 text-right tabular-nums font-medium text-slate-100">
+                          {formatCompactAmount(rawBal)}
+                        </td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-[12px] text-violet-200/95">
+                          {pct ?? "—"}
                         </td>
                       </tr>
                     );
                   })
                 ) : owners?.ok ? (
                   <tr>
-                    <td colSpan={2} class="py-10 text-center text-slate-400">
+                    <td colSpan={4} class="px-3 py-12 text-center text-slate-400">
                       No hay holders en los datos actuales.
                     </td>
                   </tr>
                 ) : (
                   <tr>
-                    <td colSpan={2} class="py-10 text-center text-slate-400">
+                    <td colSpan={4} class="px-3 py-12 text-center text-slate-400">
                       Datos de holders no disponibles en este momento.
                     </td>
                   </tr>
@@ -1661,50 +1994,59 @@ export default component$(() => {
       ) : null}
 
       {tab.value === "traders" ? (
-        <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
-          <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">{tp.value.topTradersPnl}</h2>
-          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Wallets con mejor PnL estimado para este token (requiere datos DEX indexados).
-          </p>
-          <div class="overflow-x-auto text-xs">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                  <th class="py-2 pr-2">Wallet</th>
-                  <th class="py-2 pr-2">Realized PnL USD</th>
-                  <th class="py-2">Trades</th>
+        <section class="mt-6 rounded-2xl border border-[#0d5357]/70 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25" role="tabpanel">
+          <header class="mb-4">
+            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.topTradersPnl}</h2>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
+              Moralis “top profitable wallets” for this token (DEX-indexed). Empty lists are normal for thin pairs.
+            </p>
+          </header>
+          <div class="overflow-x-auto rounded-xl border border-[#0d5357]/60 bg-[#000d10]/55">
+            <table class="w-full min-w-[520px] text-left text-[13px]">
+              <thead class="sticky top-0 z-10 bg-[#00151a]/98 text-[10px] uppercase tracking-wide text-slate-400 backdrop-blur-sm border-b border-[#0d5357]/80">
+                <tr>
+                  <th class="px-3 py-2.5 font-semibold">Wallet</th>
+                  <th class="px-3 py-2.5 text-right font-semibold">Realized PnL</th>
+                  <th class="px-3 py-2.5 text-right font-semibold">Trades</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="text-slate-200">
                 {topGainers?.ok && gainRows.length > 0 ? (
                   gainRows.map((r: Record<string, unknown>, i: number) => {
                     const w = gainerWallet(r);
                     return (
-                      <tr key={w || i} class="border-b border-[#043234]/40 text-slate-200">
-                        <td class="py-2 pr-2 font-mono">
+                      <tr
+                        key={w || i}
+                        class="border-t border-[#043234]/35 odd:bg-black/[0.12] hover:bg-emerald-500/[0.05] transition-colors"
+                      >
+                        <td class="px-3 py-2.5 align-top">
                           {w ? (
                             <EvmAddrLinks locale={L} moralisChain={moralisChain} address={w} variant="wallet" />
                           ) : (
-                            "—"
+                            <span class="font-mono text-slate-500">—</span>
                           )}
                         </td>
-                        <td class="py-2 pr-2 tabular-nums">
+                        <td class="px-3 py-2.5 text-right tabular-nums font-semibold text-emerald-200/95">
                           ${formatUsdBalance(fmtScalar(r.realized_profit_usd ?? r.realizedProfitUsd ?? 0))}
                         </td>
-                        <td class="py-2">{String(r.count_of_trades ?? r.trades ?? "—")}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-slate-300">
+                          {String(r.count_of_trades ?? r.trades ?? "—")}
+                        </td>
                       </tr>
                     );
                   })
                 ) : topGainers?.ok ? (
                   <tr>
-                    <td colSpan={3} class="py-10 text-center text-slate-400">
-                      Sin datos de traders para este token en este momento.
+                    <td colSpan={3} class="px-3 py-12 text-center text-slate-400">
+                      <p class="text-slate-300 mb-2">No indexed trader rows for this token right now.</p>
+                      <p class="text-[11px] text-slate-500 max-w-md mx-auto">{tp.value.tradersNoData}</p>
                     </td>
                   </tr>
                 ) : (
                   <tr>
-                    <td colSpan={3} class="py-10 text-center text-slate-400">
-                      Datos de traders no disponibles en este momento.
+                    <td colSpan={3} class="px-3 py-12 text-center text-slate-400">
+                      <p class="text-slate-300 mb-2">Datos de traders no disponibles en este momento.</p>
+                      <p class="text-[11px] text-slate-500 max-w-md mx-auto">{tp.value.tradersNoData}</p>
                     </td>
                   </tr>
                 )}
@@ -1715,28 +2057,32 @@ export default component$(() => {
       ) : null}
 
       {tab.value === "swaps" ? (
-        <section class="mt-6 rounded-xl border border-[#043234] bg-[#001a1c] p-4" role="tabpanel">
-          <h2 class="text-lg font-semibold tracking-tight text-cyan-50 mb-2">{tp.value.swapsDex}</h2>
-          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-            Swaps DEX detectados para este token en <span class="font-mono">{moralisChain}</span>.
-          </p>
-          <div class="overflow-x-auto text-xs">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                  <th class="py-2 pr-2">Tx</th>
-                  <th class="py-2 pr-2">Fecha / bloque</th>
-                  <th class="py-2 pr-2">Tipo</th>
-                  <th class="py-2 pr-2">Sub</th>
-                  <th class="py-2 pr-2">Par</th>
-                  <th class="py-2 pr-2">DEX</th>
-                  <th class="py-2 pr-2">Wallet</th>
-                  <th class="py-2 pr-2">USD</th>
-                  <th class="py-2 pr-2">Precio par</th>
-                  <th class="py-2">Compra / Venta</th>
+        <section class="mt-6 rounded-2xl border border-[#0d5357]/70 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25" role="tabpanel">
+          <header class="mb-4">
+            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.swapsDex}</h2>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
+              DEX swap events on <span class="font-mono text-cyan-100/90">{moralisChain}</span>. Filled by sync when{" "}
+              <span class="font-mono text-slate-300">MORALIS_SYNC_TOKEN_SWAPS=1</span>, or on first visit if{" "}
+              <span class="font-mono text-slate-300">MORALIS_TOKEN_PAGE_LIVE_SWAPS=1</span>.
+            </p>
+          </header>
+          <div class="overflow-x-auto rounded-xl border border-[#0d5357]/60 bg-[#000d10]/55">
+            <table class="w-full min-w-[1100px] text-left text-[12px]">
+              <thead class="sticky top-0 z-10 bg-[#00151a]/98 text-[10px] uppercase tracking-wide text-slate-400 backdrop-blur-sm border-b border-[#0d5357]/80">
+                <tr>
+                  <th class="px-2 py-2.5 font-semibold">Tx</th>
+                  <th class="px-2 py-2.5 font-semibold">Time / block</th>
+                  <th class="px-2 py-2.5 font-semibold">Tipo</th>
+                  <th class="px-2 py-2.5 font-semibold">Sub</th>
+                  <th class="px-2 py-2.5 font-semibold">Pair</th>
+                  <th class="px-2 py-2.5 font-semibold">DEX</th>
+                  <th class="px-2 py-2.5 font-semibold">Wallet</th>
+                  <th class="px-2 py-2.5 text-right font-semibold">USD</th>
+                  <th class="px-2 py-2.5 text-right font-semibold">Price</th>
+                  <th class="px-2 py-2.5 font-semibold">Buy / Sell</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="text-slate-200">
                 {mSwaps?.ok && swapRows.length > 0 ? (
                   swapRows.map((r: Record<string, unknown>, i: number) => {
                     const h = String(r.transactionHash ?? r.transaction_hash ?? i);
@@ -1758,25 +2104,28 @@ export default component$(() => {
                     const bqpStr =
                       bqpRaw != null && String(bqpRaw).trim() ? String(bqpRaw).trim() : "—";
                     return (
-                      <tr key={h} class="border-b border-[#043234]/40 text-slate-200">
-                        <td class="py-2 pr-2 font-mono">
+                      <tr
+                        key={h}
+                        class="border-t border-[#043234]/35 odd:bg-black/[0.12] hover:bg-cyan-500/[0.05] transition-colors"
+                      >
+                        <td class="px-2 py-2 align-top font-mono">
                           <TxHashLink
                             locale={L}
                             moralisChain={moralisChain}
                             hash={h}
                             mode="hash10"
-                            linkClass="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline"
+                            linkClass="text-[11px] font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline"
                           />
                         </td>
-                        <td class="py-2 pr-2 text-[10px] text-slate-300">
+                        <td class="px-2 py-2 text-[10px] text-slate-300 align-top">
                           <div class="text-slate-100">{when}</div>
-                          <div class="font-mono text-[9px]">{block}</div>
+                          <div class="font-mono text-[9px] text-slate-500">{block}</div>
                         </td>
-                        <td class="py-2 pr-2 uppercase text-[10px]">
+                        <td class="px-2 py-2 uppercase text-[10px] align-top">
                           {String(r.transactionType ?? r.transaction_type ?? "—")}
                         </td>
-                        <td class="py-2 pr-2 text-[10px] capitalize text-slate-300">{sub}</td>
-                        <td class="py-2 pr-2">
+                        <td class="px-2 py-2 text-[10px] capitalize text-slate-300 align-top">{sub}</td>
+                        <td class="px-2 py-2 align-top">
                           <div class="text-[11px]">{String(r.pairLabel ?? r.pair_label ?? "—")}</div>
                           {pairIsAddr ? (
                             <div class="mt-0.5">
@@ -1789,7 +2138,7 @@ export default component$(() => {
                             </div>
                           ) : null}
                         </td>
-                        <td class="py-2 pr-2">
+                        <td class="px-2 py-2 align-top">
                           <div class="flex items-center gap-1.5">
                             {exLogo ? (
                               <img
@@ -1802,7 +2151,7 @@ export default component$(() => {
                             <span class="text-[11px]">{exName}</span>
                           </div>
                         </td>
-                        <td class="py-2 pr-2">
+                        <td class="px-2 py-2 align-top">
                           {w ? (
                             <div class="flex flex-col gap-0.5">
                               <div class="flex items-center gap-1">
@@ -1826,13 +2175,15 @@ export default component$(() => {
                             "—"
                           )}
                         </td>
-                        <td class="py-2 pr-2 tabular-nums">
+                        <td class="px-2 py-2 text-right tabular-nums align-top">
                           {r.totalValueUsd != null || r.total_value_usd != null
                             ? formatUsdLiquidity(fmtScalar(r.totalValueUsd ?? r.total_value_usd))
                             : "—"}
                         </td>
-                        <td class="py-2 pr-2 font-mono text-[10px] tabular-nums text-slate-300">{bqpStr}</td>
-                        <td class="py-2 text-[10px] text-slate-300">
+                        <td class="px-2 py-2 text-right font-mono text-[10px] tabular-nums text-slate-300 align-top">
+                          {bqpStr}
+                        </td>
+                        <td class="px-2 py-2 text-[10px] text-slate-300 align-top">
                           <span class="text-emerald-400/90">+{buyStr}</span>
                           {" / "}
                           <span class="text-rose-400/80">−{sellStr}</span>
@@ -1842,14 +2193,15 @@ export default component$(() => {
                   })
                 ) : mSwaps?.ok ? (
                   <tr>
-                    <td colSpan={10} class="py-10 text-center text-slate-400">
-                      Sin swaps disponibles.
+                    <td colSpan={10} class="px-3 py-12 text-center text-slate-400">
+                      Sin swaps disponibles para este token en el índice actual.
                     </td>
                   </tr>
                 ) : (
                   <tr>
-                    <td colSpan={10} class="py-10 text-center text-slate-400">
-                      Datos de swaps no disponibles.
+                    <td colSpan={10} class="px-3 py-12 text-center text-slate-400">
+                      <p class="text-slate-300 mb-2 font-medium">Datos de swaps no cargados.</p>
+                      <p class="text-[11px] text-slate-500 max-w-lg mx-auto leading-relaxed">{tp.value.swapsEnvHint}</p>
                     </td>
                   </tr>
                 )}
