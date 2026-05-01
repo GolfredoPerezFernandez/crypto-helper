@@ -129,12 +129,13 @@ export default component$(() => {
     const mode = confirmSyncMode.value;
     confirmSyncMode.value = null;
     if (mode === "full") {
-      toastMsg.value = tx("Iniciando sync completo…", "Starting full sync...");
+      // No usar `tx` aquí: QRL no puede serializar funciones de cierre.
+      toastMsg.value = isEs ? "Iniciando sync completo…" : "Starting full sync...";
       await runFullMarketSync();
       return;
     }
     if (mode === "market") {
-      toastMsg.value = tx("Iniciando sync de mercado…", "Starting market sync...");
+      toastMsg.value = isEs ? "Iniciando sync de mercado…" : "Starting market sync...";
       await runCmcSync();
     }
   });
