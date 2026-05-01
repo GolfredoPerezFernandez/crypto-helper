@@ -1,14 +1,13 @@
 import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
-import { useDashboardAuth } from "../layout";
 import { desc, eq } from "drizzle-orm";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
 
 export const head: DocumentHead = {
-  title: "Top volume | Dashboard",
+  title: "Mayor volumen | Panel",
 };
 
 export const useVolumeLoader = routeLoader$(async () => {
@@ -27,20 +26,14 @@ export const useVolumeLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const rows = useVolumeLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
   return (
     <CategoryTokenTable
       locale={L}
-      title="Top volume"
-      subtitle={
-        showSync
-          ? "Listados por volumen 24h. Actualizado en el sync diario."
-          : "Listados por volumen 24h."
-      }
+      title="Mayor volumen"
+      subtitle="Tokens ordenados por volumen en 24 horas."
       rows={rows.value as unknown as Record<string, unknown>[]}
     />
   );

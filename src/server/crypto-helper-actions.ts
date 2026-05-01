@@ -27,9 +27,10 @@ import {
   fetchMoralisWalletTokens,
   fetchMoralisWalletTransactions,
   moralisGet,
-} from "~/server/crypto-ghost/moralis-api";
+} from "~/server/crypto-helper/moralis-api";
+import { getMoralisWalletNftSyncChains } from "~/server/crypto-helper/moralis-nft-sync-chains";
 
-export type { MoralisWalletTokensResult, MoralisErc20PriceTokenItem } from "~/server/crypto-ghost/moralis-api";
+export type { MoralisWalletTokensResult, MoralisErc20PriceTokenItem } from "~/server/crypto-helper/moralis-api";
 
 export type CmcSyncTriggerResult =
   | { ok: true; Upserted?: number }
@@ -40,7 +41,7 @@ export const triggerCmcMarketSync = server$(async function (): Promise<CmcSyncTr
   if (!getUserId(this)) {
     return { ok: false, error: "Sign in to refresh market data." };
   }
-  const { runDailyMarketSync } = await import("~/server/crypto-ghost/cmc-sync");
+  const { runDailyMarketSync } = await import("~/server/crypto-helper/cmc-sync");
   return runDailyMarketSync();
 });
 
@@ -50,10 +51,10 @@ export const triggerOwnerFullMarketSync = server$(async function (): Promise<Cmc
   if (!uidStr) return { ok: false, error: "Inicia sesión." };
   const userId = Number(uidStr);
   if (!Number.isFinite(userId)) return { ok: false, error: "Sesión no válida." };
-  const { assertUserMayTriggerFullMarketSync } = await import("~/server/crypto-ghost/user-access");
+  const { assertUserMayTriggerFullMarketSync } = await import("~/server/crypto-helper/user-access");
   const gate = await assertUserMayTriggerFullMarketSync(userId);
   if (!gate.ok) return { ok: false, error: gate.error };
-  const { runDailyMarketSync } = await import("~/server/crypto-ghost/cmc-sync");
+  const { runDailyMarketSync } = await import("~/server/crypto-helper/cmc-sync");
   return runDailyMarketSync();
 });
 
@@ -130,7 +131,8 @@ export type ProfileNftTransferRow = {
 };
 
 /**
- * Profile: NFTs by wallet + recent NFT transfers (Base + Ethereum), server Moralis key.
+ * Profile: NFTs by wallet + recent NFT transfers (multi-chain Moralis; mismo listado que el sync
+ * diario vía `MORALIS_SYNC_WALLET_NFT_CHAINS`), server Moralis key.
  */
 export const fetchProfileWalletNftsBundle = server$(async function (
   address: string,
@@ -148,19 +150,28 @@ export const fetchProfileWalletNftsBundle = server$(async function (
     return { ok: false, error: "Dirección de wallet no válida." };
   }
 
-  const { nftImage } = await import("~/server/crypto-ghost/wallet-snapshot");
+  const { nftImage } = await import("~/server/crypto-helper/wallet-snapshot");
 
   const warnings: string[] = [];
-  const [baseR, ethR, baseT, ethT] = await Promise.all([
-    fetchMoralisWalletNfts(a, "base", 48, { include_prices: true }),
-    fetchMoralisWalletNfts(a, "eth", 32, { include_prices: true }),
-    fetchMoralisWalletNftTransfers(a, "base", { limit: 22, order: "DESC" }),
-    fetchMoralisWalletNftTransfers(a, "eth", { limit: 22, order: "DESC" }),
-  ]);
-  if (!baseR.ok) warnings.push(`Base NFTs: ${baseR.error}`);
-  if (!ethR.ok) warnings.push(`Ethereum NFTs: ${ethR.error}`);
-  if (!baseT.ok) warnings.push(`Base NFT transfers: ${baseT.error}`);
-  if (!ethT.ok) warnings.push(`Ethereum NFT transfers: ${ethT.error}`);
+  const chains = getMoralisWalletNftSyncChains();
+  const perChainNftLimit = Math.min(48, Math.max(12, Number(process.env.MORALIS_PROFILE_NFT_LIMIT ?? 28)));
+  const perChainTxLimit = Math.min(25, Math.max(8, Number(process.env.MORALIS_PROFILE_NFT_TRANSFER_LIMIT ?? 14)));
+
+  const chainResults = await Promise.all(
+    chains.map(async (ch) => {
+      const chain = ch.trim().toLowerCase();
+      const [nftsR, trR] = await Promise.all([
+        fetchMoralisWalletNfts(a, chain, perChainNftLimit, { include_prices: true }),
+        fetchMoralisWalletNftTransfers(a, chain, { limit: perChainTxLimit, order: "DESC" }),
+      ]);
+      return { chain, nftsR, trR };
+    }),
+  );
+
+  for (const { chain, nftsR, trR } of chainResults) {
+    if (!nftsR.ok) warnings.push(`${chain} NFTs: ${nftsR.error}`);
+    if (!trR.ok) warnings.push(`${chain} NFT transfers: ${trR.error}`);
+  }
 
   function extractRows(data: unknown): Record<string, unknown>[] {
     if (!data || typeof data !== "object") return [];
@@ -246,8 +257,9 @@ export const fetchProfileWalletNftsBundle = server$(async function (
     }
   }
 
-  pushRows(extractRows(baseR.ok ? baseR.data : null), "base");
-  pushRows(extractRows(ethR.ok ? ethR.data : null), "eth");
+  for (const { chain, nftsR } of chainResults) {
+    pushRows(extractRows(nftsR.ok ? nftsR.data : null), chain);
+  }
 
   function transferSpam(v: unknown): boolean {
     return v === true || String(v).toLowerCase() === "true";
@@ -289,13 +301,11 @@ export const fetchProfileWalletNftsBundle = server$(async function (
   }
 
   const transferAcc: ProfileNftTransferRow[] = [];
-  for (const row of extractRows(baseT.ok ? baseT.data : null)) {
-    const m = mapNftTransferRow(row, "base", a);
-    if (m) transferAcc.push(m);
-  }
-  for (const row of extractRows(ethT.ok ? ethT.data : null)) {
-    const m = mapNftTransferRow(row, "eth", a);
-    if (m) transferAcc.push(m);
+  for (const { chain, trR } of chainResults) {
+    for (const row of extractRows(trR.ok ? trR.data : null)) {
+      const m = mapNftTransferRow(row, chain, a);
+      if (m) transferAcc.push(m);
+    }
   }
   transferAcc.sort((x, y) => {
     const bx = Date.parse(x.ts);

@@ -6,9 +6,9 @@ import { LuShield } from "@qwikest/icons/lucide";
 import { useDashboardAuth } from "../../layout";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { TradingViewAdvancedChart } from "~/components/crypto/tradingview-advanced-chart";
-import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";
-import { parseTokenApiSnapshot } from "~/server/crypto-ghost/market-token-snapshot";
-import { CATEGORY_DASHBOARD_PATH } from "~/server/crypto-ghost/market-category-constants";
+import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-chain";
+import { parseTokenApiSnapshot } from "~/server/crypto-helper/market-token-snapshot";
+import { CATEGORY_DASHBOARD_PATH } from "~/server/crypto-helper/market-category-constants";
 import {
   formatSignedPercent,
   formatTokenSupply,
@@ -283,6 +283,42 @@ function tokenAnalyticsRecord(data: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function formatMoralisStatScalar(v: unknown): string {
+  if (v == null) return "—";
+  if (typeof v === "boolean" || typeof v === "number") return String(v);
+  if (typeof v === "string") return v.length > 120 ? `${v.slice(0, 117)}…` : v;
+  if (Array.isArray(v)) return `[${v.length} items]`;
+  if (typeof v === "object") {
+    const j = JSON.stringify(v);
+    return j.length > 100 ? `${j.slice(0, 97)}…` : j;
+  }
+  return String(v);
+}
+
+/** First-level (and one nested `data`) keys from Moralis getTokenStats for a compact dl. */
+function moralisErc20StatsFlatEntries(data: unknown): [string, string][] {
+  if (data == null) return [];
+  let root: Record<string, unknown>;
+  if (typeof data === "object" && !Array.isArray(data)) {
+    root = data as Record<string, unknown>;
+  } else return [];
+  const inner = root.data;
+  if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
+    root = inner as Record<string, unknown>;
+  }
+  const out: [string, string][] = [];
+  for (const [k, v] of Object.entries(root)) {
+    if (v != null && typeof v === "object" && !Array.isArray(v) && k !== "data") {
+      for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) {
+        out.push([`${k}.${k2}`, formatMoralisStatScalar(v2)]);
+      }
+    } else {
+      out.push([k, formatMoralisStatScalar(v)]);
+    }
+  }
+  return out.slice(0, 36);
+}
+
 function analyticsVolumeAt(vol: unknown, w: string): number | undefined {
   if (vol == null || typeof vol !== "object") return undefined;
   const o = vol as Record<string, unknown>;
@@ -485,7 +521,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     GLOBAL_NANSEN_TGM_TRANSFERS,
     GLOBAL_NANSEN_TGM_PERP_PNL,
     GLOBAL_NANSEN_TGM_TOKEN_OHLCV,
-  } = await import("~/server/crypto-ghost/api-snapshot-sync");
+  } = await import("~/server/crypto-helper/api-snapshot-sync");
 
   const [
     nansenTokenInformation,
@@ -518,6 +554,7 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
     moralisTokenScoreHistorical: snap?.moralisTokenScoreHistorical,
     moralisTokenPairs: snap?.moralisTokenPairs,
     moralisTokenAnalytics,
+    moralisErc20Stats: snap?.moralisErc20Stats,
     nansenTokenInformation,
     nansenIndicators,
     nansenWhoBoughtSold,
@@ -531,7 +568,6 @@ export const useTokenDetailLoader = routeLoader$(async (ev) => {
 
 export default component$(() => {
   const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const token = useTokenDetailLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -554,7 +590,6 @@ export default component$(() => {
       price: tr("price@@Price"),
       volume: tr("volume@@Volume"),
       fdv: tr("fdv@@FDV"),
-      turso: tr("turso@@Cache"),
       contract: tr("contract@@Contract"),
       decimalsShort: tr("decimalsShort@@dec"),
       supply: tr("supply@@supply"),
@@ -569,7 +604,7 @@ export default component$(() => {
       tabTraders: tr("tabTraders@@Top traders / PnL"),
       tabSwaps: tr("tabSwaps@@DEX swaps"),
       recentTransfers: tr("recentTransfers@@Recent transfers"),
-      snapshotChainLabel: tr("snapshotChainLabel@@Datos en caché · red"),
+      snapshotChainLabel: tr("snapshotChainLabel@@Red de referencia"),
       colTx: tr("colTx@@Tx"),
       colFrom: tr("colFrom@@From"),
       colTo: tr("colTo@@To"),
@@ -577,9 +612,6 @@ export default component$(() => {
       noTransfersSnapshot: tr("noTransfersSnapshot@@No recent transfers available."),
       topTradersPnl: tr("topTradersPnl@@Top traders (PnL)"),
       swapsDex: tr("swapsDex@@DEX swaps"),
-      syncFooter: tr(
-        "syncFooter@@Market and on-chain data is refreshed on a schedule (and can be synced manually). Token id:",
-      ),
     };
   });
   const back = seg ? `/${L}/${seg}/` : `/${L}/home/`;
@@ -590,7 +622,10 @@ export default component$(() => {
   const tab = useSignal<TabId>("overview");
   const syncedAtSec = t.syncedAt != null ? Number(t.syncedAt) : NaN;
   const syncedAtLabel = Number.isFinite(syncedAtSec)
-    ? new Date(syncedAtSec * 1000).toISOString()
+    ? new Date(syncedAtSec * 1000).toLocaleString(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
     : null;
 
   const cmcId = t.cmcId != null ? Number(t.cmcId) : NaN;
@@ -631,6 +666,9 @@ export default component$(() => {
 
   const mTokAnalytics = t.moralisTokenAnalytics as { ok?: boolean; data?: unknown; error?: string } | undefined;
   const snapAnalyticsRec = mTokAnalytics?.ok ? tokenAnalyticsRecord(mTokAnalytics.data) : null;
+
+  const mErc20Stats = t.moralisErc20Stats as { ok?: boolean; data?: unknown; error?: string } | undefined;
+  const erc20StatsEntries = mErc20Stats?.ok ? moralisErc20StatsFlatEntries(mErc20Stats.data) : [];
 
   const nInfoSnap = (t.nansenTokenInformation as Record<string, unknown> | null) ?? null;
   const nIndicatorsSnap = (t.nansenIndicators as Record<string, unknown> | null) ?? null;
@@ -770,10 +808,10 @@ export default component$(() => {
           </Link>
           {dash.value.hasPro ? (
             <Link
-              href={`/${L}/notifications-settings/?token=${String(t.id ?? "")}`}
+              href={`/${L}/alerts/?token=${String(t.id ?? "")}`}
               class="text-xs font-medium text-amber-100/90 hover:text-amber-50 underline-offset-2 hover:underline"
             >
-              Pro · Set price alert
+              Pro · Alerta de precio
             </Link>
           ) : null}
         </div>
@@ -805,7 +843,9 @@ export default component$(() => {
                   {syncedAtLabel ? (
                     <>
                       <span class="text-[#043234]">·</span>
-                      <span class="font-mono text-slate-400 text-[10px]">{syncedAtLabel}</span>
+                      <span class="text-slate-400 text-[10px]" title="Última actualización de datos mostrados">
+                        Actualizado {syncedAtLabel}
+                      </span>
                     </>
                   ) : null}
                 </p>
@@ -823,7 +863,6 @@ export default component$(() => {
                 <div class="text-sm sm:text-base font-semibold text-white tabular-nums mt-0.5 leading-tight break-words">
                   ${formatTokenUsdPrice(fmtScalar(t.price))}
                 </div>
-                {showSync ? <div class="text-[9px] text-slate-500 mt-1">{tp.value.turso}</div> : null}
               </div>
               <div class="rounded-xl bg-black/35 border border-[#043234]/40 px-2.5 py-2 sm:px-3 sm:py-2.5 min-w-0">
                 <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-300">{tp.value.volume}</div>
@@ -885,7 +924,7 @@ export default component$(() => {
               {live ? (
             <div class="mt-4 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                {showSync ? "Cotización de mercado (sync diario)" : "Cotización de mercado"}
+                Cotización de mercado
               </h3>
               <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                 {live.price != null ? (
@@ -931,7 +970,7 @@ export default component$(() => {
               {morPrice ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">
-                {showSync ? "precio ERC-20 (sync)" : "precio ERC-20"}
+                Precio on-chain (DEX)
               </h3>
               <p class="text-xs text-slate-400 mb-2 leading-relaxed">
                 Precios agregados desde datos on-chain (DEX / pools).
@@ -1060,12 +1099,29 @@ ERC-20
             </div>
           ) : null}
 
+          {erc20StatsEntries.length > 0 ? (
+            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">Métricas on-chain del token</h3>
+              <p class="text-xs text-slate-400 mb-2 leading-relaxed">
+                Datos agregados de holders y supply cuando están disponibles para este contrato.
+              </p>
+              <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                {erc20StatsEntries.map(([k, v]) => (
+                  <div key={k}>
+                    <dt class="text-slate-400 font-medium truncate" title={k}>
+                      {k}
+                    </dt>
+                    <dd class="text-slate-100 break-words">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+
           {isEvmContract ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
-                <h3 class="text-sm font-semibold tracking-tight text-cyan-50">
-                  {showSync ? "Analytics de trading" : "Analytics de trading"}
-                </h3>
+                <h3 class="text-sm font-semibold tracking-tight text-cyan-50">Analytics de trading</h3>
                 <button
                   type="button"
                   class="shrink-0 rounded-lg border border-cyan-400/45 bg-cyan-400/15 px-2.5 py-1 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-400/25 hover:text-white disabled:opacity-50"
@@ -1256,8 +1312,8 @@ ERC-20
               ) : (
                 <p class="text-xs text-slate-400 leading-relaxed">
                   {mTokAnalytics?.ok === false && mTokAnalytics?.error
-                    ? mTokAnalytics.error
-                    : "Sin datos de analytics. Usa el botón en vivo o activa el sync."}
+                    ? "No hay datos de analytics disponibles. Prueba «Actualizar en vivo»."
+                    : "Sin datos de analytics. Usa «Actualizar en vivo» para obtener la vista más reciente."}
                 </p>
               )}
             </div>
@@ -1266,7 +1322,7 @@ ERC-20
           {scoreRec ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                {showSync ? "Token Score (sync)" : "Token Score"}
+                Token Score
               </h3>
               <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                 <div>
@@ -1326,10 +1382,10 @@ ERC-20
           {mTokHist != null && mTokHist.ok && histRows.length > 0 ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">
-                {showSync ? "Score histórico (sync)" : "Score histórico"}
+                Score histórico
               </h3>
               <p class="text-xs text-slate-400 mb-2 leading-relaxed">
-                Evolución del score del token (ventana típica 7d cuando el sync lo incluye).
+                Evolución del score cuando hay serie histórica disponible (p. ej. ventana 7d).
               </p>
               <div class="overflow-x-auto text-[11px]">
                 <table class="w-full text-left font-mono">
@@ -1359,7 +1415,7 @@ ERC-20
           {mTokPairs != null && mTokPairs.ok && pairRows.length > 0 ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">
-                {showSync ? "Pares DEX (sync)" : "Pares DEX"}
+                Pares DEX
               </h3>
               <p class="text-xs text-slate-400 mb-2 leading-relaxed">
                 Pares en DEX con liquidez y volumen. Gráficos OHLC vía TradingView en esta ficha.
@@ -1613,12 +1669,6 @@ ERC-20
             </p>
           ) : null}
 
-          {showSync ? (
-            <p class="text-xs text-slate-400 mt-4 leading-relaxed">
-              {tp.value.syncFooter}{" "}
-              <span class="font-mono text-slate-300">{String(t.id)}</span>
-            </p>
-          ) : null}
           {nInfoRec ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
@@ -1806,16 +1856,10 @@ ERC-20
                       {tp.value.noTransfersSnapshot}
                     </td>
                   </tr>
-                ) : showSync ? (
-                  <tr>
-                    <td colSpan={4} class="py-10 text-center text-amber-400/90 text-[13px] font-sans">
-                      {mt?.error || "No disponible"}
-                    </td>
-                  </tr>
                 ) : (
                   <tr>
                     <td colSpan={4} class="py-10 text-center text-slate-400">
-                      Datos de transferencias no disponibles en este momento.
+                      No hay transferencias recientes disponibles.
                     </td>
                   </tr>
                 )}
@@ -1892,15 +1936,7 @@ ERC-20
                 ) : owners?.ok ? (
                   <tr>
                     <td colSpan={2} class="py-10 text-center text-slate-400">
-                      {showSync
-                        ? "Sin holders en el resultado (puede ser plan o indexación)."
-                        : "Sin holders en los datos actuales."}
-                    </td>
-                  </tr>
-                ) : showSync ? (
-                  <tr>
-                    <td colSpan={2} class="py-10 text-center text-amber-400/90 text-[13px]">
-                      {owners?.error || "No disponible"}
+                      No hay holders en los datos actuales.
                     </td>
                   </tr>
                 ) : (
@@ -2016,15 +2052,7 @@ ERC-20
                 ) : topGainers?.ok ? (
                   <tr>
                     <td colSpan={3} class="py-10 text-center text-slate-400">
-                      {showSync
-                        ? "Sin filas en la respuesta para este token/cadena."
-                        : "Sin datos de traders para este token en este momento."}
-                    </td>
-                  </tr>
-                ) : showSync ? (
-                  <tr>
-                    <td colSpan={3} class="py-10 text-center text-amber-400/90 text-[13px]">
-                      {topGainers?.error || "No disponible"}
+                      Sin datos de traders para este token en este momento.
                     </td>
                   </tr>
                 ) : (
@@ -2170,12 +2198,6 @@ ERC-20
                   <tr>
                     <td colSpan={10} class="py-10 text-center text-slate-400">
                       Sin swaps disponibles.
-                    </td>
-                  </tr>
-                ) : showSync ? (
-                  <tr>
-                    <td colSpan={10} class="py-10 text-center text-amber-400/90 text-[13px] font-sans">
-                      {mSwaps?.error || "No disponible"}
                     </td>
                   </tr>
                 ) : (

@@ -1,4 +1,4 @@
-// @deprecated Prefer ~/server/crypto-ghost-actions (server$) — NEVER put API keys in client bundles.
+// @deprecated Prefer ~/server/crypto-helper-actions (server$) — NEVER put API keys in client bundles.
 const API_KEY =
   typeof process !== "undefined" ? String(process.env.MORALIS_API_KEY ?? "") : "";
 

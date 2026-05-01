@@ -5,10 +5,9 @@ import { desc, eq } from "drizzle-orm";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
-import { useDashboardAuth } from "../layout";
 
 export const head: DocumentHead = {
-  title: "Gaming | Dashboard",
+  title: "Gaming | Panel",
 };
 
 export const useGamingLoader = routeLoader$(async () => {
@@ -27,8 +26,6 @@ export const useGamingLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const rows = useGamingLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -37,13 +34,9 @@ export default component$(() => {
     <CategoryTokenTable
       locale={L}
       title="Gaming"
-      subtitle="Tokens gaming — misma caché que el resto del panel."
+      subtitle="Tokens de gaming — busca, filtra y ordena como en el resto del mercado."
       rows={rows.value as unknown as Record<string, unknown>[]}
-      emptyHint={
-        showSync
-          ? "No rows yet — run a full market sync from the dashboard home."
-          : "No hay datos en caché todavía."
-      }
+      emptyHint="No hay tokens de gaming en el listado todavía. Vuelve más tarde."
     />
   );
 });

@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getMarketTokenById } from "~/server/crypto-ghost/market-queries";
+import { getMarketTokenById } from "~/server/crypto-helper/market-queries";
 
 export const onGet: RequestHandler = async ({ params, json }) => {
   const id = Number(params.id);

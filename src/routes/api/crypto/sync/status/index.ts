@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { clampLimit, getLatestSyncRun, queryRecentSyncRuns } from "~/server/crypto-ghost/market-queries";
+import { clampLimit, getLatestSyncRun, queryRecentSyncRuns } from "~/server/crypto-helper/market-queries";
 
 export const onGet: RequestHandler = async ({ query, json }) => {
   const latest = await getLatestSyncRun();

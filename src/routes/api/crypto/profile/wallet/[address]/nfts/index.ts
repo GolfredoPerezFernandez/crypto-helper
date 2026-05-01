@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchProfileWalletNftsBundle } from "~/server/crypto-ghost-actions";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchProfileWalletNftsBundle } from "~/server/crypto-helper-actions";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 export const onGet: RequestHandler = async (ev) => {

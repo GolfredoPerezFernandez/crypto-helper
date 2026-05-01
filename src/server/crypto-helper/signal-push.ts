@@ -18,8 +18,8 @@ export function notifyWhaleOrTraderPush(kind: "whale" | "trader", sseJson: strin
     const loc = defaultLocale();
     const link =
       kind === "whale"
-        ? `/${loc}/whales-signals/`
-        : `/${loc}/traders-signals/`;
+        ? `/${loc}/alerts/?feed=whales`
+        : `/${loc}/alerts/?feed=traders`;
     const tag = `cg-${kind}-${p.transactionHash || Date.now()}`;
     void sendLiveSignalPush(kind, {
       title: title.slice(0, 200),
@@ -37,7 +37,7 @@ export function notifySmartSignalPush(sseJson: string): void {
     const title = "USDT smart alert";
     const body = String(parsed.message?.summaryMessage || "Fresh wallet activity").slice(0, 500);
     const loc = defaultLocale();
-    const link = `/${loc}/smart-signals/`;
+    const link = `/${loc}/home/`;
     void sendLiveSignalPush("smart", {
       title,
       body,

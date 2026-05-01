@@ -425,3 +425,14 @@ html.vt-root {
 ::view-transition-new(.cg-home-stat):only-child {
   animation: cg-card-in 280ms ease-out both;
 }
+
+@keyframes walletFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

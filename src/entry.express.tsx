@@ -17,9 +17,9 @@ import { join } from "node:path";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import {
-  registerCryptoGhostRoutes,
-  scheduleCryptoGhostJobs,
-} from "./server/register-crypto-ghost-express";
+  registerCryptoHelperRoutes,
+  scheduleCryptoHelperJobs,
+} from "./server/register-crypto-helper-express";
 
 declare global {
   interface QwikCityPlatform extends PlatformNode { }
@@ -54,7 +54,7 @@ app.use(
 );
 app.use("/api/internal", express.json({ limit: "32kb" }));
 
-registerCryptoGhostRoutes(app);
+registerCryptoHelperRoutes(app);
 
 /** Only rate-limit /api/* — never SSR/HTML routes (429 on /dashboard was confusing and broke behind shared/misread IPs). */
 const apiLimiter = rateLimit({
@@ -77,5 +77,5 @@ app.use(notFound);
 
 const server = app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`Server started: http://0.0.0.0:${PORT}/`);
-  scheduleCryptoGhostJobs();
+  scheduleCryptoHelperJobs();
 });

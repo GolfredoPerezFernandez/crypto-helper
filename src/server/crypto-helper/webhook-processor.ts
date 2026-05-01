@@ -2,7 +2,7 @@ import Moralis from "moralis";
 import { db } from "~/lib/turso";
 import { signalTraders, signalWhales } from "../../../drizzle/schema";
 import { traderEmitter, whaleEmitter } from "~/server/realtime/emitters";
-import { notifyWhaleOrTraderPush } from "~/server/crypto-ghost/signal-push";
+import { notifyWhaleOrTraderPush } from "~/server/crypto-helper/signal-push";
 
 const CHAINS: Record<string, string> = {
   "0x1": "Ethereum Mainnet",

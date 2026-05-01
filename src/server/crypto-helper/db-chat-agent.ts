@@ -65,7 +65,7 @@ Public investment context:
 `;
 }
 
-export async function runCryptoGhostDbChat(userQuestion: string): Promise<{ answer: string; error?: string }> {
+export async function runCryptoHelperDbChat(userQuestion: string): Promise<{ answer: string; error?: string }> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     return { answer: "", error: "OPENAI_API_KEY is not configured." };

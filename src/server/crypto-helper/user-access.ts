@@ -5,10 +5,14 @@ import { users } from "../../../drizzle/schema";
 import { db } from "~/lib/turso";
 import { getUserId } from "~/utils/auth";
 
-/** Dashboard copy that mentions Turso/sync/API keys — only these accounts see it. */
+/** Technical diagnostics UI — only when `PRIVATE_ADMIN_DIAGNOSTICS=1` and email is allowlisted. */
 const SYNC_DEBUG_VIEWER_EMAILS = new Set(
   ["golfredo.pf@gmail.com"].map((e) => e.toLowerCase()),
 );
+
+function privateAdminDiagnosticsEnabled(): boolean {
+  return /^1|true|yes$/i.test(String(process.env.PRIVATE_ADMIN_DIAGNOSTICS ?? ""));
+}
 
 /** May invoke `runDailyMarketSync` from the dashboard (server-enforced). */
 const FULL_MARKET_SYNC_EMAILS = new Set(
@@ -35,7 +39,7 @@ export type UserProFlags = {
   hasPro: boolean;
   email: string | null;
   authProvider: string | null;
-  /** True for allowlisted emails — sync/API diagnostic UI and raw snapshot errors. */
+  /** Admin diagnostics (`PRIVATE_ADMIN_DIAGNOSTICS=1` + allowlisted email). */
   showSyncDebug: boolean;
   /** True for allowlisted emails — dashboard “sync completo” (CMC + aux). */
   canTriggerFullMarketSync: boolean;
@@ -49,6 +53,11 @@ function emailMaySeeSyncDebug(email: string | null | undefined): boolean {
 function emailMayTriggerFullMarketSync(email: string | null | undefined): boolean {
   if (email == null || email === "") return false;
   return FULL_MARKET_SYNC_EMAILS.has(String(email).toLowerCase().trim());
+}
+
+/** Informe de consumo (Nansen/Moralis/CMC) — misma regla que diagnósticos de admin. */
+export function emailMayViewSyncUsageReport(email: string | null | undefined): boolean {
+  return privateAdminDiagnosticsEnabled() && emailMaySeeSyncDebug(email);
 }
 
 /** Server-side gate for manual full market sync (`server$`). */
@@ -119,7 +128,8 @@ export async function getUserProAccess(ev: RequestEventBase): Promise<UserProFla
     const isAdmin = row?.type === "admin" || forcedPro;
     const isSubscriber = (row?.subscriber ?? 0) === 1;
     const hasPro = isAdmin || isSubscriber || forcedPro;
-    const showSyncDebug = emailMaySeeSyncDebug(row?.email ?? null);
+    const showSyncDebug =
+      privateAdminDiagnosticsEnabled() && emailMaySeeSyncDebug(row?.email ?? null);
     const canTriggerFullMarketSync = emailMayTriggerFullMarketSync(row?.email ?? null);
     const result: UserProFlags = {
       userId,

@@ -40,7 +40,7 @@ import { ExportPrivateKeyCard } from '~/components/wallet/ExportPrivateKeyCard';
 import {
   type ProfileNftCard,
   type ProfileNftTransferRow,
-} from '~/server/crypto-ghost-actions';
+} from '~/server/crypto-helper-actions';
 import { formatTokenUsdPrice } from '~/utils/format-market';
 
 /* -------------------------------------------------- */

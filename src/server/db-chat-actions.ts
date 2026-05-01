@@ -1,7 +1,7 @@
 import { server$ } from "@builder.io/qwik-city";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 import { verifyAuth } from "~/utils/auth";
-import { runCryptoGhostDbChat } from "~/server/crypto-ghost/db-chat-agent";
+import { runCryptoHelperDbChat } from "~/server/crypto-helper/db-chat-agent";
 import { checkDbChatRateLimit } from "~/server/db-chat-rate-limit";
 
 function getRequestClientIp(ev: any): string {
@@ -17,7 +17,7 @@ function getRequestClientIp(ev: any): string {
   return ev.clientConn?.ip || "unknown";
 }
 
-export const askCryptoGhostDb = server$(async function (this: any, message: string) {
+export const askCryptoHelperDb = server$(async function (this: any, message: string) {
   const ip = getRequestClientIp(this);
   if (!(await verifyAuth(this))) {
     return { ok: false as const, error: "Inicia sesión para usar DB insight." };
@@ -45,7 +45,7 @@ export const askCryptoGhostDb = server$(async function (this: any, message: stri
     return { ok: false as const, error: "Pregunta demasiado larga." };
   }
 
-  const { answer, error } = await runCryptoGhostDbChat(q);
+  const { answer, error } = await runCryptoHelperDbChat(q);
   if (error) {
     return { ok: false as const, error };
   }

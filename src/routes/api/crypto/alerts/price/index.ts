@@ -2,7 +2,7 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { eq } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens, userPriceAlerts } from "../../../../../../drizzle/schema";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 import { verifyAuth } from "~/utils/auth";
 
 export const onGet: RequestHandler = async (ev) => {

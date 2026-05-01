@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchMoralisWalletHistory } from "~/server/crypto-ghost/moralis-api";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchMoralisWalletHistory } from "~/server/crypto-helper/moralis-api";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 /** GET /wallets/{address}/history — decoded wallet history (Moralis). Session required. */

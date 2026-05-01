@@ -44,7 +44,7 @@ FROM base as final
  
 # Use production node environment by default.
 ENV NODE_ENV production
-# Set to your public URL (e.g. https://crypto-ghost.fly.dev)
+# Set to your public URL (e.g. https://crypto-helper.fly.dev)
 ENV ORIGIN https://crypto-helper.fly.dev
 ENV PUBLIC_APP_URL https://crypto-helper.fly.dev
  

@@ -6,7 +6,7 @@
 import { desc, sql } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../drizzle/schema";
-import { parseTokenApiSnapshot } from "~/server/crypto-ghost/market-token-snapshot";
+import { parseTokenApiSnapshot } from "~/server/crypto-helper/market-token-snapshot";
 
 export type TopHolderRow = {
   ownerAddress: string;

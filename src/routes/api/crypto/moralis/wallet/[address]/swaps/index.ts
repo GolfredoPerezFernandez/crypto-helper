@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchMoralisEvmWalletSwaps } from "~/server/crypto-ghost/moralis-api";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchMoralisEvmWalletSwaps } from "~/server/crypto-helper/moralis-api";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 /** GET /wallets/{address}/swaps — DEX swaps for wallet. Session required. */

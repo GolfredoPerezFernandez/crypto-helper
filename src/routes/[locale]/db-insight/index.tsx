@@ -1,15 +1,12 @@
 import { component$, useSignal, $ } from "@builder.io/qwik";
-import { askCryptoGhostDb } from "~/server/db-chat-actions";
+import { askCryptoHelperDb } from "~/server/db-chat-actions";
 import { useRequirePro } from "../use-require-pro";
-import { useDashboardAuth } from "../layout";
 
 // Re-export loader so Qwik City can register it for this route.
 export { useRequirePro } from "../use-require-pro";
 
 export default component$(() => {
   useRequirePro();
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const question = useSignal("");
   const answer = useSignal("");
   const loading = useSignal(false);
@@ -20,7 +17,7 @@ export default component$(() => {
     answer.value = "";
     loading.value = true;
     try {
-      const r = await askCryptoGhostDb(question.value);
+      const r = await askCryptoHelperDb(question.value);
       if (!r.ok) {
         err.value = r.error;
         return;
@@ -34,22 +31,11 @@ export default component$(() => {
   return (
     <div class="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 class="text-2xl font-bold text-white">DB insight (IA)</h1>
+        <h1 class="text-2xl font-bold text-white">Asistente IA</h1>
         <p class="mt-2 text-sm text-slate-400">
-          {showSync ? (
-            <>
-              Solo suscriptores Pro. Pregunta en lenguaje natural sobre el estado agregado de la base (tokens, tableros
-              de mercado, señales whale/trader, sincronización, datos cacheados, direcciones demo). Solo lectura: usuarios, credenciales y{" "}
-              <span class="text-slate-500">push_subscriptions</span> no están expuestos. Respuestas orientativas — no es
-              asesoramiento financiero ni recomendación personalizada.
-            </>
-          ) : (
-            <>
-              Solo suscriptores Pro. Pregunta en lenguaje natural sobre mercado agregado, señales y tableros. Solo
-              lectura: datos personales sensibles no están expuestos. Respuestas orientativas — no es asesoramiento
-              financiero ni recomendación personalizada.
-            </>
-          )}
+          Exclusivo suscriptores Pro. Hacé preguntas en lenguaje natural sobre el mercado agregado, tokens y señales del
+          panel. Solo lectura: no se exponen datos personales ni credenciales. Las respuestas son orientativas; no
+          constituyen asesoramiento financiero.
         </p>
       </div>
 

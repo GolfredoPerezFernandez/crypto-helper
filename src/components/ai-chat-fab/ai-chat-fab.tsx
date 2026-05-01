@@ -3,7 +3,7 @@ import type { QRL } from "@builder.io/qwik";
 import { Link } from "@builder.io/qwik-city";
 import { LuSend, LuSparkles, LuX } from "@qwikest/icons/lucide";
 import { inlineTranslate, useSpeak } from "qwik-speak";
-import { askCryptoGhostDb } from "~/server/db-chat-actions";
+import { askCryptoHelperDb } from "~/server/db-chat-actions";
 
 const TEASER_KEY = "cg_ai_fab_teaser_dismissed";
 
@@ -79,7 +79,7 @@ export const AiChatFab = component$((props: AiChatFabProps) => {
     if (!q) return;
     loading.value = true;
     try {
-      const r = await askCryptoGhostDb(q);
+      const r = await askCryptoHelperDb(q);
       if (!r.ok) {
         err.value = r.error;
         return;

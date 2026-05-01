@@ -163,6 +163,8 @@ export const syncRuns = table("sync_runs", {
   status: t.text().notNull(), // running | success | error
   source: t.text().default("daily-market-sync"),
   errorMessage: t.text(),
+  /** JSON: {@link import("~/server/crypto-helper/sync-usage-context").SyncUsagePayloadV1} */
+  usagePayload: t.text(),
 });
 
 /** Single-row lease (id=1) so only one instance runs CMC sync when DB is shared (e.g. remote Turso). */

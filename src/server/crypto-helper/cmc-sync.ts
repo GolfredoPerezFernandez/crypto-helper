@@ -7,6 +7,7 @@ import {
   fetchMoralisErc20Owners,
   fetchMoralisErc20PriceBestEffort,
   fetchMoralisErc20Swaps,
+  fetchMoralisErc20TokenStats,
   fetchMoralisErc20TopGainers,
   fetchMoralisErc20TopLosers,
   fetchMoralisErc20Transfers,
@@ -16,15 +17,23 @@ import {
   fetchMoralisTokenScore,
   fetchMoralisTokenScoreHistorical,
   type MoralisWalletTokensResult,
-} from "~/server/crypto-ghost/moralis-api";
-import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";
-import { MARKET_CATEGORIES } from "~/server/crypto-ghost/market-category-constants";
+} from "~/server/crypto-helper/moralis-api";
+import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-chain";
+import { MARKET_CATEGORIES } from "~/server/crypto-helper/market-category-constants";
 import {
   GLOBAL_CMC_GLOBAL_METRICS,
   runAuxiliaryApiSnapshotSync,
+  runNansenSmartMoneyGlobalSnapshotSync,
   upsertGlobalSnapshot,
-} from "~/server/crypto-ghost/api-snapshot-sync";
-import { runPriceAlertEvaluation } from "~/server/crypto-ghost/price-alert-evaluator";
+} from "~/server/crypto-helper/api-snapshot-sync";
+import { runPriceAlertEvaluation } from "~/server/crypto-helper/price-alert-evaluator";
+import type { MoralisPerTokenSyncMetrics } from "~/server/crypto-helper/cmc-sync-types";
+import {
+  attachMoralisCmcPhaseEstimate,
+  beginSyncUsageCapture,
+  takeSyncUsageSnapshot,
+} from "~/server/crypto-helper/sync-usage-context";
+import { estimateMoralisCmcPhaseCu } from "~/server/crypto-helper/moralis-cmc-cu-estimate";
 import {
   setSyncRunDbId,
   syncLogError,
@@ -32,32 +41,17 @@ import {
   syncLogWarn,
   timedFetch,
   withSyncRun,
-} from "~/server/crypto-ghost/sync-logger";
+} from "~/server/crypto-helper/sync-logger";
+
+/** Nansen Smart Money + TGM (fase del sync diario), luego Icarus/Moralis/wallets en auxiliary. */
+async function runNansenThenAuxiliarySnapshots(): Promise<void> {
+  await runNansenSmartMoneyGlobalSnapshotSync();
+  await runAuxiliaryApiSnapshotSync();
+}
 
 const BASE = "https://pro-api.coinmarketcap.com/v1";
 
-/** Aggregated Moralis outcomes during token row sync (avoids per-token log spam). */
-export type MoralisPerTokenSyncMetrics = {
-  evmWithMoralisKey: number;
-  skippedNoContractOrKey: number;
-  moralisCore5AllOk: number;
-  moralisCore5PartialFail: number;
-  moralisSwapsAttempted: number;
-  moralisSwapsOk: number;
-  moralisSwapsFail: number;
-  moralisAnalyticsAttempted: number;
-  moralisAnalyticsOk: number;
-  moralisAnalyticsFail: number;
-  moralisInsightsAttempted: number;
-  moralisInsightsBundleOk: number;
-  moralisInsightsBundleFail: number;
-  moralisTopLosersAttempted: number;
-  moralisTopLosersOk: number;
-  moralisTopLosersFail: number;
-  moralisSnipersAttempted: number;
-  moralisSnipersOk: number;
-  moralisSnipersFail: number;
-};
+export type { MoralisPerTokenSyncMetrics } from "~/server/crypto-helper/cmc-sync-types";
 
 function emptyMoralisMetrics(): MoralisPerTokenSyncMetrics {
   return {
@@ -80,6 +74,9 @@ function emptyMoralisMetrics(): MoralisPerTokenSyncMetrics {
     moralisSnipersAttempted: 0,
     moralisSnipersOk: 0,
     moralisSnipersFail: 0,
+    moralisErc20StatsAttempted: 0,
+    moralisErc20StatsOk: 0,
+    moralisErc20StatsFail: 0,
   };
 }
 
@@ -212,6 +209,8 @@ type SnapshotBundle = {
   moralisSwaps?: MoralisWalletTokensResult;
   moralisTokenAnalytics?: MoralisWalletTokensResult;
   moralisPairSnipers?: MoralisWalletTokensResult;
+  /** Optional: `MORALIS_SYNC_TOKEN_ERC20_STATS=1` — Moralis getTokenStats. */
+  moralisErc20Stats?: MoralisWalletTokensResult;
 };
 
 /** First DEX pair address from Moralis `/erc20/.../pairs` (or similar) payload. */
@@ -527,6 +526,21 @@ async function buildTokenApiSnapshot(
     }
   }
 
+  let moralisErc20Stats: MoralisWalletTokensResult | undefined;
+  const erc20StatsOn = /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_ERC20_STATS ?? ""));
+  if (erc20StatsOn && isEvm && moralisKey) {
+    if (metrics) metrics.moralisErc20StatsAttempted++;
+    try {
+      moralisErc20Stats = await fetchMoralisErc20TokenStats(addr, chain);
+    } catch (e: any) {
+      moralisErc20Stats = { ok: false, error: e?.message || String(e) };
+    }
+    if (metrics) {
+      if (moralisErc20Stats?.ok) metrics.moralisErc20StatsOk++;
+      else metrics.moralisErc20StatsFail++;
+    }
+  }
+
   const bundle: SnapshotBundle = {
     syncedAt: now,
     moralisChain: chain,
@@ -545,6 +559,7 @@ async function buildTokenApiSnapshot(
   if (moralisSwaps) bundle.moralisSwaps = moralisSwaps;
   if (moralisTokenAnalytics) bundle.moralisTokenAnalytics = moralisTokenAnalytics;
   if (moralisPairSnipers) bundle.moralisPairSnipers = moralisPairSnipers;
+  if (moralisErc20Stats) bundle.moralisErc20Stats = moralisErc20Stats;
 
   return JSON.stringify(bundle);
 }
@@ -716,14 +731,15 @@ async function runDailyMarketSyncBody(): Promise<{
     moralisGlobalCategories: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_GLOBAL_TOKEN_CATEGORIES ?? "")),
     moralisGlobalTopLosers: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_GLOBAL_DISCOVERY_TOP_LOSERS ?? "")),
     moralisGlobalLatestBlocks: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_GLOBAL_LATEST_BLOCKS ?? "")),
+    nansenSmartMoneySync: /^1|true|yes$/i.test(String(process.env.NANSEN_SYNC_SMART_MONEY ?? "1")),
   });
 
   const apiKey = process.env.CMC_API_KEY?.trim();
   if (!apiKey) {
     syncLogWarn("CMC_API_KEY missing — skip CMC market fill; running auxiliary APIs only");
     try {
-      await runAuxiliaryApiSnapshotSync();
-      syncLogInfo("daily market sync — finished (auxiliary only, no CMC)", { ok: false });
+      await runNansenThenAuxiliarySnapshots();
+      syncLogInfo("daily market sync — finished (Nansen + auxiliary only, no CMC)", { ok: false });
     } catch (e: unknown) {
       syncLogError("auxiliary snapshot sync failed", e instanceof Error ? e : { error: String(e) });
     }
@@ -734,8 +750,8 @@ async function runDailyMarketSyncBody(): Promise<{
   if (!gotLease) {
     syncLogInfo("CMC lease busy — skip full CMC run; still running auxiliary snapshots");
     try {
-      await runAuxiliaryApiSnapshotSync();
-      syncLogInfo("daily market sync — finished (skipped CMC, auxiliary done)", { skipped: true });
+      await runNansenThenAuxiliarySnapshots();
+      syncLogInfo("daily market sync — finished (skipped CMC, Nansen + auxiliary done)", { skipped: true });
     } catch (e: unknown) {
       syncLogError("auxiliary snapshot sync failed", e instanceof Error ? e : { error: String(e) });
     }
@@ -749,6 +765,7 @@ async function runDailyMarketSyncBody(): Promise<{
     .values({ startedAt: started, status: "running", source: "daily-market-sync" })
     .returning();
   if (runRow?.id != null) setSyncRunDbId(runRow.id);
+  beginSyncUsageCapture(started);
 
   let upserted = 0;
   const moralisMetrics = emptyMoralisMetrics();
@@ -959,17 +976,28 @@ async function runDailyMarketSyncBody(): Promise<{
 
     syncLogInfo("Moralis aggregate (per token row during CMC upserts)", moralisMetrics);
 
-    if (runRow?.id) {
-      const endMs = Date.now();
-      await db
-        .update(syncRuns)
-        .set({
-          finishedAt: Math.floor(endMs / 1000),
-          status: "success",
-          durationMs: Math.round(endMs - startMs),
-        })
-        .where(eq(syncRuns.id, runRow.id));
-    }
+    attachMoralisCmcPhaseEstimate(
+      {
+        evmWithMoralisKey: moralisMetrics.evmWithMoralisKey,
+        skippedNoContractOrKey: moralisMetrics.skippedNoContractOrKey,
+        moralisCore5AllOk: moralisMetrics.moralisCore5AllOk,
+        moralisCore5PartialFail: moralisMetrics.moralisCore5PartialFail,
+        moralisSwapsOk: moralisMetrics.moralisSwapsOk,
+        moralisAnalyticsOk: moralisMetrics.moralisAnalyticsOk,
+        moralisInsightsBundleOk: moralisMetrics.moralisInsightsBundleOk,
+        moralisSnipersOk: moralisMetrics.moralisSnipersOk,
+        moralisErc20StatsOk: moralisMetrics.moralisErc20StatsOk,
+      },
+      estimateMoralisCmcPhaseCu(moralisMetrics, {
+        topLosersSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_TOP_LOSERS ?? "")),
+        swapsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SWAPS ?? "")),
+        analyticsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_ANALYTICS ?? "")),
+        insightsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_INSIGHTS ?? "")),
+        scoreHistoricalOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SCORE_HISTORICAL ?? "")),
+        snipersSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SNIPERS ?? "")),
+        erc20StatsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_ERC20_STATS ?? "")),
+      }),
+    );
 
     syncLogInfo("CMC + Turso upsert pass complete", {
       upsertOperations: upserted,
@@ -977,20 +1005,62 @@ async function runDailyMarketSyncBody(): Promise<{
       durationMs: Math.round(Date.now() - startMs),
     });
     try {
-      await runAuxiliaryApiSnapshotSync();
-      syncLogInfo("daily market sync — success (CMC + auxiliary)", {
+      await runNansenThenAuxiliarySnapshots();
+      syncLogInfo("daily market sync — success (CMC + Nansen + auxiliary)", {
         Upserted: upserted + staleRefreshed,
         durationMs: Math.round(Date.now() - startMs),
       });
     } catch (e: unknown) {
       syncLogError("auxiliary snapshot sync failed after successful CMC", e instanceof Error ? e : { error: String(e) });
     }
+    if (runRow?.id) {
+      const endMs = Date.now();
+      const usage = takeSyncUsageSnapshot();
+      await db
+        .update(syncRuns)
+        .set({
+          finishedAt: Math.floor(endMs / 1000),
+          status: "success",
+          durationMs: Math.round(endMs - startMs),
+          usagePayload: usage ? JSON.stringify(usage) : null,
+        })
+        .where(eq(syncRuns.id, runRow.id));
+    }
     void runPriceAlertEvaluation();
     return { ok: true, Upserted: upserted + staleRefreshed };
   } catch (e: any) {
     syncLogError("daily market sync failed", { message: e?.message || String(e) });
+    attachMoralisCmcPhaseEstimate(
+      {
+        evmWithMoralisKey: moralisMetrics.evmWithMoralisKey,
+        skippedNoContractOrKey: moralisMetrics.skippedNoContractOrKey,
+        moralisCore5AllOk: moralisMetrics.moralisCore5AllOk,
+        moralisCore5PartialFail: moralisMetrics.moralisCore5PartialFail,
+        moralisSwapsOk: moralisMetrics.moralisSwapsOk,
+        moralisAnalyticsOk: moralisMetrics.moralisAnalyticsOk,
+        moralisInsightsBundleOk: moralisMetrics.moralisInsightsBundleOk,
+        moralisSnipersOk: moralisMetrics.moralisSnipersOk,
+        moralisErc20StatsOk: moralisMetrics.moralisErc20StatsOk,
+      },
+      estimateMoralisCmcPhaseCu(moralisMetrics, {
+        topLosersSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_TOP_LOSERS ?? "")),
+        swapsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SWAPS ?? "")),
+        analyticsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_ANALYTICS ?? "")),
+        insightsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_INSIGHTS ?? "")),
+        scoreHistoricalOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SCORE_HISTORICAL ?? "")),
+        snipersSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_SNIPERS ?? "")),
+        erc20StatsSyncOn: /^1|true|yes$/i.test(String(process.env.MORALIS_SYNC_TOKEN_ERC20_STATS ?? "")),
+      }),
+    );
+    try {
+      await runNansenThenAuxiliarySnapshots();
+      syncLogInfo("Nansen + auxiliary snapshots attempted after CMC error");
+    } catch (auxErr: unknown) {
+      syncLogError("auxiliary snapshot sync failed", auxErr instanceof Error ? auxErr : { error: String(auxErr) });
+    }
     if (runRow?.id) {
       const endMs = Date.now();
+      const usage = takeSyncUsageSnapshot();
       await db
         .update(syncRuns)
         .set({
@@ -998,14 +1068,9 @@ async function runDailyMarketSyncBody(): Promise<{
           status: "error",
           errorMessage: e?.message || String(e),
           durationMs: Math.round(endMs - startMs),
+          usagePayload: usage ? JSON.stringify(usage) : null,
         })
         .where(eq(syncRuns.id, runRow.id));
-    }
-    try {
-      await runAuxiliaryApiSnapshotSync();
-      syncLogInfo("auxiliary snapshots attempted after CMC error");
-    } catch (auxErr: unknown) {
-      syncLogError("auxiliary snapshot sync failed", auxErr instanceof Error ? auxErr : { error: String(auxErr) });
     }
     return { ok: false, error: e?.message || String(e) };
   } finally {

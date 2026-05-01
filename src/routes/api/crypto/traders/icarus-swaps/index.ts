@@ -2,8 +2,8 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import {
   getGlobalSnapshotJson,
   GLOBAL_ICARUS_TOP_USERS,
-} from "~/server/crypto-ghost/api-snapshot-sync";
-import type { IcarusTopUser } from "~/server/crypto-ghost/icarus-top-users";
+} from "~/server/crypto-helper/api-snapshot-sync";
+import type { IcarusTopUser } from "~/server/crypto-helper/icarus-top-users";
 
 export const onGet: RequestHandler = async ({ query, json }) => {
   const limit = Math.min(100, Math.max(1, parseInt(query.get("limit") || "40", 10) || 40));

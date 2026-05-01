@@ -1,11 +1,22 @@
 import { component$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
+import { DataSyncExplainer } from "~/components/crypto-dashboard/data-sync-explainer";
+import { DexActivityWalletsSection } from "~/components/crypto-dashboard/dex-activity-wallets-section";
+import {
+  TopPerformersByAssetSection,
+  type TopPerformersBundle,
+} from "~/components/crypto-dashboard/top-performers-by-asset-section";
 import { EvmAddrLinks } from "~/components/crypto-dashboard/evm-dash-links";
-import { useDashboardAuth } from "../layout";
-import { getWalletSnapshotJson } from "~/server/crypto-ghost/api-snapshot-sync";
-import { loadTopTokenHoldersGroups } from "~/server/crypto-ghost/market-top-owners";
-import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";
+import type { DexActivityHighlightBundle } from "~/server/crypto-helper/dex-activity-highlight";
+import {
+  getGlobalSnapshotJson,
+  getWalletSnapshotJson,
+  GLOBAL_DEX_ACTIVITY_HIGHLIGHT,
+  GLOBAL_TOP_PERFORMERS_BY_TOKEN,
+} from "~/server/crypto-helper/api-snapshot-sync";
+import { loadTopTokenHoldersGroups } from "~/server/crypto-helper/market-top-owners";
+import { TRADER_WATCH_WALLETS } from "~/server/crypto-helper/trader-wallets";
 import { formatUsdBalance } from "~/utils/format-market";
 
 const PAGE_SIZE = 8;
@@ -26,10 +37,14 @@ export const useTopWhalesLoader = routeLoader$(async (ev) => {
     }),
   );
 
-  const holderAgg = await loadTopTokenHoldersGroups({
-    maxTokens: TOP_TOKEN_ROWS,
-    maxHoldersPerToken: HOLDERS_PER_TOKEN,
-  });
+  const [holderAgg, topPerformersBundle, dexActivityBundle] = await Promise.all([
+    loadTopTokenHoldersGroups({
+      maxTokens: TOP_TOKEN_ROWS,
+      maxHoldersPerToken: HOLDERS_PER_TOKEN,
+    }),
+    getGlobalSnapshotJson<TopPerformersBundle | null>(GLOBAL_TOP_PERFORMERS_BY_TOKEN),
+    getGlobalSnapshotJson<DexActivityHighlightBundle | null>(GLOBAL_DEX_ACTIVITY_HIGHLIGHT),
+  ]);
 
   return {
     page,
@@ -38,12 +53,12 @@ export const useTopWhalesLoader = routeLoader$(async (ev) => {
     total: TRADER_WATCH_WALLETS.length,
     tokenHolders: holderAgg.groups,
     tokenHoldersMeta: { scanned: holderAgg.tokensScanned },
+    topPerformersBundle,
+    dexActivityBundle,
   };
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const data = useTopWhalesLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -51,14 +66,12 @@ export default component$(() => {
 
   return (
     <div class="space-y-12 w-full max-w-[2200px] mx-auto">
+      <DataSyncExplainer />
+
       <WatchlistWalletGrid
         locale={L}
         title="Top whales"
-        subtitle={
-          showSync
-            ? "Watchlist fija (traders); PnL y net worth desde el último sync (sin llamadas extra al abrir la página)."
-            : "Watchlist fija · datos en caché (sin llamadas en vivo por visita)."
-        }
+        subtitle="Lista curada de wallets; métricas de cartera del último ciclo de actualización. Más abajo: mayores participaciones por activo y rendimiento destacado por contrato."
         rows={v.rows}
         page={v.page}
         pageSize={PAGE_SIZE}
@@ -67,26 +80,30 @@ export default component$(() => {
         basePath={`/${L}/top-traders-whales/`}
       />
 
+      <DexActivityWalletsSection locale={L} bundle={v.dexActivityBundle} />
+
+      <TopPerformersByAssetSection locale={L} bundle={v.topPerformersBundle} />
+
       <section class="space-y-4">
         <div>
-          <h2 class="text-xl font-bold tracking-tight text-[#04E6E6] sm:text-2xl">Mayores holders por token</h2>
+          <h2 class="text-xl font-bold tracking-tight text-[#04E6E6] sm:text-2xl">Mayores participaciones por activo</h2>
           <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
-            Datos del último sync diario (misma fuente que la ficha del token). Tokens ordenados por volumen 24h en
-            caché; hasta {HOLDERS_PER_TOKEN} direcciones por activo. No se hacen llamadas al abrir esta página.
-            {showSync ? (
-              <>
-                {" "}
-                Filas revisadas en BD: {v.tokenHoldersMeta.scanned}. Grupos con datos: {v.tokenHolders.length}.
-              </>
-            ) : null}
+            Posiciones agregadas guardadas con cada ficha de mercado; tokens ordenados por volumen reciente. Hasta{" "}
+            {HOLDERS_PER_TOKEN} direcciones por activo. Para actividad de intercambio y ranking ampliado:{" "}
+            <Link class="text-[#04E6E6] hover:underline" href={`/${L}/top-traders-swaps/`}>
+              Traders por swaps
+            </Link>
+            ,{" "}
+            <Link class="text-[#04E6E6] hover:underline" href={`/${L}/top-traders/`}>
+              Traders destacados
+            </Link>
+            .
           </p>
         </div>
 
         {v.tokenHolders.length === 0 ? (
           <div class="rounded-xl border border-[#043234]/80 bg-[#001318]/95 p-6 text-sm text-slate-400">
-            {showSync
-              ? "Aún no hay holders disponibles. Asegurate de tener tokens EVM en caché."
-              : "Sin datos de holders en caché todavía."}
+            Sin datos de mayores holders todavía. Volvé más tarde o revisá que haya mercado cargado para esos tokens.
           </div>
         ) : (
           <div class="space-y-8">

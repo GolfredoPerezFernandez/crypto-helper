@@ -1,6 +1,6 @@
 import { routeLoader$ } from "@builder.io/qwik-city";
 import { verifyAuth } from "~/utils/auth";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 
 /** Redirects to login or home with ?pro=required if the user lacks Pro (subscriber or admin). */
 export const useRequirePro = routeLoader$(async (ev) => {

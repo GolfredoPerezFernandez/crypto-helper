@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchMoralisWalletDefiSummary } from "~/server/crypto-ghost/moralis-api";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchMoralisWalletDefiSummary } from "~/server/crypto-helper/moralis-api";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 /** GET /wallets/{address}/defi/summary — Moralis DeFi protocol summary (session required). */

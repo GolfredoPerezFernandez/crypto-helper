@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getUserId } from "~/utils/auth";
 import { users } from "../../../../../../drizzle/schema";
 import { db } from "~/lib/turso";
-import { verifyAndGrantPro } from "~/server/crypto-ghost/pro-payment-verify";
+import { verifyAndGrantPro } from "~/server/crypto-helper/pro-payment-verify";
 import { getProChainEntry } from "~/constants/pro-networks";
 import { base } from "viem/chains";
 

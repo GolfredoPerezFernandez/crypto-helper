@@ -15,6 +15,11 @@ export function txExplorerBase(chain: string): string {
   if (c === "linea") return "https://lineascan.build";
   if (c === "blast") return "https://blastscan.io";
   if (c === "cronos") return "https://cronoscan.com";
+  if (c === "moonbeam" || c === "0x504") return "https://moonscan.io";
+  if (c === "moonriver" || c === "0x505") return "https://moonriver.moonscan.io";
+  if (c === "pulse" || c === "0x171") return "https://scan.pulsechain.com";
+  if (c === "sei" || c === "0x531") return "https://seitrace.com";
+  if (c === "monad" || c === "0x8f") return "https://explorer.monad.xyz";
   if (c === "0x1" || c === "eth" || c === "ethereum") return "https://etherscan.io";
   if (c === "0x38") return "https://bscscan.com";
   if (c === "0x89") return "https://polygonscan.com";

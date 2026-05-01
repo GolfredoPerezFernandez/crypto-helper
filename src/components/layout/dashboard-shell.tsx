@@ -9,15 +9,12 @@ import {
   LuChevronLeft,
   LuChevronRight,
   LuCoins,
-  LuDollarSign,
   LuImage,
   LuLayers,
   LuLayoutGrid,
   LuRadar,
-  LuRadio,
   LuSparkles,
   LuWallet,
-  LuWaves,
   LuZap,
 } from "@qwikest/icons/lucide";
 export type DashboardAccessState = {
@@ -49,8 +46,8 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
     const tr = inlineTranslate();
     return {
       brand: tr("dashboard.brand@@Crypto Helper"),
-      subtitle: tr("dashboard.subtitle@@Dashboard · market & on-chain"),
-      subtitleDebug: tr("dashboard.subtitleDebug@@Dashboard · cached market & on-chain data"),
+      subtitle: tr("dashboard.subtitle@@Mercado y datos on-chain"),
+      subtitleDebug: tr("dashboard.subtitleDebug@@Mercado y datos on-chain"),
       chainLabel: tr("dashboard.chainLabel@@Chain"),
       chainAria: tr("dashboard.chainAria@@Chain: EVM or Solana"),
       evm: tr("dashboard.evm@@EVM"),
@@ -78,13 +75,14 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
       nfts: tr("dashboard.nfts@@NFTs"),
       block: tr("dashboard.block@@Block"),
       signalNotifications: tr("dashboard.signalNotifications@@Signal notifications"),
+      /** Unified /alerts — push prefs + live whale/trader streams */
+      alertsHub: tr("dashboard.alertsHub@@Alerts & notifications"),
       push: tr("dashboard.push@@Push"),
-      dbInsight: tr("dashboard.dbInsight@@DB insight"),
+      dbInsight: tr("dashboard.dbInsight@@Asistente IA"),
       liveSignals: tr("dashboard.liveSignals@@Live signals"),
       liveSignalsProSuffix: tr("dashboard.liveSignalsProSuffix@@· Pro"),
       smartMoney: tr("dashboard.smartMoney@@Smart money"),
       whaleAlerts: tr("dashboard.whaleAlerts@@Whale alerts"),
-      usdtSmart: tr("dashboard.usdtSmart@@USDT smart alerts"),
       netflows: tr("dashboard.netflows@@Netflows"),
       holdings: tr("dashboard.holdings@@Holdings"),
       historicalHoldings: tr("dashboard.historicalHoldings@@Historical holdings"),
@@ -186,7 +184,7 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
               <span class={collapsed ? "max-md:inline md:hidden" : ""}>{d.value.brand}</span>
             </Link>
             <p class={["text-xs text-gray-500 mt-1", collapsed ? "max-md:block md:hidden" : ""].join(" ")}>
-              {props.session.showSyncDebug ? d.value.subtitleDebug : d.value.subtitle}
+              {d.value.subtitle}
             </p>
           </div>
           <button
@@ -539,16 +537,21 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
           </Link>
 
           <Link
-            class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/notifications-settings")}`}
-            href={`${base}/notifications-settings/`}
-            title={d.value.signalNotifications}
+            class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/alerts")}`}
+            href={`${base}/alerts/`}
+            title={`${d.value.alertsHub} · ${d.value.push} / ${d.value.sse}`}
           >
             <LuBell class={iconClass} />
-            <span class={lbl}>{d.value.signalNotifications}</span>
+            <span class={lbl}>{d.value.alertsHub}</span>
             <span
               class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
             >
               {d.value.push}
+            </span>
+            <span
+              class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/15 text-[#04E6E6]/90 shrink-0 ${lbl}`}
+            >
+              {d.value.sse}
             </span>
           </Link>
           {hasPro ? (
@@ -577,69 +580,6 @@ export const DashboardShell = component$((props: { session: DashboardAccessState
             </Link>
           )}
 
-          <p
-            class={[
-              "text-[10px] uppercase tracking-wider text-gray-600 mt-3 mb-1 px-2 flex items-center gap-2",
-              collapsed ? "md:justify-center md:px-0" : "",
-            ].join(" ")}
-            title={d.value.liveSignals}
-          >
-            <LuRadio class={[iconClass, "opacity-70", collapsed ? "" : "hidden"].join(" ")} />
-            <span class={collapsed ? lbl : ""}>
-              {d.value.liveSignals}
-              {!hasPro ? (
-                <span class="text-amber-500/90 normal-case ml-1">{d.value.liveSignalsProSuffix}</span>
-              ) : null}
-            </span>
-          </p>
-          {hasPro ? (
-            <Link
-              class={`${navClass} ${navClassMdCollapsed} flex-wrap ${active("/whales-signals")}`}
-              href={`${base}/whales-signals/`}
-              title={`${d.value.whaleAlerts} (${d.value.sse})`}
-            >
-              <LuWaves class={iconClass} />
-              <span class={lbl}>{d.value.whaleAlerts}</span>
-              <span
-                class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
-              >
-                {d.value.sse}
-              </span>
-            </Link>
-          ) : (
-            <Link
-              class={`${navClassLocked} ${navClassLockedMdCollapsed} flex-wrap`}
-              href={`${base}/home/?pro=required`}
-              title={d.value.proOnlyTitle}
-            >
-              <LuWaves class={iconClass} />
-              <span class={lbl}>{d.value.whaleAlerts}</span>
-              <span
-                class={`text-[10px] px-1.5 py-px rounded bg-[#04E6E6]/20 text-[#04E6E6] shrink-0 ${lbl}`}
-              >
-                {d.value.sse}
-              </span>
-            </Link>
-          )}
-          {hasPro ? (
-            <Link
-              class={`${navClass} ${navClassMdCollapsed} ${active("/smart-signals")}`}
-              href={`${base}/smart-signals/`}
-              title={d.value.usdtSmart}
-            >
-              <LuDollarSign class={iconClass} />
-              <span class={lbl}>{d.value.usdtSmart}</span>
-            </Link>
-          ) : (
-            <Link
-              class={`${navClassLocked} ${navClassLockedMdCollapsed}`}
-              href={`${base}/home/?pro=required`}
-              title={d.value.proOnlyTitle}
-            >
-              <LuDollarSign class={iconClass} />
-              <span class={lbl}>{d.value.usdtSmart}</span>
-            </Link>
-          )}
               </div>
             </>
           )}

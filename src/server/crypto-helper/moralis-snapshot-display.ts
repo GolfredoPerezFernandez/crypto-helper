@@ -2,8 +2,8 @@
  * Normalize Moralis wallet snapshot payloads for dashboard tables.
  * API shapes vary (nested summary, multi-chain net worth without top-level total).
  */
-import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
-import type { WalletPageSnapshot } from "~/server/crypto-ghost/wallet-snapshot";
+import type { MoralisWalletTokensResult } from "~/server/crypto-helper/moralis-api";
+import type { WalletPageSnapshot } from "~/server/crypto-helper/wallet-snapshot";
 
 function unwrapRecord(data: unknown): Record<string, unknown> | null {
   if (!data || typeof data !== "object") return null;

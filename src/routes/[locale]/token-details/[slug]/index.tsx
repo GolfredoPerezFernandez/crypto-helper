@@ -2,14 +2,14 @@ import { component$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { TradingViewAdvancedChart } from "~/components/crypto/tradingview-advanced-chart";
-import { CATEGORY_DASHBOARD_PATH } from "~/server/crypto-ghost/market-category-constants";
+import { CATEGORY_DASHBOARD_PATH } from "~/server/crypto-helper/market-category-constants";
 import { formatTokenUsdPrice, formatUsdLiquidity } from "~/utils/format-market";
 import {
   buildTradingViewSymbolCandidates,
   dexScreenerEmbedUrl,
   dexScreenerPathForNetwork,
 } from "~/utils/tradingview-symbol";
-import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";
+import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-chain";
 import { EvmAddrLinks } from "~/components/crypto-dashboard/evm-dash-links";
 
 const isEvmAddress = (s: string) => /^0x[a-fA-F0-9]{40}$/.test(s);
@@ -18,7 +18,7 @@ export const useTokenDetailsBySlugLoader = routeLoader$(async (ev) => {
   const slug = decodeURIComponent(ev.params.slug || "").trim();
   if (!slug) throw ev.error(404, { message: "Missing slug" });
   const { getMarketTokenByAddressLoose, getMarketTokenBySlugLoose } = await import(
-    "~/server/crypto-ghost/market-queries"
+    "~/server/crypto-helper/market-queries"
   );
   const row = isEvmAddress(slug)
     ? await getMarketTokenByAddressLoose(slug)

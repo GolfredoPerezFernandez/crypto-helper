@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { recordCmcHttpCall } from "~/server/crypto-helper/sync-usage-context";
 
 export type SyncRunContext = {
   runId: string;
@@ -56,6 +57,7 @@ export async function timedFetch(
 ): Promise<Response> {
   const t0 = Date.now();
   try {
+    recordCmcHttpCall();
     const res = await fetch(input, init);
     const ms = Date.now() - t0;
     syncLogApi(`HTTP ${apiLabel}`, res.ok ? "ok" : "fail", ms, {

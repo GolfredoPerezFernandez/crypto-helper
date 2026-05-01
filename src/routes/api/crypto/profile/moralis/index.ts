@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { moralisGet } from "~/server/crypto-ghost/moralis-api";
+import { moralisGet } from "~/server/crypto-helper/moralis-api";
 import { verifyAuth } from "~/utils/auth";
 
 const EVM = "0x[a-fA-F0-9]{40}";

@@ -21,12 +21,12 @@ import {
   type BubbleQuoteId,
 } from "~/utils/bubble-quote";
 import { db } from "~/lib/turso";
-import { fetchCmcQuotesUsdMapByIds } from "~/server/crypto-ghost/cmc-live";
+import { fetchCmcQuotesUsdMapByIds } from "~/server/crypto-helper/cmc-live";
 import {
   cmcUsdNumericField,
   extractCmcUsdFromSnapshot,
   parseTokenApiSnapshot,
-} from "~/server/crypto-ghost/market-token-snapshot";
+} from "~/server/crypto-helper/market-token-snapshot";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
 
 export const head: DocumentHead = {
@@ -141,8 +141,7 @@ export const useBubblesLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
+  useDashboardAuth();
   const data = useBubblesLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -344,23 +343,12 @@ export default component$(() => {
       ) : null}
 
       <p class="mb-3 text-xs text-gray-600">
-        Showing {list.length} of {rawCount} tokens from the volume board · green / red = timeframe %.{" "}
-        {showSync ? (
-          <>
-            Run a full market sync for fresher quotes.{" "}
-            <span class="text-gray-500">Year view uses ~90d % change (falls back to 30d).</span>
-          </>
-        ) : (
-          <span class="text-gray-500">Year uses ~90d % change (falls back to 30d).</span>
-        )}
+        Mostrando {list.length} de {rawCount} tokens del tablero de volumen · verde / rojo = variación en el periodo.{" "}
+        <span class="text-gray-500">La vista anual usa ~90d % de cambio (alternativa 30d).</span>
       </p>
 
       {rawCount === 0 ? (
-        <p class="text-gray-500 text-sm">
-          {showSync
-            ? "No data — run a full market sync so token boards are populated."
-            : "No hay datos de mercado todavía."}
-        </p>
+        <p class="text-gray-500 text-sm">No hay datos de mercado para mostrar todavía. Volvé más tarde.</p>
       ) : view.value === "bubbles" ? (
         <>
           <div ref={chartHost} class="rounded-xl overflow-hidden">

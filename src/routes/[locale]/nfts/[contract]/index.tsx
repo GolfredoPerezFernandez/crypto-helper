@@ -8,8 +8,8 @@ import {
   fetchMoralisNftCollectionStats,
   fetchMoralisNftTraitsPaginate,
   fetchMoralisNftsByContract,
-} from "~/server/crypto-ghost/moralis-api";
-import { nftImage } from "~/server/crypto-ghost/wallet-snapshot";
+} from "~/server/crypto-helper/moralis-api";
+import { nftImage } from "~/server/crypto-helper/wallet-snapshot";
 import { formatTokenUsdPrice } from "~/utils/format-market";
 
 function moralisNftRows(data: unknown): Record<string, unknown>[] {

@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { runDailyMarketSync } from "~/server/crypto-ghost/cmc-sync";
+import { runDailyMarketSync } from "~/server/crypto-helper/cmc-sync";
 
 /**
  * POST /api/crypto/sync/run

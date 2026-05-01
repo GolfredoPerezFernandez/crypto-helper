@@ -3,7 +3,7 @@ import {
   MARKET_CATEGORIES,
   getMarketTokenBySlug,
   isMarketCategory,
-} from "~/server/crypto-ghost/market-queries";
+} from "~/server/crypto-helper/market-queries";
 
 export const onGet: RequestHandler = async ({ params, json }) => {
   const category = params.category || "";

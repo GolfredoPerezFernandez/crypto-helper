@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchMoralisWalletStats } from "~/server/crypto-ghost/moralis-api";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchMoralisWalletStats } from "~/server/crypto-helper/moralis-api";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 /** GET /wallets/{address}/stats — summary stats for one chain. Session required. */

@@ -7,8 +7,8 @@ import {
   getGlobalSnapshotJson,
   GLOBAL_NFT_HOTTEST,
   GLOBAL_NFT_TOP,
-} from "~/server/crypto-ghost/api-snapshot-sync";
-import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
+} from "~/server/crypto-helper/api-snapshot-sync";
+import type { MoralisWalletTokensResult } from "~/server/crypto-helper/moralis-api";
 import { formatTokenUsdPrice, formatUsdLiquidity } from "~/utils/format-market";
 
 export const head: DocumentHead = {
@@ -125,8 +125,7 @@ function nftCollectionMarketCapUsd(c: Record<string, unknown>): number | null {
 }
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
+  useDashboardAuth();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
   const data = useNftsLoader();
@@ -170,17 +169,14 @@ export default component$(() => {
 
   return (
     <div class="mx-auto w-full max-w-[1700px] 2xl:max-w-[1900px] px-1 2xl:px-3">
-      <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">NFT collections</h1>
+      <h1 class="text-2xl font-bold tracking-tight text-[#04E6E6] sm:text-3xl">Colecciones NFT</h1>
       <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
-        {showSync
-          ? "Datos desde la base (último sync programado). Sin llamadas extra al abrir la página."
-          : "Datos en caché (actualizados periódicamente)."}
+        Rankings desde datos en caché, actualizados periódicamente. Sin consultas extra al abrir la página.
       </p>
 
-      {showSync && (data.value.hotErr || data.value.topErr) ? (
+      {data.value.hotErr || data.value.topErr ? (
         <div class="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-          {data.value.hotErr ? <p>Hottest: {data.value.hotErr.slice(0, 200)}</p> : null}
-          {data.value.topErr ? <p>Top: {data.value.topErr.slice(0, 200)}</p> : null}
+          <p>Algunas listas no están disponibles en este momento. Volvé a intentar más tarde.</p>
         </div>
       ) : null}
 

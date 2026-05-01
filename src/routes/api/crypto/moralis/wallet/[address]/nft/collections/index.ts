@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { fetchMoralisWalletNftCollections } from "~/server/crypto-ghost/moralis-api";
-import { isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { fetchMoralisWalletNftCollections } from "~/server/crypto-helper/moralis-api";
+import { isEvmAddress } from "~/server/crypto-helper/market-queries";
 import { verifyAuth } from "~/utils/auth";
 
 /**

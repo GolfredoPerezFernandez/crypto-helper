@@ -22,6 +22,9 @@
  * - GET /api/crypto/moralis/solana/token/:mint/swaps?network=&limit=&cursor=&order=&fromDate=&toDate=&transactionTypes=
  * - GET /api/crypto/moralis/solana/pairs/:pair/swaps?network=&limit=&cursor=&order=&fromDate=&toDate=&transactionTypes=
  * - GET /api/crypto/moralis/tokens/:address/analytics?tokenId=&chain=
+ * - GET /api/crypto/moralis/token-search?query=&chains=&limit=&sortBy= (session; Moralis /tokens/search Pro)
+ * - GET /api/crypto/moralis/pairs/:pairAddress/ohlcv?chain=&timeframe=&currency=&from_date=&to_date=&limit= (session; EVM OHLCV)
+ * - GET /api/crypto/moralis/solana/pairs/:pairAddress/ohlcv?network=&timeframe=&currency=&fromDate=&toDate=&limit= (session; Solana OHLCV)
  * - POST /api/crypto/moralis/tokens/analytics/timeseries (JSON: tokenId or tokens[], timeframe 1d|7d|30d; max 30 tokens)
  * - POST /api/crypto/moralis/solana/token/:mint/analytics-timeseries (JSON: timeframe)
  * - Solana (live Moralis): /[locale]/solana/wallet/[address]/?network= · /[locale]/solana/token/[mint]/?network=
@@ -45,11 +48,11 @@
 import type { Express, Request, Response } from "express";
 import cron from "node-cron";
 import { and, desc, eq, gt } from "drizzle-orm";
-import { runDailyMarketSync } from "./crypto-ghost/cmc-sync";
-import { handleMoralisStreamWebhook } from "./crypto-ghost/webhook-processor";
-import { expressRequestHasProAccess } from "./crypto-ghost/user-access";
+import { runDailyMarketSync } from "./crypto-helper/cmc-sync";
+import { handleMoralisStreamWebhook } from "./crypto-helper/webhook-processor";
+import { expressRequestHasProAccess } from "./crypto-helper/user-access";
 import { smartEmitter, traderEmitter, whaleEmitter } from "./realtime/emitters";
-import { startUsdtWatcher } from "./crypto-ghost/usdt-watcher";
+import { startUsdtWatcher } from "./crypto-helper/usdt-watcher";
 import { db } from "~/lib/turso";
 import { syncRuns } from "../../drizzle/schema";
 
@@ -109,7 +112,7 @@ async function attachSmartSse(_req: Request, res: Response) {
   });
 }
 
-export function registerCryptoGhostRoutes(app: Express): void {
+export function registerCryptoHelperRoutes(app: Express): void {
   app.get("/api/stream/whales", attachSse(whaleEmitter, "new-message"));
   app.get("/api/stream/traders", attachSse(traderEmitter, "new-message"));
   app.get("/api/stream/smart", attachSmartSse);
@@ -153,8 +156,8 @@ export function registerCryptoGhostRoutes(app: Express): void {
   });
 }
 
-export function scheduleCryptoGhostJobs(): void {
-  console.log("[Crypto Helper] scheduleCryptoGhostJobs() — start", new Date().toISOString());
+export function scheduleCryptoHelperJobs(): void {
+  console.log("[Crypto Helper] scheduleCryptoHelperJobs() — start", new Date().toISOString());
   const expr = process.env.SYNC_CRON || "0 */12 * * *";
   cron.schedule(expr, () => {
     const tsStart = new Date().toISOString();
@@ -235,5 +238,5 @@ export function scheduleCryptoGhostJobs(): void {
   } else {
     console.warn("[Crypto Helper] ETHEREUM_RPC_URL not set — smart watcher disabled");
   }
-  console.log("[Crypto Helper] scheduleCryptoGhostJobs() — done");
+  console.log("[Crypto Helper] scheduleCryptoHelperJobs() — done");
 }

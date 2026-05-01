@@ -21,6 +21,8 @@ export type TokenApiSnapshot = {
   moralisTokenAnalytics?: { ok: boolean; data?: unknown; error?: string };
   /** Optional: `MORALIS_SYNC_TOKEN_SNIPERS=1` + insights (uses first pair from Moralis pairs). */
   moralisPairSnipers?: { ok: boolean; data?: unknown; error?: string };
+  /** Optional: `MORALIS_SYNC_TOKEN_ERC20_STATS=1` — Moralis getTokenStats (~50 CUs). */
+  moralisErc20Stats?: { ok: boolean; data?: unknown; error?: string };
 };
 
 export function parseTokenApiSnapshot(raw: string | null | undefined): TokenApiSnapshot | null {

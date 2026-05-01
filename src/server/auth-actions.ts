@@ -19,7 +19,8 @@ const walletLoginChallenges = new Map<string, { message: string; exp: number }>(
 const pendingMetamaskSignups = new Map<string, { exp: number; userId?: number }>();
 
 function isReservedPlaceholderEmail(email: string): boolean {
-    return email.toLowerCase().trim().endsWith("@crypto-ghost.internal");
+    const e = email.toLowerCase().trim();
+    return e.endsWith("@crypto-helper.internal") || e.endsWith("@crypto-ghost.internal");
 }
 
 function isValidEmailFormat(email: string): boolean {

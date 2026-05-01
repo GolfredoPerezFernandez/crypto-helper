@@ -1,7 +1,9 @@
 /**
- * Moralis REST helpers (server-only). Split from crypto-ghost-actions so cmc-sync can import
+ * Moralis REST helpers (server-only). Split from crypto-helper-actions so cmc-sync can import
  * without circular deps (actions → cmc-sync → actions).
  */
+
+import { recordMoralisResponse } from "~/server/crypto-helper/sync-usage-context";
 
 const MORALIS_BASE = "https://deep-index.moralis.io/api/v2.2";
 const MORALIS_SOLANA_BASE = "https://solana-gateway.moralis.io";
@@ -49,6 +51,7 @@ export async function moralisGet(pathWithQuery: string): Promise<MoralisWalletTo
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_BASE}${pathWithQuery}`;
     const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    recordMoralisResponse(res, `deep-index:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
     return { ok: true, data: json };
@@ -69,6 +72,7 @@ export async function moralisUniversalGet(
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_UNIVERSAL_BASE}/v1${pathWithQuery}`;
     const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    recordMoralisResponse(res, `universal:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) {
       if (res.status === 403) {
         return {
@@ -93,6 +97,7 @@ export async function moralisSolanaGet(pathWithQuery: string): Promise<MoralisWa
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_SOLANA_BASE}${pathWithQuery}`;
     const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    recordMoralisResponse(res, `solana:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
     return { ok: true, data: json };
@@ -115,6 +120,7 @@ async function moralisPostJson(pathWithQuery: string, body: unknown): Promise<Mo
       },
       body: JSON.stringify(body),
     });
+    recordMoralisResponse(res, `deep-index:POST:${pathWithQuery.split("?")[0].slice(0, 140)}`);
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
     return { ok: true, data: json };
@@ -1008,12 +1014,17 @@ export async function fetchMoralisErc20TopGainers(
   tokenAddress: string,
   chain: string,
   limit = 25,
+  opts?: { days?: string },
 ): Promise<MoralisWalletTokensResult> {
   if (!tokenAddress) return { ok: false, error: "Missing token address" };
   const addr = encodeURIComponent(tokenAddress);
   const ch = encodeURIComponent(chain);
   const lim = encodeURIComponent(String(limit));
-  return moralisGet(`/erc20/${addr}/top-gainers?chain=${ch}&limit=${lim}`);
+  const daysQ =
+    opts?.days != null && String(opts.days).trim() !== ""
+      ? `&days=${encodeURIComponent(String(opts.days).trim())}`
+      : "";
+  return moralisGet(`/erc20/${addr}/top-gainers?chain=${ch}&limit=${lim}${daysQ}`);
 }
 
 export async function fetchMoralisErc20Owners(
@@ -1037,6 +1048,17 @@ export async function fetchMoralisErc20Price(
   const addr = encodeURIComponent(tokenAddress);
   const ch = encodeURIComponent(chain);
   return moralisGet(`/erc20/${addr}/price?chain=${ch}`);
+}
+
+/** Moralis getTokenStats — holder/supply aggregates (~50 CUs). `GET /erc20/{address}/stats` */
+export async function fetchMoralisErc20TokenStats(
+  tokenAddress: string,
+  chain: string,
+): Promise<MoralisWalletTokensResult> {
+  if (!tokenAddress) return { ok: false, error: "Missing token address" };
+  const addr = encodeURIComponent(tokenAddress);
+  const ch = encodeURIComponent(chain);
+  return moralisGet(`/erc20/${addr}/stats?chain=${ch}`);
 }
 
 export async function fetchMoralisErc20Transfers(
@@ -1195,6 +1217,90 @@ export async function fetchMoralisBlock(
     path += `&include=${encodeURIComponent("internal_transactions")}`;
   }
   return moralisGet(path);
+}
+
+export type MoralisBlockResolvedMode =
+  | "direct_block"
+  | "direct_block_cross_chain"
+  | "tx_then_block"
+  | "tx_then_block_cross_chain";
+
+/**
+ * Resolves a user-entered block number, block hash, or **transaction hash** to a full block payload.
+ * If the preferred chain has no block for that hash, tries other major chains (same hash is often Base vs Eth).
+ */
+export async function fetchMoralisBlockResolved(
+  blockOrTxHash: string,
+  preferredChain: string,
+  opts?: { includeInternalTransactions?: boolean },
+): Promise<{
+  blockRes: MoralisWalletTokensResult;
+  resolvedChain: string;
+  mode: MoralisBlockResolvedMode;
+  txRes?: MoralisWalletTokensResult;
+}> {
+  const raw = String(blockOrTxHash ?? "").trim();
+  if (!raw) {
+    return {
+      blockRes: { ok: false, error: "Missing block number or hash" },
+      resolvedChain: preferredChain,
+      mode: "direct_block",
+    };
+  }
+  const pref = String(preferredChain || "eth").trim().toLowerCase();
+  const hex64 = /^0x[a-fA-F0-9]{64}$/i.test(raw);
+  const candidates = [
+    pref,
+    "base",
+    "eth",
+    "polygon",
+    "arbitrum",
+    "optimism",
+    "bsc",
+    "avalanche",
+    "linea",
+  ];
+  const ordered = [...new Set(candidates.map((c) => c.toLowerCase()))];
+  let primaryBlockAttempt: MoralisWalletTokensResult | null = null;
+
+  for (const ch of ordered) {
+    const blockTry = await fetchMoralisBlock(raw, ch, opts);
+    if (ch === pref) primaryBlockAttempt = blockTry;
+    if (blockTry.ok) {
+      const cross = ch !== pref;
+      return {
+        blockRes: blockTry,
+        resolvedChain: ch,
+        mode: cross ? "direct_block_cross_chain" : "direct_block",
+      };
+    }
+
+    if (hex64) {
+      const txTry = await fetchMoralisTransaction(raw, ch);
+      if (txTry.ok && txTry.data && typeof txTry.data === "object") {
+        const d = txTry.data as Record<string, unknown>;
+        const bn = d.block_number ?? d.blockNumber;
+        if (bn != null && String(bn).trim() !== "") {
+          const blockFromNum = await fetchMoralisBlock(String(bn).trim(), ch, opts);
+          if (blockFromNum.ok) {
+            const cross = ch !== pref;
+            return {
+              blockRes: blockFromNum,
+              resolvedChain: ch,
+              mode: cross ? "tx_then_block_cross_chain" : "tx_then_block",
+              txRes: txTry,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    blockRes: primaryBlockAttempt ?? { ok: false, error: "No block found" },
+    resolvedChain: pref,
+    mode: "direct_block",
+  };
 }
 
 /**
@@ -1561,4 +1667,320 @@ export async function fetchMoralisSolanaTokenPairs(
   if (opts?.cursor) qs.set("cursor", opts.cursor);
   const q = qs.toString();
   return moralisSolanaGet(`/token/${net}/${encodeURIComponent(a)}/pairs${q ? `?${q}` : ""}`);
+}
+
+/** EVM pair OHLCV timeframes (Moralis docs; extend if API adds more). */
+export type MoralisPairOhlcvTimeframe =
+  | "1min"
+  | "5min"
+  | "15min"
+  | "30min"
+  | "1h"
+  | "4h"
+  | "12h"
+  | "1d"
+  | "1w";
+
+/**
+ * GET /pairs/{address}/ohlcv — candlesticks for a DEX pair (~150 CUs, Pro+).
+ * https://docs.moralis.com/web3-data-api/evm/reference/price/get-ohlcv-by-pair-address
+ */
+export async function fetchMoralisPairOhlcv(
+  pairAddress: string,
+  chain: string,
+  opts?: {
+    timeframe?: MoralisPairOhlcvTimeframe | string;
+    currency?: "usd" | "native";
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+  },
+): Promise<MoralisWalletTokensResult> {
+  const raw = String(pairAddress ?? "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(raw)) return { ok: false, error: "Invalid pair address" };
+  const addr = encodeURIComponent(raw);
+  const qs = new URLSearchParams();
+  qs.set("chain", chain);
+  if (opts?.timeframe) qs.set("timeframe", String(opts.timeframe));
+  if (opts?.currency) qs.set("currency", opts.currency);
+  if (opts?.fromDate) qs.set("from_date", opts.fromDate);
+  if (opts?.toDate) qs.set("to_date", opts.toDate);
+  if (opts?.limit != null && opts.limit > 0) {
+    qs.set("limit", String(Math.min(1000, Math.floor(opts.limit))));
+  }
+  return moralisGet(`/pairs/${addr}/ohlcv?${qs.toString()}`);
+}
+
+/**
+ * GET /token/{network}/pairs/{address}/ohlcv — Solana pair candlesticks.
+ * https://docs.moralis.com/data-api/solana/token/prices/ohlc
+ */
+export async function fetchMoralisSolanaPairOhlcv(
+  pairAddress: string,
+  network: MoralisSolanaNetwork = "mainnet",
+  opts?: {
+    timeframe?: string;
+    currency?: "usd" | "native";
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+  },
+): Promise<MoralisWalletTokensResult> {
+  const a = String(pairAddress ?? "").trim();
+  if (!a) return { ok: false, error: "Missing pair address" };
+  const net = network === "devnet" ? "devnet" : "mainnet";
+  const qs = new URLSearchParams();
+  if (opts?.timeframe) qs.set("timeframe", opts.timeframe);
+  if (opts?.currency) qs.set("currency", opts.currency);
+  if (opts?.fromDate) qs.set("fromDate", opts.fromDate);
+  if (opts?.toDate) qs.set("toDate", opts.toDate);
+  if (opts?.limit != null && opts.limit > 0) {
+    qs.set("limit", String(Math.min(1000, Math.floor(opts.limit))));
+  }
+  const q = qs.toString();
+  return moralisSolanaGet(`/token/${net}/pairs/${encodeURIComponent(a)}/ohlcv${q ? `?${q}` : ""}`);
+}
+
+export type MoralisTokenSearchSortBy =
+  | "volume1hDesc"
+  | "volume24hDesc"
+  | "liquidityDesc"
+  | "marketCapDesc";
+
+/**
+ * GET /tokens/search — cross-chain token discovery (Pro+).
+ * https://docs.moralis.com/web3-data-api/evm/token-search
+ */
+export async function fetchMoralisTokensSearch(opts: {
+  query?: string;
+  chains?: string;
+  limit?: number;
+  sortBy?: MoralisTokenSearchSortBy;
+  isVerifiedContract?: boolean;
+  boostVerifiedContracts?: boolean;
+}): Promise<MoralisWalletTokensResult> {
+  const qs = new URLSearchParams();
+  if (opts.query != null && String(opts.query).trim() !== "") {
+    qs.set("query", String(opts.query).trim());
+  }
+  if (opts.chains != null && String(opts.chains).trim() !== "") {
+    qs.set("chains", String(opts.chains).trim());
+  }
+  if (opts.limit != null && opts.limit > 0) {
+    qs.set("limit", String(Math.min(1000, Math.floor(opts.limit))));
+  }
+  if (opts.sortBy) qs.set("sortBy", opts.sortBy);
+  if (opts.isVerifiedContract === true) qs.set("isVerifiedContract", "true");
+  if (opts.boostVerifiedContracts === false) qs.set("boostVerifiedContracts", "false");
+  const q = qs.toString();
+  return moralisGet(`/tokens/search${q ? `?${q}` : ""}`);
+}
+
+/** GET /tokens/trending — Moralis trending tokens (Pro+). */
+export async function fetchMoralisTrendingTokens(
+  chain: string,
+  opts?: { limit?: number },
+): Promise<MoralisWalletTokensResult> {
+  const ch = encodeURIComponent(chain);
+  let path = `/tokens/trending?chain=${ch}`;
+  if (opts?.limit != null && opts.limit > 0) {
+    path += `&limit=${encodeURIComponent(String(Math.min(100, Math.floor(opts.limit))))}`;
+  }
+  return moralisGet(path);
+}
+
+/** GET /volume/chains — volume & activity by chain (Pro+). */
+export async function fetchMoralisVolumeChains(): Promise<MoralisWalletTokensResult> {
+  return moralisGet("/volume/chains");
+}
+
+/** GET /volume/categories — volume by token category (Pro+). */
+export async function fetchMoralisVolumeCategories(chain: string): Promise<MoralisWalletTokensResult> {
+  const ch = encodeURIComponent(chain);
+  return moralisGet(`/volume/categories?chain=${ch}`);
+}
+
+/** GET /discovery/tokens/top-gainers — chain-wide top gainers (high CU). */
+export async function fetchMoralisDiscoveryTopGainers(
+  chain: string,
+  opts?: { min_market_cap?: number; security_score?: number; time_frame?: string },
+): Promise<MoralisWalletTokensResult> {
+  const ch = encodeURIComponent(chain);
+  const qs = new URLSearchParams();
+  qs.set("chain", chain);
+  if (opts?.min_market_cap != null && Number.isFinite(opts.min_market_cap)) {
+    qs.set("min_market_cap", String(opts.min_market_cap));
+  }
+  if (opts?.security_score != null && Number.isFinite(opts.security_score)) {
+    qs.set("security_score", String(opts.security_score));
+  }
+  if (opts?.time_frame) qs.set("time_frame", opts.time_frame);
+  return moralisGet(`/discovery/tokens/top-gainers?${qs.toString()}`);
+}
+
+/**
+ * POST /discovery/tokens — filtered token discovery (high CU).
+ * https://docs.moralis.com/web3-data-api/evm/reference/get-filtered-tokens
+ */
+export async function fetchMoralisDiscoveryFilteredTokens(
+  body: Record<string, unknown>,
+): Promise<MoralisWalletTokensResult> {
+  return moralisPostJson("/discovery/tokens", body);
+}
+
+/** GET /entities/search — Entity API (Pro+). */
+export async function fetchMoralisEntitySearch(query: string, limit = 25): Promise<MoralisWalletTokensResult> {
+  const q = encodeURIComponent(String(query ?? "").trim());
+  if (!q) return { ok: false, error: "Missing entity search query" };
+  const lim = Math.min(100, Math.max(1, Math.floor(limit)));
+  return moralisGet(`/entities/search?query=${q}&limit=${encodeURIComponent(String(lim))}`);
+}
+
+/** GET /entities/categories */
+export async function fetchMoralisEntityCategories(limit = 50): Promise<MoralisWalletTokensResult> {
+  const lim = Math.min(100, Math.max(1, Math.floor(limit)));
+  return moralisGet(`/entities/categories?limit=${encodeURIComponent(String(lim))}`);
+}
+
+/** GET /entities/categories/{categoryId} */
+export async function fetchMoralisEntitiesByCategory(
+  categoryId: string,
+  limit = 25,
+): Promise<MoralisWalletTokensResult> {
+  const id = encodeURIComponent(String(categoryId ?? "").trim());
+  if (!id) return { ok: false, error: "Missing category id" };
+  const lim = Math.min(100, Math.max(1, Math.floor(limit)));
+  return moralisGet(`/entities/categories/${id}?limit=${encodeURIComponent(String(lim))}`);
+}
+
+/** GET /entities/{entityId} */
+export async function fetchMoralisEntityById(entityId: string): Promise<MoralisWalletTokensResult> {
+  const id = encodeURIComponent(String(entityId ?? "").trim());
+  if (!id) return { ok: false, error: "Missing entity id" };
+  return moralisGet(`/entities/${id}`);
+}
+
+/** GET /resolve/ens/{domain} */
+export async function fetchMoralisResolveEnsDomain(domain: string): Promise<MoralisWalletTokensResult> {
+  const d = encodeURIComponent(String(domain ?? "").trim());
+  if (!d) return { ok: false, error: "Missing ENS domain" };
+  return moralisGet(`/resolve/ens/${d}`);
+}
+
+/** GET /resolve/{address}/reverse — ENS reverse lookup */
+export async function fetchMoralisResolveAddressReverse(address: string): Promise<MoralisWalletTokensResult> {
+  const a = String(address ?? "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(a)) return { ok: false, error: "Invalid address" };
+  return moralisGet(`/resolve/${encodeURIComponent(a)}/reverse`);
+}
+
+/** GET /transaction/{hash} with decoded / internal tx fields when supported. */
+export async function fetchMoralisTransactionVerbose(
+  txHash: string,
+  chain: string,
+): Promise<MoralisWalletTokensResult> {
+  const h = String(txHash ?? "").trim();
+  if (!h) return { ok: false, error: "Missing tx hash" };
+  const ch = encodeURIComponent(chain);
+  return moralisGet(`/transaction/${encodeURIComponent(h)}?chain=${ch}&include=internal_transactions`);
+}
+
+/** GET /pairs/{address}/swaps */
+export async function fetchMoralisSwapsByPairAddress(
+  pairAddress: string,
+  chain: string,
+  opts?: { limit?: number; order?: "ASC" | "DESC" },
+): Promise<MoralisWalletTokensResult> {
+  const raw = String(pairAddress ?? "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(raw)) return { ok: false, error: "Invalid pair address" };
+  const ch = encodeURIComponent(chain);
+  const lim = opts?.limit != null ? Math.min(100, Math.max(1, Math.floor(opts.limit))) : 20;
+  const ord = opts?.order === "ASC" ? "ASC" : "DESC";
+  return moralisGet(
+    `/pairs/${encodeURIComponent(raw)}/swaps?chain=${ch}&limit=${encodeURIComponent(String(lim))}&order=${ord}`,
+  );
+}
+
+/** GET /pairs/{address}/stats */
+export async function fetchMoralisPairStats(pairAddress: string, chain: string): Promise<MoralisWalletTokensResult> {
+  const raw = String(pairAddress ?? "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(raw)) return { ok: false, error: "Invalid pair address" };
+  const ch = encodeURIComponent(chain);
+  return moralisGet(`/pairs/${encodeURIComponent(raw)}/stats?chain=${ch}`);
+}
+
+/**
+ * Top profitable wallets for a token (realized PnL from DEX swaps).
+ * Official path: GET /erc20/{address}/top-gainers (see Moralis “Top Traders by Token”).
+ */
+export async function fetchMoralisErc20TopProfitableWallets(
+  tokenAddress: string,
+  chain: string,
+  opts?: { limit?: number; days?: string },
+): Promise<MoralisWalletTokensResult> {
+  const addr = String(tokenAddress ?? "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(addr)) return { ok: false, error: "Invalid token address" };
+  const ch = encodeURIComponent(chain);
+  const lim = opts?.limit != null ? Math.min(100, Math.max(1, Math.floor(opts.limit))) : 10;
+  const days =
+    opts?.days != null && String(opts.days).trim() !== ""
+      ? `&days=${encodeURIComponent(String(opts.days).trim())}`
+      : "";
+  return moralisGet(
+    `/erc20/${encodeURIComponent(addr)}/top-gainers?chain=${ch}&limit=${encodeURIComponent(String(lim))}${days}`,
+  );
+}
+
+/** GET /wallets/balances — native balance batch (max 25 addresses). */
+export async function fetchMoralisNativeBalancesForAddresses(
+  addresses: string[],
+  chain: string,
+): Promise<MoralisWalletTokensResult> {
+  const addrs = addresses
+    .map((a) => String(a).trim().toLowerCase())
+    .filter((a) => /^0x[a-f0-9]{40}$/.test(a))
+    .slice(0, 25);
+  if (!addrs.length) return { ok: false, error: "No valid addresses" };
+  const qs = new URLSearchParams();
+  qs.set("chain", chain);
+  for (const a of addrs) qs.append("wallet_addresses", a);
+  return moralisGet(`/wallets/balances?${qs.toString()}`);
+}
+
+/** Solana launchpad lists: new | bonding | graduated */
+export async function fetchMoralisSolanaExchangeTokens(
+  network: MoralisSolanaNetwork,
+  exchange: string,
+  kind: "new" | "bonding" | "graduated",
+  opts?: { limit?: number },
+): Promise<MoralisWalletTokensResult> {
+  const ex = String(exchange ?? "").trim();
+  if (!ex) return { ok: false, error: "Missing exchange key (e.g. pumpfun)" };
+  const net = network === "devnet" ? "devnet" : "mainnet";
+  const lim = opts?.limit != null ? Math.min(100, Math.max(1, Math.floor(opts.limit))) : 50;
+  return moralisSolanaGet(
+    `/token/${net}/exchange/${encodeURIComponent(ex)}/${encodeURIComponent(kind)}?limit=${encodeURIComponent(String(lim))}`,
+  );
+}
+
+/** GET /token/{net}/{mint}/bonding-status */
+export async function fetchMoralisSolanaTokenBondingStatus(
+  mintAddress: string,
+  network: MoralisSolanaNetwork = "mainnet",
+): Promise<MoralisWalletTokensResult> {
+  const a = String(mintAddress ?? "").trim();
+  if (!a) return { ok: false, error: "Missing mint" };
+  const net = network === "devnet" ? "devnet" : "mainnet";
+  return moralisSolanaGet(`/token/${net}/${encodeURIComponent(a)}/bonding-status`);
+}
+
+/** GET /token/{net}/{mint}/pairs/stats — aggregated pair stats */
+export async function fetchMoralisSolanaAggregatedTokenPairStats(
+  mintAddress: string,
+  network: MoralisSolanaNetwork = "mainnet",
+): Promise<MoralisWalletTokensResult> {
+  const a = String(mintAddress ?? "").trim();
+  if (!a) return { ok: false, error: "Missing mint" };
+  const net = network === "devnet" ? "devnet" : "mainnet";
+  return moralisSolanaGet(`/token/${net}/${encodeURIComponent(a)}/pairs/stats`);
 }

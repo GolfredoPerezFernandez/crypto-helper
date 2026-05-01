@@ -38,17 +38,15 @@ export const WalletPnlSnapshot = component$(
     chainLabel: string;
     ok: boolean;
     data: unknown;
-    error?: string;
-    showSync: boolean;
     emptyMessage: string;
   }) => {
     const row = props.ok ? asSummary(props.data) : null;
 
     return (
-      <div class="rounded-xl border border-[#043234]/90 bg-[#000D0E]/40 p-4">
-        <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-[#04E6E6]/90">{props.chainLabel}</h3>
+      <div class="rounded-xl border border-[#043234]/90 bg-[#000D0E]/50 p-4 shadow-inner shadow-black/10">
+        <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{props.chainLabel}</h3>
         {!props.ok ? (
-          <p class="text-sm text-amber-400">{props.showSync ? props.error || "—" : props.emptyMessage}</p>
+          <p class="text-sm text-slate-400">{props.emptyMessage}</p>
         ) : !row ? (
           <p class="text-sm text-gray-500">Formato de datos no reconocido.</p>
         ) : (
@@ -99,17 +97,6 @@ export const WalletPnlSnapshot = component$(
                 <span class="tabular-nums text-gray-200">{formatUsdLiquidity(row.total_sold_volume_usd)}</span>
               </div>
             </div>
-
-            {props.showSync ? (
-              <details class="group rounded-lg border border-dashed border-[#043234] bg-black/20 px-3 py-2 text-[10px] text-gray-500">
-                <summary class="cursor-pointer select-none text-gray-400 hover:text-[#04E6E6]/80">
-                  Ver JSON (depuración)
-                </summary>
-                <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-gray-500">
-                  {JSON.stringify(props.data, null, 2)}
-                </pre>
-              </details>
-            ) : null}
           </div>
         )}
       </div>

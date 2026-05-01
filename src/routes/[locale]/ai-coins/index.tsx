@@ -5,10 +5,9 @@ import { desc, eq } from "drizzle-orm";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
-import { useDashboardAuth } from "../layout";
 
 export const head: DocumentHead = {
-  title: "AI & big data | Dashboard",
+  title: "IA y big data | Panel",
 };
 
 export const useAiLoader = routeLoader$(async () => {
@@ -27,8 +26,6 @@ export const useAiLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const rows = useAiLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -36,14 +33,10 @@ export default component$(() => {
   return (
     <CategoryTokenTable
       locale={L}
-      title="AI & big data"
-      subtitle="Vertical IA y big data — datos en caché del sync diario."
+      title="IA y big data"
+      subtitle="Tokens de IA y big data — mismas herramientas de búsqueda y filtros."
       rows={rows.value as unknown as Record<string, unknown>[]}
-      emptyHint={
-        showSync
-          ? "No rows yet — run a full market sync from the dashboard home."
-          : "No hay datos en caché todavía."
-      }
+      emptyHint="No hay tokens de esta categoría todavía. Vuelve más tarde."
     />
   );
 });

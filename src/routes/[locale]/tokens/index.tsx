@@ -3,10 +3,10 @@ import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { useDashboardAuth } from "../layout";
-import { clampLimit, queryMarketTokens } from "~/server/crypto-ghost/market-queries";
+import { clampLimit, queryMarketTokens } from "~/server/crypto-helper/market-queries";
 
 export const head: DocumentHead = {
-  title: "All tokens | Dashboard",
+  title: "Todos los tokens | Panel",
 };
 
 export const useAllTokensLoader = routeLoader$(async () => {
@@ -14,8 +14,7 @@ export const useAllTokensLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
+  useDashboardAuth();
   const rows = useAllTokensLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -24,15 +23,11 @@ export default component$(() => {
   return (
     <CategoryTokenTable
       locale={L}
-      title="All tokens"
-      subtitle="Up to 500 rows across every board (memes, volume, AI, gaming, …). Search, filter by board and network, sort, then open the full token page."
+      title="Todos los tokens"
+      subtitle="Hasta 500 filas de todas las categorías. Busca, filtra por categoría y red, ordena y abre la ficha del token."
       rows={list}
       showCategoryFilter
-      emptyHint={
-        showSync
-          ? "Aún no hay tokens — ejecuta la sincronización desde el resumen del panel."
-          : "No hay tokens en la base todavía. Vuelve más tarde."
-      }
+      emptyHint="No hay tokens en el listado todavía. Vuelve más tarde."
     />
   );
 });

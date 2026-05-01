@@ -8,7 +8,6 @@ import {
   LuBell,
   LuBot,
   LuCoins,
-  LuDollarSign,
   LuImage,
   LuLayers,
   LuLoader2,
@@ -19,10 +18,38 @@ import {
   LuWaves,
 } from "@qwikest/icons/lucide";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
-import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypto-ghost-actions";
+import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypto-helper-actions";
 import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
+import type { MoralisDiscoveryHomePack } from "~/server/crypto-helper/dashboard-home-loader";
+
+function moralisRowsFromSnap(snap: unknown, max = 12): Record<string, unknown>[] {
+  if (!snap || typeof snap !== "object") return [];
+  const s = snap as { ok?: boolean; data?: unknown };
+  if (!s.ok || s.data == null) return [];
+  const d = s.data;
+  if (Array.isArray(d)) return d.slice(0, max) as Record<string, unknown>[];
+  if (typeof d === "object") {
+    const o = d as Record<string, unknown>;
+    for (const k of ["result", "tokens", "pairs", "rows", "items"]) {
+      const v = o[k];
+      if (Array.isArray(v)) return v.slice(0, max) as Record<string, unknown>[];
+    }
+  }
+  return [];
+}
+
+function moralisTokenLabel(row: Record<string, unknown>): string {
+  const sym = row.symbol ?? row.token_symbol ?? row.ticker;
+  const name = row.name ?? row.token_name;
+  if (sym && name) return `${String(name)} (${String(sym)})`;
+  if (sym) return String(sym);
+  if (name) return String(name);
+  const addr = row.token_address ?? row.address ?? row.mint;
+  if (addr && String(addr).length > 8) return `${String(addr).slice(0, 6)}…${String(addr).slice(-4)}`;
+  return "—";
+}
 
 export const head: DocumentHead = {
   title: "Crypto Dashboard Overview | Crypto Helper",
@@ -36,15 +63,13 @@ export const head: DocumentHead = {
 };
 
 export const useDashboardHomeLoader = routeLoader$(async (ev) => {
-  const { loadDashboardHome } = await import("~/server/crypto-ghost/dashboard-home-loader");
+  const { loadDashboardHome } = await import("~/server/crypto-helper/dashboard-home-loader");
   return loadDashboardHome(ev);
 });
 
 export default component$(() => {
   const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const canFullSync = dash.value.canTriggerFullMarketSync;
-  const canSeeSyncMeta = showSync || canFullSync;
   const data = useDashboardHomeLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -81,9 +106,9 @@ export default component$(() => {
         window.location.reload();
         return;
       }
-      fullSyncError.value = r.error || "Sync fallido";
+      fullSyncError.value = r.error || "No se pudo completar la actualización.";
     } catch (e: unknown) {
-      fullSyncError.value = e instanceof Error ? e.message : "Sync fallido";
+      fullSyncError.value = e instanceof Error ? e.message : "No se pudo completar la actualización.";
     } finally {
       if (!willReload) fullSyncBusy.value = false;
     }
@@ -150,6 +175,27 @@ export default component$(() => {
     }
     return [] as Record<string, unknown>[];
   })();
+
+  const moralisPack = data.value.moralisDiscovery as MoralisDiscoveryHomePack | null;
+  const moralisTrendingEthRows = moralisPack ? moralisRowsFromSnap(moralisPack.trendingEth, 10) : [];
+  const moralisTrendingBaseRows = moralisPack ? moralisRowsFromSnap(moralisPack.trendingBase, 10) : [];
+  const moralisTokenSearchRows = moralisPack ? moralisRowsFromSnap(moralisPack.tokenSearch, 15) : [];
+  const moralisPumpNewRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunNew, 8) : [];
+  const moralisPumpBondRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunBonding, 8) : [];
+  const moralisPumpGradRows = moralisPack ? moralisRowsFromSnap(moralisPack.solPumpfunGraduated, 8) : [];
+  const moralisEntitySearchRows = moralisPack ? moralisRowsFromSnap(moralisPack.entitySearch, 8) : [];
+  const moralisVolumeChainRows = moralisPack ? moralisRowsFromSnap(moralisPack.volumeChains, 12) : [];
+  const showMoralisPanel =
+    moralisPack != null &&
+    (moralisTrendingEthRows.length > 0 ||
+      moralisTrendingBaseRows.length > 0 ||
+      moralisTokenSearchRows.length > 0 ||
+      moralisPumpNewRows.length > 0 ||
+      moralisPumpBondRows.length > 0 ||
+      moralisPumpGradRows.length > 0 ||
+      moralisEntitySearchRows.length > 0 ||
+      moralisVolumeChainRows.length > 0);
+
   const last = st.lastSync;
   const lastSyncFinishedLabel =
     last?.finishedAt != null
@@ -267,9 +313,9 @@ export default component$(() => {
       icon: LuLayers,
     },
     {
-      href: `${base}/notifications-settings/`,
-      title: "Notificaciones",
-      desc: "Push y preferencias de señales.",
+      href: `${base}/alerts/`,
+      title: "Alertas y notificaciones",
+      desc: "Push, ballenas y smart money en vivo (Pro), alertas de precio por token (Pro).",
       icon: LuBell,
     },
     {
@@ -277,27 +323,6 @@ export default component$(() => {
       title: "DB insight",
       desc: "Análisis asistido para usuarios Pro.",
       icon: LuBot,
-      requiresPro: true,
-    },
-    {
-      href: `${base}/traders-signals/`,
-      title: "Smart money",
-      desc: "Señales en vivo de smart money.",
-      icon: LuSparkles,
-      requiresPro: true,
-    },
-    {
-      href: `${base}/whales-signals/`,
-      title: "Whale alerts",
-      desc: "Alertas en vivo de ballenas.",
-      icon: LuWaves,
-      requiresPro: true,
-    },
-    {
-      href: `${base}/smart-signals/`,
-      title: "USDT smart",
-      desc: "Alertas inteligentes de USDT.",
-      icon: LuDollarSign,
       requiresPro: true,
     },
   ];
@@ -364,12 +389,10 @@ export default component$(() => {
             <LuLoader2 class="mx-auto h-12 w-12 text-[#04E6E6] animate-spin" />
             <div>
               <p class="text-sm font-semibold text-white">
-                {fullSyncBusy.value
-                  ? "Actualizando todo…"
-                  : "Actualizando mercado…"}
+                {fullSyncBusy.value ? "Actualizando datos completos…" : "Actualizando mercado…"}
               </p>
               <p class="mt-2 text-xs text-slate-400 leading-relaxed">
-                Actualizamos rankings de mercado y datos auxiliares. Puede tardar varios minutos; no cierres la pestaña.
+                Estamos refrescando rankings y métricas. Puede tardar varios minutos; mantén esta pestaña abierta.
               </p>
             </div>
           </div>
@@ -381,75 +404,50 @@ export default component$(() => {
           <p class="text-xs font-medium uppercase tracking-wider text-[#04E6E6]/80">Crypto Helper</p>
           <h1 class="text-3xl 2xl:text-4xl font-bold text-white mt-1">Overview</h1>
           <p class="text-gray-400 text-sm 2xl:text-base mt-2 max-w-xl 2xl:max-w-2xl leading-relaxed">
-            {showSync ? (
-              <>
-                Mercado <strong class="text-gray-300">agregado</strong> (precio, pares DEX, analytics y swaps en ficha
-                token), <strong class="text-gray-300">NFTs</strong> por contrato, burbujas, traders y señales en vivo para
-                Pro.
-              </>
-            ) : (
-              <>
-                Mercado, NFTs, cartera Base, burbujas y señales — todo enlazado desde aquí.
-              </>
-            )}
+            Resumen de mercado, fichas de tokens, NFTs, cartera en Base, burbujas y herramientas para traders. Las
+            señales en vivo y el asistente IA están en el plan Pro.
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-          {canSeeSyncMeta ? (
-            <span class="rounded-lg border border-[#043234] bg-[#001a1c] px-3 py-2 leading-snug">
-              <span class="text-[10px] uppercase tracking-wide text-gray-600">Última actualización</span>
-              <span class="block text-gray-300 mt-0.5 tabular-nums">{lastSyncFinishedLabel}</span>
-              {lastSyncDurationLabel ? (
-                <span class="block text-gray-500 mt-0.5">
-                  Duración: <span class="text-gray-400">{lastSyncDurationLabel}</span>
-                  <span class="text-gray-600"> · </span>
-                  Estado: <span class="text-gray-400">{last?.status ?? "—"}</span>
-                </span>
-              ) : (
-                <span class="block text-gray-500 mt-0.5">
-                  Estado: <span class="text-gray-400">{last?.status ?? "—"}</span>
-                </span>
-              )}
-            </span>
-          ) : null}
-          {showSync ? (
-            <a
-              href="/api/crypto/sync/status"
-              class="rounded-lg border border-[#043234] px-3 py-1.5 text-[#04E6E6] hover:bg-[#043234]/40 transition-colors"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Estado de actualización
-            </a>
-          ) : null}
           {canFullSync ? (
-            <div class="flex flex-col gap-1 w-full sm:w-auto sm:items-end">
-              <button
-                type="button"
-                disabled={anySyncBusy}
-                onClick$={runFullMarketSync}
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                title="Sincronización completa de mercado y datos auxiliares"
-              >
-                {fullSyncBusy.value ? (
-                  <>
-                    <LuLoader2 class="h-3.5 w-3.5 animate-spin" />
-                    Sincronizando todo…
-                  </>
-                ) : (
-                  <>
-                    <LuRefreshCw class="h-3.5 w-3.5" />
-                    Actualizar todo
-                  </>
-                )}
-              </button>
-              {fullSyncError.value ? (
-                <p class="text-[11px] text-amber-400/95 max-w-xs text-right">{fullSyncError.value}</p>
-              ) : null}
-              {fullSyncSuccess.value ? (
-                <p class="text-[11px] text-emerald-400/95 max-w-xs text-right">{fullSyncSuccess.value}</p>
-              ) : null}
-            </div>
+            <>
+              <span class="rounded-lg border border-[#043234] bg-[#001a1c] px-3 py-2 leading-snug">
+                <span class="text-[10px] uppercase tracking-wide text-gray-600">Última actualización de datos</span>
+                <span class="block text-gray-300 mt-0.5 tabular-nums">{lastSyncFinishedLabel}</span>
+                {lastSyncDurationLabel ? (
+                  <span class="block text-gray-500 mt-0.5">
+                    Duración: <span class="text-gray-400">{lastSyncDurationLabel}</span>
+                  </span>
+                ) : null}
+              </span>
+              <div class="flex flex-col gap-1 w-full sm:w-auto sm:items-end">
+                <button
+                  type="button"
+                  disabled={anySyncBusy}
+                  onClick$={runFullMarketSync}
+                  class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Actualizar rankings de mercado y datos relacionados (operación de mantenimiento)"
+                >
+                  {fullSyncBusy.value ? (
+                    <>
+                      <LuLoader2 class="h-3.5 w-3.5 animate-spin" />
+                      Actualizando…
+                    </>
+                  ) : (
+                    <>
+                      <LuRefreshCw class="h-3.5 w-3.5" />
+                      Actualizar datos
+                    </>
+                  )}
+                </button>
+                {fullSyncError.value ? (
+                  <p class="text-[11px] text-amber-400/95 max-w-xs text-right">{fullSyncError.value}</p>
+                ) : null}
+                {fullSyncSuccess.value ? (
+                  <p class="text-[11px] text-emerald-400/95 max-w-xs text-right">{fullSyncSuccess.value}</p>
+                ) : null}
+              </div>
+            </>
           ) : null}
         </div>
       </header>
@@ -521,7 +519,7 @@ export default component$(() => {
                 : "Capitalización total de las monedas que ves en esta app.",
             )}
             <p class="text-[10px] uppercase tracking-wide text-gray-500">
-              {pulse.hasGlobalMetrics ? "Market Cap (global)" : "Market Cap (sample)"}
+              {pulse.hasGlobalMetrics ? "Market Cap (global)" : "Market Cap (vista)"}
             </p>
             <p class="text-lg font-semibold text-white mt-1 tabular-nums">${formatUsdBalance(pulse.marketCap)}</p>
             <p class="text-[11px] text-gray-500 mt-1">
@@ -537,7 +535,7 @@ export default component$(() => {
                 : "Volumen de 24h sumado de las monedas mostradas.",
             )}
             <p class="text-[10px] uppercase tracking-wide text-gray-500">
-              {pulse.hasGlobalMetrics ? "Volume 24h (global)" : "Volume 24h (sample)"}
+              {pulse.hasGlobalMetrics ? "Volume 24h (global)" : "Volume 24h (vista)"}
             </p>
             <p class="text-lg font-semibold text-white mt-1 tabular-nums">${formatUsdBalance(pulse.volume24h)}</p>
             <p class="text-[11px] text-gray-500 mt-1">
@@ -602,7 +600,7 @@ export default component$(() => {
                       <div class="text-[10px] text-gray-500">{String(r.token_name ?? "—")}</div>
                     </td>
                     <td class="px-4 py-2">{String(r.chain ?? "—")}</td>
-                    <td class="px-4 py-2">${formatTokenUsdPrice(r.price_usd)}</td>
+                    <td class="px-4 py-2">${formatTokenUsdPrice(Number(r.price_usd ?? 0))}</td>
                     <td
                       class={`px-4 py-2 tabular-nums ${
                         Number(r.price_change_24h_percent ?? 0) > 0
@@ -615,13 +613,169 @@ export default component$(() => {
                       {Number(r.price_change_24h_percent ?? 0) > 0 ? "+" : ""}
                       {Number(r.price_change_24h_percent ?? 0).toFixed(2)}%
                     </td>
-                    <td class="px-4 py-2">${formatUsdLiquidity(r.volume_usd_24h)}</td>
-                    <td class="px-4 py-2">${formatUsdLiquidity(r.market_cap_usd)}</td>
+                    <td class="px-4 py-2">${formatUsdLiquidity(Number(r.volume_usd_24h ?? 0))}</td>
+                    <td class="px-4 py-2">${formatUsdLiquidity(Number(r.market_cap_usd ?? 0))}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </section>
+      ) : null}
+
+      {showMoralisPanel ? (
+        <section class="rounded-xl border border-[#043234] bg-[#001a1c]/70 overflow-hidden space-y-4 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-white">Moralis · datos en caché</h2>
+            <span class="text-[10px] text-gray-500">
+              Actualizado en el sync auxiliar (sin llamadas Moralis al abrir esta ruta)
+            </span>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
+                Trending · Ethereum
+              </div>
+              <ul class="divide-y divide-[#043234]/50 text-xs text-slate-300 max-h-[220px] overflow-y-auto">
+                {moralisTrendingEthRows.length === 0 ? (
+                  <li class="px-3 py-3 text-gray-500">Sin filas en snapshot.</li>
+                ) : (
+                  moralisTrendingEthRows.map((r, i) => (
+                    <li key={`m-te-${i}`} class="px-3 py-2">
+                      <span class="text-white">{moralisTokenLabel(r)}</span>
+                      {r.chain != null ? (
+                        <span class="ml-2 text-[10px] text-gray-500">{String(r.chain)}</span>
+                      ) : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
+                Trending · Base
+              </div>
+              <ul class="divide-y divide-[#043234]/50 text-xs text-slate-300 max-h-[220px] overflow-y-auto">
+                {moralisTrendingBaseRows.length === 0 ? (
+                  <li class="px-3 py-3 text-gray-500">Sin filas en snapshot.</li>
+                ) : (
+                  moralisTrendingBaseRows.map((r, i) => (
+                    <li key={`m-tb-${i}`} class="px-3 py-2">
+                      <span class="text-white">{moralisTokenLabel(r)}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </div>
+          {moralisVolumeChainRows.length > 0 ? (
+            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
+                Volumen por cadena (Moralis)
+              </div>
+              <ul class="grid sm:grid-cols-2 md:grid-cols-3 gap-1 p-2 text-[11px] text-slate-300">
+                {moralisVolumeChainRows.map((r, i) => (
+                  <li key={`m-vc-${i}`} class="rounded border border-[#043234]/40 px-2 py-1.5">
+                    <span class="text-white font-medium">{String(r.chain ?? r.name ?? r.network ?? "—")}</span>
+                    {r.total_volume_usd_24h != null ? (
+                      <span class="block text-gray-500">
+                        Vol 24h ${formatUsdLiquidity(Number(r.total_volume_usd_24h))}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {moralisTokenSearchRows.length > 0 ? (
+            <div class="rounded-lg border border-[#043234]/80 overflow-hidden">
+              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
+                Búsqueda de tokens (sync)
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-[#001317] text-[10px] uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th class="px-3 py-2 font-medium">Token</th>
+                      <th class="px-3 py-2 font-medium">Precio</th>
+                      <th class="px-3 py-2 font-medium">Vol 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-[#043234]/70 text-slate-300">
+                    {moralisTokenSearchRows.map((r, i) => (
+                      <tr key={`m-ts-${i}`} class="hover:bg-[#001a1c]/60">
+                        <td class="px-3 py-2">
+                          <div class="font-medium text-white">{moralisTokenLabel(r)}</div>
+                          <div class="text-[10px] text-gray-500">{String(r.chain ?? "")}</div>
+                        </td>
+                        <td class="px-3 py-2">${formatTokenUsdPrice(Number(r.usd_price ?? r.price_usd ?? 0))}</td>
+                        <td class="px-3 py-2">${formatUsdLiquidity(Number(r.volume_24h_usd ?? r.total_volume_usd_24h ?? 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          {moralisEntitySearchRows.length > 0 ? (
+            <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+              <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-[#04E6E6]">
+                Entidades (búsqueda en sync)
+              </div>
+              <ul class="divide-y divide-[#043234]/50 text-xs p-0">
+                {moralisEntitySearchRows.map((r, i) => (
+                  <li key={`m-es-${i}`} class="px-3 py-2 text-slate-300">
+                    <span class="text-white">{String(r.name ?? r.entity_name ?? r.title ?? "—")}</span>
+                    {r.category != null ? (
+                      <span class="ml-2 text-[10px] text-gray-500">{String(r.category)}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(moralisPumpNewRows.length > 0 ||
+            moralisPumpBondRows.length > 0 ||
+            moralisPumpGradRows.length > 0) ? (
+            <div class="grid gap-3 md:grid-cols-3">
+              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-emerald-300/90">
+                  Solana pump.fun · new
+                </div>
+                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
+                  {moralisPumpNewRows.map((r, i) => (
+                    <li key={`m-pn-${i}`} class="px-3 py-1.5">
+                      {moralisTokenLabel(r)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-amber-200/90">
+                  pump.fun · bonding
+                </div>
+                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
+                  {moralisPumpBondRows.map((r, i) => (
+                    <li key={`m-pb-${i}`} class="px-3 py-1.5">
+                      {moralisTokenLabel(r)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div class="rounded-lg border border-[#043234]/80 bg-[#001317]/80 overflow-hidden">
+                <div class="px-3 py-2 border-b border-[#043234]/70 text-[11px] font-semibold text-cyan-200/90">
+                  pump.fun · graduated
+                </div>
+                <ul class="divide-y divide-[#043234]/50 text-[11px] text-slate-300 max-h-[180px] overflow-y-auto">
+                  {moralisPumpGradRows.map((r, i) => (
+                    <li key={`m-pg-${i}`} class="px-3 py-1.5">
+                      {moralisTokenLabel(r)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -693,40 +847,7 @@ export default component$(() => {
         </article>
       </section>
 
-      <section class="rounded-xl border border-[#0a5b5f] bg-gradient-to-br from-[#001a1c] to-[#000b0c] p-4 2xl:p-6">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="text-[10px] uppercase tracking-[0.18em] text-[#7af4f4]/80">New module</p>
-            <h2 class="mt-1 text-lg 2xl:text-xl font-semibold text-white">Cross-chain token supply tracker</h2>
-            <p class="mt-2 max-w-3xl text-sm text-gray-400 leading-relaxed">
-              Estamos agregando al home un tracker para comparar supply y holders por cadena, con datos históricos
-              históricos para ver cambios en el tiempo sin depender de APIs en vivo en el front.
-            </p>
-          </div>
-          <span class="inline-flex h-fit rounded-full border border-[#0a5b5f] bg-[#002629] px-3 py-1 text-[11px] font-medium text-[#7af4f4]">
-            En progreso
-          </span>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {[
-            "Entrada por símbolo o contrato (USDC, USDT, DAI).",
-            "Registro de contratos verificados por cadena EVM.",
-            "Consulta paralela de metadata en Ethereum, Base, Arbitrum, Optimism, Polygon, BNB y Avalanche.",
-            "Supply total agregado y desglose por cadena.",
-            "Holder analytics: total holders y top holders con porcentaje de supply.",
-            "Datos históricos para medir variaciones de supply y holders.",
-            "Comparativa entre cadenas con peso relativo del total.",
-            "Exportación CSV/JSON para reportes.",
-            "UI dark enfocada en visualización de datos.",
-          ].map((item) => (
-            <article key={item} class="rounded-lg border border-[#043234] bg-[#001317]/80 px-3 py-2.5">
-              <p class="text-xs 2xl:text-sm text-gray-300 leading-relaxed">{item}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {showSync && st.syncHistory.length > 0 ? (
+      {canFullSync && st.syncHistory.length > 0 ? (
         <section class="rounded-xl border border-[#043234] bg-[#001318]/80 overflow-hidden">
           <div class="px-4 py-3 border-b border-[#043234] flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-sm font-semibold text-[#04E6E6]">Historial de actualizaciones</h2>
@@ -793,11 +914,7 @@ export default component$(() => {
       {cacheEmpty ? (
         <div class="flex flex-wrap items-center gap-3 rounded-xl border border-[#043234] bg-[#001a1c]/80 px-4 py-3">
           <span class="text-sm text-slate-400">
-            {showSync ? (
-              <>Sin datos de mercado aún — sincroniza desde aquí (~1–2 min, usa tu sesión).</>
-            ) : (
-              <>Sin datos de mercado aún. Vuelve más tarde o contacta soporte si persiste.</>
-            )}
+            Aún no hay datos de mercado. Puedes intentar actualizar ahora o volver más tarde.
           </span>
           <button
             type="button"
@@ -819,7 +936,7 @@ export default component$(() => {
           </button>
           {syncError.value ? (
             <p class="w-full text-sm text-amber-400/95">
-              {showSync ? syncError.value : "No se pudo completar la actualización. Inténtalo de nuevo más tarde."}
+              No se pudo completar la actualización. Inténtalo de nuevo más tarde.
             </p>
           ) : null}
         </div>
@@ -838,9 +955,7 @@ export default component$(() => {
           </div>
           <ul class="divide-y divide-[#043234]/80">
             {data.value.topVolume.length === 0 ? (
-              <li class="px-4 py-6 text-sm text-gray-500">
-              {showSync ? "Sin datos por ahora. Vuelve a intentar en unos minutos." : "Sin datos todavía."}
-            </li>
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
             ) : (
               pagedRows("topVolume", data.value.topVolume).map((t: any) => (
                 <li key={t.id}>
@@ -886,7 +1001,7 @@ export default component$(() => {
           <ul class="divide-y divide-[#043234]/80">
             {data.value.trending.rows.length === 0 ? (
               <li class="px-4 py-6 text-sm text-gray-500">
-              {showSync ? "Sin datos por ahora. Vuelve a intentar en unos minutos." : "Sin datos todavía."}
+              Sin datos todavía.
             </li>
             ) : (
               pagedRows("trending", data.value.trending.rows).map((t: any) => (
@@ -932,17 +1047,10 @@ export default component$(() => {
           )}
           {w.walletTokensError ? (
             <p class="text-sm text-amber-400/90">
-              {showSync ? (
-                <>
-                  No se pudieron cargar los últimos tokens de Base ({w.walletTokensError}). Mostramos la información más
-                  reciente disponible.
-                </>
-              ) : (
-                <>No se pudieron cargar los últimos balances de Base. Mostramos la información más reciente disponible.</>
-              )}
+              No se pudieron cargar los últimos balances en Base. Mostramos lo que haya disponible.
             </p>
           ) : w.tokens.length === 0 ? (
-            <p class="text-sm text-gray-500">Sin ERC-20 en Base (o indexando).</p>
+            <p class="text-sm text-gray-500">No hay tokens ERC-20 detectados en Base para esta cartera.</p>
           ) : (
             <ul class="divide-y divide-[#043234] text-sm">
               {w.tokens.map((t) => (
@@ -972,11 +1080,7 @@ export default component$(() => {
           </div>
           <ul class="divide-y divide-[#043234]/80">
             {data.value.meme.length === 0 ? (
-              <li class="px-4 py-6 text-sm text-gray-500">
-                {showSync
-                  ? "Aún no hay datos en esta sección. Vuelve en unos minutos."
-                  : "Sin datos todavía."}
-              </li>
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
             ) : (
               pagedRows("meme", data.value.meme).map((t: any) => (
                 <li key={`${t.id}-meme`}>
@@ -1018,11 +1122,7 @@ export default component$(() => {
           </div>
           <ul class="divide-y divide-[#043234]/80">
             {data.value.ai.length === 0 ? (
-              <li class="px-4 py-6 text-sm text-gray-500">
-                {showSync
-                  ? "Aún no hay datos en esta sección. Vuelve en unos minutos."
-                  : "Sin datos todavía."}
-              </li>
+              <li class="px-4 py-6 text-sm text-gray-500">Sin datos todavía.</li>
             ) : (
               pagedRows("ai", data.value.ai).map((t: any) => (
                 <li key={`${t.id}-ai`}>
@@ -1202,25 +1302,21 @@ export default component$(() => {
         </div>
         <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Cantidad de colecciones NFT destacadas ahora mismo.")}
-          <p class="text-[11px] uppercase tracking-wide text-gray-500">NFT hottest (sample)</p>
+          <p class="text-[11px] uppercase tracking-wide text-gray-500">NFT destacados</p>
           <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">
             {data.value.nftGlobal.ok ? data.value.nftGlobal.hottestCount : "—"}
           </p>
           <p class="text-xs text-gray-500 mt-2">
-            {showSync ? (
-              <Link href={`${base}/nfts/`} class="text-[#04E6E6]/90 hover:underline">
-                Abrir NFTs →
-              </Link>
-            ) : (
-              "Colecciones disponibles."
-            )}
+            <Link href={`${base}/nfts/`} class="text-[#04E6E6]/90 hover:underline">
+              Ver colecciones NFT →
+            </Link>
           </p>
         </div>
         <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Cantidad de señales de ballenas registradas en las últimas 24 horas.")}
           <p class="text-[11px] uppercase tracking-wide text-gray-500">Whale alerts (24h)</p>
           <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.whales}</p>
-          <p class="text-xs text-gray-500 mt-2">{showSync ? "Señales guardadas en el servidor." : "Señales en tiempo casi real."}</p>
+          <p class="text-xs text-gray-500 mt-2">Actividad registrada en las últimas 24 h.</p>
         </div>
         <div class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-4 2xl:p-5">
           {HelpTip("Cantidad de señales de traders detectadas en las últimas 24 horas.")}
@@ -1232,9 +1328,7 @@ export default component$(() => {
           {HelpTip("Señales smart de USDT generadas en el último día.")}
           <p class="text-[11px] uppercase tracking-wide text-gray-500">USDT smart (24h)</p>
           <p class="text-2xl font-semibold text-[#04E6E6] mt-1 tabular-nums">{st.signals24h.smart}</p>
-          <p class="text-xs text-gray-500 mt-2">
-            {showSync ? "Watcher + análisis on-chain." : "Análisis on-chain."}
-          </p>
+          <p class="text-xs text-gray-500 mt-2">Flujos y alertas on-chain.</p>
         </div>
       </section>
 
@@ -1251,13 +1345,11 @@ export default component$(() => {
               <div>
                 <h2 class="text-xl font-bold text-white">Crypto Helper Pro</h2>
                 <p class="text-sm text-gray-400 mt-2 max-w-lg leading-relaxed">
-                  Con Pro obtienes <strong class="text-gray-300">DB insight (IA)</strong> sobre datos agregados en el
-                  servidor, <strong class="text-gray-300">señales en vivo</strong> (smart money y ballenas) y{" "}
-                  <strong class="text-gray-300">alertas smart USDT</strong> en los paneles del menú. Para activarlo{" "}
-                  <strong class="text-gray-300">debes enviar USDT</strong>: importe, red y dirección de tesorería salen en
-                  el modal; luego verificas la transacción ahí mismo — no sustituye abrir las{" "}
-                  <strong class="text-gray-300">notificaciones push</strong> del menú: esas solo registran tu dispositivo y
-                  preferencias; el acceso Pro depende del pago verificado.
+                  Con Pro obtienes el <strong class="text-gray-300">asistente IA</strong> sobre datos agregados,{" "}
+                  <strong class="text-gray-300">señales en vivo</strong> (smart money y ballenas) y{" "}
+                  <strong class="text-gray-300">alertas USDT</strong> en el panel. La activación es por pago verificado en
+                  USDT (red e importe en el modal). Las <strong class="text-gray-300">notificaciones push</strong> del menú
+                  solo registran tu dispositivo; el acceso Pro depende del pago confirmado.
                 </p>
               </div>
             </div>
@@ -1273,7 +1365,7 @@ export default component$(() => {
         </section>
       ) : (
         <section class="rounded-xl border border-[#04E6E6]/25 bg-[#04E6E6]/5 px-4 py-3 text-sm text-[#04E6E6]/95">
-          Plan <strong>Pro</strong> activo — DB insight, señales en vivo y alertas USDT desbloqueados (pago verificado).
+          Plan <strong>Pro</strong> activo: asistente IA, señales en vivo y alertas USDT.
         </section>
       )}
 

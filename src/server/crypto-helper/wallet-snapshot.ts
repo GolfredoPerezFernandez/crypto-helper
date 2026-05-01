@@ -1,4 +1,5 @@
-import type { MoralisSolanaNetwork, MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
+import type { MoralisSolanaNetwork, MoralisWalletTokensResult } from "~/server/crypto-helper/moralis-api";
+import { getMoralisWalletNftSyncChains } from "~/server/crypto-helper/moralis-nft-sync-chains";
 import {
   fetchMoralisNativeBalance,
   fetchMoralisSolanaPortfolio,
@@ -7,13 +8,14 @@ import {
   fetchMoralisWalletDefiPositions,
   fetchMoralisWalletDefiSummary,
   fetchMoralisWalletNetWorth,
+  fetchMoralisWalletNftCollections,
   fetchMoralisWalletNfts,
   fetchMoralisWalletProfitability,
   fetchMoralisWalletProfitabilitySummary,
   fetchMoralisWalletTokenApprovals,
   fetchMoralisWalletTokens,
   fetchMoralisWalletTransactions,
-} from "~/server/crypto-ghost/moralis-api";
+} from "~/server/crypto-helper/moralis-api";
 
 /**
  * Local logger that does NOT pull `sync-logger.ts` (which uses `node:async_hooks`).
@@ -86,6 +88,19 @@ export type WalletPageSnapshot = {
   solNetwork?: MoralisSolanaNetwork;
   solPortfolio?: MoralisWalletTokensResult;
   solSwaps?: MoralisWalletTokensResult;
+  /**
+   * Moralis GET `/{address}/nft/collections` — agregado por contrato (sync diario).
+   * Para omitir en sync: `disabledApis` con `nftCollections`, `nftCollectionsBase` o `nftCollectionsEth`.
+   */
+  nftCollectionsBase?: MoralisWalletTokensResult;
+  nftCollectionsEth?: MoralisWalletTokensResult;
+  /**
+   * Colecciones por cadena (Moralis `chain`). Claves = slug Moralis (`eth`, `base`, `polygon`, …).
+   * Lista de cadenas: `MORALIS_SYNC_WALLET_NFT_CHAINS` o {@link getMoralisWalletNftSyncChains}.
+   */
+  nftCollectionsByChain?: Record<string, MoralisWalletTokensResult>;
+  /** GET `/wallets/{address}/nfts` por cadena (vista previa en wallet). */
+  nftsByChain?: Record<string, MoralisWalletTokensResult>;
 };
 
 export type WalletSnapshotBuildOptions = {
@@ -252,6 +267,23 @@ function disabledApiStub(key: string): MoralisWalletTokensResult {
   return { ok: false, error: `Skipped in this sync run (${key} disabled after repeated provider failures)` };
 }
 
+function nftCollectionFetchDisabled(disabled: ReadonlySet<string>, chain: string): boolean {
+  const ch = chain.trim().toLowerCase();
+  if (disabled.has("nftCollections")) return true;
+  if (ch === "base" && disabled.has("nftCollectionsBase")) return true;
+  if ((ch === "eth" || ch === "ethereum") && disabled.has("nftCollectionsEth")) return true;
+  if (disabled.has(`nftCollections_${ch}`)) return true;
+  return false;
+}
+
+function walletNftFetchDisabled(disabled: ReadonlySet<string>, chain: string): boolean {
+  const ch = chain.trim().toLowerCase();
+  if (disabled.has("walletNfts")) return true;
+  if (ch === "base" && disabled.has("nftsBase")) return true;
+  if (disabled.has(`walletNfts_${ch}`)) return true;
+  return false;
+}
+
 async function buildSolanaWalletPageSnapshot(address: string): Promise<WalletPageSnapshot> {
   const omit = evmOmitStub();
   const netRaw = String(process.env.MORALIS_SOLANA_NETWORK ?? "mainnet").trim().toLowerCase();
@@ -310,7 +342,7 @@ async function buildEvmWalletPageSnapshot(
   const disabled = options?.disabledApis ?? new Set<string>();
   const t0 = Date.now();
   const coreT0 = Date.now();
-  const [nw, nwEth, tokBase, tokEth, nfts, txBase, txEth, pnlBase, pnlEth, nativeBase, nativeEth] =
+  const [nw, nwEth, tokBase, tokEth, txBase, txEth, pnlBase, pnlEth, nativeBase, nativeEth] =
     await Promise.all([
       disabled.has("netWorthEthBase")
         ? Promise.resolve(disabledApiStub("netWorthEthBase"))
@@ -324,9 +356,6 @@ async function buildEvmWalletPageSnapshot(
       disabled.has("tokensEth")
         ? Promise.resolve(disabledApiStub("tokensEth"))
         : fetchMoralisWalletTokens(address, "eth"),
-      disabled.has("nftsBase")
-        ? Promise.resolve(disabledApiStub("nftsBase"))
-        : fetchMoralisWalletNfts(address, "base", 40),
       disabled.has("txBase")
         ? Promise.resolve(disabledApiStub("txBase"))
         : fetchMoralisWalletTransactions(address, "base", 80),
@@ -347,6 +376,54 @@ async function buildEvmWalletPageSnapshot(
         : fetchMoralisNativeBalance(address, "eth"),
     ]);
   const coreMs = Date.now() - coreT0;
+
+  const nftColT0 = Date.now();
+  const nftChains = getMoralisWalletNftSyncChains();
+  const nftPerChainLimit = Math.min(
+    100,
+    Math.max(8, Math.floor(Number(process.env.MORALIS_SYNC_WALLET_NFTS_PER_CHAIN_LIMIT ?? 28))),
+  );
+  const nftCollectionOpts = {
+    limit: 50,
+    exclude_spam: true as const,
+    token_counts: true as const,
+    include_prices: true as const,
+  };
+
+  const [nftCollectionsPairs, nftsPairs] = await Promise.all([
+    Promise.all(
+      nftChains.map(async (chain) => {
+        const ch = chain.trim().toLowerCase();
+        const r = nftCollectionFetchDisabled(disabled, ch)
+          ? disabledApiStub(`nftCollections_${ch}`)
+          : await fetchMoralisWalletNftCollections(address, ch, nftCollectionOpts);
+        return [ch, r] as const;
+      }),
+    ),
+    Promise.all(
+      nftChains.map(async (chain) => {
+        const ch = chain.trim().toLowerCase();
+        const r = walletNftFetchDisabled(disabled, ch)
+          ? disabledApiStub(`walletNfts_${ch}`)
+          : await fetchMoralisWalletNfts(address, ch, nftPerChainLimit);
+        return [ch, r] as const;
+      }),
+    ),
+  ]);
+
+  const nftCollectionsByChain = Object.fromEntries(nftCollectionsPairs) as Record<
+    string,
+    MoralisWalletTokensResult
+  >;
+  const nftsByChain = Object.fromEntries(nftsPairs) as Record<string, MoralisWalletTokensResult>;
+
+  const nftCollectionsBase =
+    nftCollectionsByChain.base ?? disabledApiStub("nftCollectionsBase");
+  const nftCollectionsEth =
+    nftCollectionsByChain.eth ?? disabledApiStub("nftCollectionsEth");
+  const nfts = nftsByChain.base ?? disabledApiStub("nftsBase");
+
+  const nftColMs = Date.now() - nftColT0;
 
   const weekBase = txBase.ok ? baseActivityFromTransactions(txBase.data) : null;
   const interactBase = txBase.ok ? interactionStats(txBase.data, address) : null;
@@ -417,6 +494,7 @@ async function buildEvmWalletPageSnapshot(
     address: `${address.slice(0, 10)}…`,
     totalMs: Date.now() - t0,
     coreMs,
+    nftColMs,
     extraMs,
     coreOk: {
       nw: nw.ok,
@@ -424,6 +502,9 @@ async function buildEvmWalletPageSnapshot(
       tokBase: tokBase.ok,
       tokEth: tokEth.ok,
       nfts: nfts.ok,
+      nftChains: nftChains.length,
+      nftCollectionsBase: nftCollectionsBase.ok,
+      nftCollectionsEth: nftCollectionsEth.ok,
       txBase: txBase.ok,
       txEth: txEth.ok,
       pnlBase: pnlBase.ok,
@@ -452,6 +533,10 @@ async function buildEvmWalletPageSnapshot(
     pnlEth,
     nativeBase,
     nativeEth,
+    nftCollectionsBase,
+    nftCollectionsEth,
+    nftCollectionsByChain,
+    nftsByChain,
     weekBase,
     interactBase,
     ...(crossChainOn ? { tokensCrossChain } : {}),
@@ -480,7 +565,6 @@ export function summarizeWalletSnapshotApiResults(s: WalletPageSnapshot): Record
     netWorthEth: s.nwEth.ok,
     tokensBase: s.tokBase.ok,
     tokensEth: s.tokEth.ok,
-    nftsBase: s.nfts.ok,
     txBase: s.txBase.ok,
     txEth: s.txEth.ok,
     pnlBase: s.pnlBase.ok,
@@ -501,6 +585,21 @@ export function summarizeWalletSnapshotApiResults(s: WalletPageSnapshot): Record
   if (s.approvalsEth !== undefined) base.approvalsEth = s.approvalsEth.ok;
   if (s.solPortfolio !== undefined) base.solPortfolio = s.solPortfolio.ok;
   if (s.solSwaps !== undefined) base.solSwaps = s.solSwaps.ok;
+  if (s.nftCollectionsByChain && Object.keys(s.nftCollectionsByChain).length > 0) {
+    for (const [ch, r] of Object.entries(s.nftCollectionsByChain)) {
+      base[`nftCollections_${ch}`] = r.ok;
+    }
+  } else {
+    if (s.nftCollectionsBase !== undefined) base.nftCollectionsBase = s.nftCollectionsBase.ok;
+    if (s.nftCollectionsEth !== undefined) base.nftCollectionsEth = s.nftCollectionsEth.ok;
+  }
+  if (s.nftsByChain && Object.keys(s.nftsByChain).length > 0) {
+    for (const [ch, r] of Object.entries(s.nftsByChain)) {
+      base[`walletNfts_${ch}`] = r.ok;
+    }
+  } else {
+    base.nftsBase = s.nfts.ok;
+  }
   return base;
 }
 
@@ -544,6 +643,297 @@ export type CrossChainTokenRow = {
   nativeToken: boolean;
 };
 
+function mapApiRowToCrossChain(row: Record<string, unknown>): CrossChainTokenRow {
+  return {
+    tokenAddress: String(row.tokenAddress ?? ""),
+    chainId: String(row.chainId ?? ""),
+    name: row.name == null ? null : String(row.name),
+    symbol: row.symbol == null ? null : String(row.symbol),
+    decimals: typeof row.decimals === "number" ? (row.decimals as number) : null,
+    logo: typeof row.logo === "string" ? (row.logo as string) : null,
+    balance: row.balance == null ? null : String(row.balance),
+    balanceRaw: String(row.balanceRaw ?? ""),
+    usdPrice: typeof row.usdPrice === "number" ? (row.usdPrice as number) : null,
+    usdValue: typeof row.usdValue === "number" ? (row.usdValue as number) : null,
+    usdPrice24hrPercentChange:
+      typeof row.usdPrice24hrPercentChange === "number"
+        ? (row.usdPrice24hrPercentChange as number)
+        : null,
+    portfolioPercentage:
+      typeof row.portfolioPercentage === "number" ? (row.portfolioPercentage as number) : null,
+    securityScore: typeof row.securityScore === "number" ? (row.securityScore as number) : null,
+    verifiedContract: Boolean(row.verifiedContract),
+    possibleSpam: Boolean(row.possibleSpam),
+    nativeToken: Boolean(row.nativeToken),
+  };
+}
+
+/** Map Moralis / Universal API `chainId` values to a short human label (for charts and tables). */
+export function chainLabelFromChainId(raw: unknown): string {
+  const v = String(raw ?? "").toLowerCase();
+  if (v === "0x1" || v === "ethereum" || v === "eth") return "Ethereum";
+  if (v === "0x2105" || v === "base") return "Base";
+  if (v === "0x89" || v === "polygon" || v === "matic") return "Polygon";
+  if (v === "0xa" || v === "optimism" || v === "op") return "Optimism";
+  if (v === "0xa4b1" || v === "arbitrum") return "Arbitrum";
+  if (v === "0x38" || v === "binance" || v === "bsc") return "BNB Chain";
+  if (v === "0xa86a" || v === "avalanche") return "Avalanche";
+  if (v === "0xe708" || v === "linea") return "Linea";
+  if (v === "solana-mainnet" || v === "sol") return "Solana";
+  return raw ? String(raw) : "—";
+}
+
+/** All chains from a Universal API `/wallets/.../tokens` payload (multi-chain). */
+export function crossChainTokenRowsAll(data: unknown): CrossChainTokenRow[] {
+  const payload = data as { result?: Record<string, unknown>[] } | null;
+  const arr = Array.isArray(payload?.result) ? (payload.result as Record<string, unknown>[]) : [];
+  const rows = arr.map(mapApiRowToCrossChain).filter((r) => !r.possibleSpam);
+  rows.sort((a, b) => {
+    if (a.nativeToken && !b.nativeToken) return -1;
+    if (!a.nativeToken && b.nativeToken) return 1;
+    return (b.usdValue ?? 0) - (a.usdValue ?? 0);
+  });
+  return rows;
+}
+
+/** Legacy per-chain Moralis balances as unified rows (Base + Ethereum snapshots). */
+export function legacyTokenRowsAsCrossChain(tokBaseData: unknown, tokEthData: unknown): CrossChainTokenRow[] {
+  const out: CrossChainTokenRow[] = [];
+  const num = (v: unknown): number | null => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+  for (const t of tokenRowsFromMoralis(tokBaseData)) {
+    const row = t as Record<string, unknown>;
+    const usd = Number(row.usd_value ?? 0);
+    const balanceN =
+      num(row.balance_formatted) ??
+      num(row.balance) ??
+      num(row.amount);
+    const priceN =
+      num(row.usd_price) ??
+      num(row.token_price_usd) ??
+      num(row.usdPrice) ??
+      (balanceN != null && balanceN > 0 ? usd / balanceN : null);
+    out.push({
+      tokenAddress: String(row.token_address ?? ""),
+      chainId: "0x2105",
+      name: row.name == null ? null : String(row.name),
+      symbol: row.symbol == null ? null : String(row.symbol),
+      decimals: typeof row.decimals === "number"
+        ? (row.decimals as number)
+        : null,
+      logo: erc20LogoUrl(row),
+      balance:
+        row.balance_formatted == null
+          ? null
+          : String(row.balance_formatted),
+      balanceRaw: String(row.balance ?? ""),
+      usdPrice: priceN,
+      usdValue: Number.isFinite(usd) ? usd : 0,
+      usdPrice24hrPercentChange: null,
+      portfolioPercentage: null,
+      securityScore: null,
+      verifiedContract: false,
+      possibleSpam: false,
+      nativeToken: Boolean(row.native_token),
+    });
+  }
+  for (const t of tokenRowsFromMoralis(tokEthData)) {
+    const row = t as Record<string, unknown>;
+    const usd = Number(row.usd_value ?? 0);
+    const balanceN =
+      num(row.balance_formatted) ??
+      num(row.balance) ??
+      num(row.amount);
+    const priceN =
+      num(row.usd_price) ??
+      num(row.token_price_usd) ??
+      num(row.usdPrice) ??
+      (balanceN != null && balanceN > 0 ? usd / balanceN : null);
+    out.push({
+      tokenAddress: String(row.token_address ?? ""),
+      chainId: "0x1",
+      name: row.name == null ? null : String(row.name),
+      symbol: row.symbol == null ? null : String(row.symbol),
+      decimals: typeof row.decimals === "number"
+        ? (row.decimals as number)
+        : null,
+      logo: erc20LogoUrl(row),
+      balance:
+        row.balance_formatted == null
+          ? null
+          : String(row.balance_formatted),
+      balanceRaw: String(row.balance ?? ""),
+      usdPrice: priceN,
+      usdValue: Number.isFinite(usd) ? usd : 0,
+      usdPrice24hrPercentChange: null,
+      portfolioPercentage: null,
+      securityScore: null,
+      verifiedContract: false,
+      possibleSpam: false,
+      nativeToken: Boolean(row.native_token),
+    });
+  }
+  const totalUsd = out.reduce((s, r) => s + (r.usdValue ?? 0), 0);
+  if (totalUsd > 0) {
+    for (const r of out) {
+      const usd = r.usdValue ?? 0;
+      r.portfolioPercentage = usd > 0 ? (usd / totalUsd) * 100 : 0;
+    }
+  }
+  out.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
+  return out;
+}
+
+export type WalletChainFilterId =
+  | "all"
+  | "ethereum"
+  | "base"
+  | "polygon"
+  | "arbitrum"
+  | "optimism"
+  | "bsc"
+  | "avalanche"
+  | "linea";
+
+const CHAIN_FILTER_IDS: Record<Exclude<WalletChainFilterId, "all">, string[]> = {
+  ethereum: ["0x1", "ethereum", "eth"],
+  base: ["0x2105", "base"],
+  polygon: ["0x89", "polygon", "matic"],
+  arbitrum: ["0xa4b1", "arbitrum", "arb"],
+  optimism: ["0xa", "optimism", "op"],
+  bsc: ["0x38", "bsc", "binance"],
+  avalanche: ["0xa86a", "avalanche", "avax"],
+  linea: ["0xe708", "linea"],
+};
+
+export function filterCrossChainRowsByChain(
+  rows: CrossChainTokenRow[],
+  filter: WalletChainFilterId,
+): CrossChainTokenRow[] {
+  if (filter === "all") return rows;
+  const ids = CHAIN_FILTER_IDS[filter];
+  return rows.filter((r) => ids.includes(String(r.chainId).toLowerCase()));
+}
+
+/** Ordered chain filters that appear in `rows` (for pill UI). */
+export function chainFiltersPresentInRows(rows: CrossChainTokenRow[]): Exclude<WalletChainFilterId, "all">[] {
+  const order: Exclude<WalletChainFilterId, "all">[] = [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "bsc",
+    "avalanche",
+    "linea",
+  ];
+  const present = new Set<Exclude<WalletChainFilterId, "all">>();
+  for (const r of rows) {
+    const id = String(r.chainId).toLowerCase();
+    for (const key of order) {
+      if (CHAIN_FILTER_IDS[key].includes(id)) {
+        present.add(key);
+        break;
+      }
+    }
+  }
+  return order.filter((k) => present.has(k));
+}
+
+export type WalletChartSlice = { label: string; value: number; color: string };
+
+export const WALLET_CHART_COLORS = [
+  "#04E6E6",
+  "#34d399",
+  "#5eead4",
+  "#10b981",
+  "#2dd4bf",
+  "#6ee7b7",
+  "#14b8a6",
+  "#a7f3d0",
+];
+
+function nwChainUsd(c: Record<string, unknown>): number {
+  const raw = c.networth_usd ?? c.netWorthUsd;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "object" && raw != null) {
+    const o = raw as Record<string, unknown>;
+    const inner = o.usd ?? o.value ?? o.amount;
+    if (typeof inner === "number" && Number.isFinite(inner)) return inner;
+  }
+  const s = Number(raw);
+  return Number.isFinite(s) ? s : 0;
+}
+
+/** Donut slices: USD per chain from token rows; falls back to net-worth `chains[]` if needed. */
+export function buildChainChartSlices(
+  rows: CrossChainTokenRow[],
+  nwChains?: Record<string, unknown>[],
+): WalletChartSlice[] {
+  const byLabel = new Map<string, number>();
+  for (const r of rows) {
+    const lab = chainLabelFromChainId(r.chainId);
+    const v = r.usdValue ?? 0;
+    if (v > 0) byLabel.set(lab, (byLabel.get(lab) ?? 0) + v);
+  }
+  if (byLabel.size === 0 && nwChains?.length) {
+    for (const c of nwChains) {
+      const lab = chainLabelFromChainId((c as Record<string, unknown>).chain);
+      const v = nwChainUsd(c as Record<string, unknown>);
+      if (v > 0) byLabel.set(lab, (byLabel.get(lab) ?? 0) + v);
+    }
+  }
+  const entries = [...byLabel.entries()].sort((a, b) => b[1] - a[1]);
+  return entries.map(([label, value], i) => ({
+    label,
+    value,
+    color: WALLET_CHART_COLORS[i % WALLET_CHART_COLORS.length],
+  }));
+}
+
+/** Top tokens by USD plus “Otros”. */
+export function buildAssetChartSlices(rows: CrossChainTokenRow[], topN = 5): WalletChartSlice[] {
+  const sorted = [...rows].filter((r) => (r.usdValue ?? 0) > 0).sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
+  const top = sorted.slice(0, topN);
+  const rest = sorted.slice(topN);
+  const restSum = rest.reduce((s, r) => s + (r.usdValue ?? 0), 0);
+  const slices: WalletChartSlice[] = top.map((r, i) => ({
+    label: (r.symbol || r.name || "?").slice(0, 14),
+    value: r.usdValue ?? 0,
+    color: WALLET_CHART_COLORS[i % WALLET_CHART_COLORS.length],
+  }));
+  if (restSum > 0) {
+    slices.push({
+      label: "Otros",
+      value: restSum,
+      color: WALLET_CHART_COLORS[slices.length % WALLET_CHART_COLORS.length],
+    });
+  }
+  return slices;
+}
+
+/** Value-weighted average 24h % change from token rows (Universal API). */
+export function portfolioWeightedChange24h(rows: CrossChainTokenRow[]): number | null {
+  let num = 0;
+  let den = 0;
+  for (const r of rows) {
+    const v = r.usdValue ?? 0;
+    const p = r.usdPrice24hrPercentChange;
+    if (v > 0 && p != null && Number.isFinite(p)) {
+      num += v * p;
+      den += v;
+    }
+  }
+  if (den <= 0) return null;
+  return num / den;
+}
+
 /** Filter the Universal API tokens payload to a single chain (`base`, `eth`/`ethereum`, …). */
 export function crossChainTokenRowsForChain(
   data: unknown,
@@ -566,32 +956,9 @@ export function crossChainTokenRowsForChain(
       const id = String(row.chainId ?? "").toLowerCase();
       return id === wantHex || id === wantSlug;
     })
-    .map((row): CrossChainTokenRow => ({
-      tokenAddress: String(row.tokenAddress ?? ""),
-      chainId: String(row.chainId ?? ""),
-      name: row.name == null ? null : String(row.name),
-      symbol: row.symbol == null ? null : String(row.symbol),
-      decimals: typeof row.decimals === "number" ? (row.decimals as number) : null,
-      logo: typeof row.logo === "string" ? (row.logo as string) : null,
-      balance: row.balance == null ? null : String(row.balance),
-      balanceRaw: String(row.balanceRaw ?? ""),
-      usdPrice: typeof row.usdPrice === "number" ? (row.usdPrice as number) : null,
-      usdValue: typeof row.usdValue === "number" ? (row.usdValue as number) : null,
-      usdPrice24hrPercentChange:
-        typeof row.usdPrice24hrPercentChange === "number"
-          ? (row.usdPrice24hrPercentChange as number)
-          : null,
-      portfolioPercentage:
-        typeof row.portfolioPercentage === "number" ? (row.portfolioPercentage as number) : null,
-      securityScore:
-        typeof row.securityScore === "number" ? (row.securityScore as number) : null,
-      verifiedContract: Boolean(row.verifiedContract),
-      possibleSpam: Boolean(row.possibleSpam),
-      nativeToken: Boolean(row.nativeToken),
-    }))
+    .map(mapApiRowToCrossChain)
     .filter((r) => !r.possibleSpam);
 
-  // Sort by USD value desc (largest holdings first), with native promoted.
   rows.sort((a, b) => {
     if (a.nativeToken && !b.nativeToken) return -1;
     if (!a.nativeToken && b.nativeToken) return 1;

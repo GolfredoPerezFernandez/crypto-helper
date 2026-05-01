@@ -5,10 +5,9 @@ import { desc, eq } from "drizzle-orm";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens } from "../../../../drizzle/schema";
-import { useDashboardAuth } from "../layout";
 
 export const head: DocumentHead = {
-  title: "Mineable | Dashboard",
+  title: "Minables | Panel",
 };
 
 export const useMineLoader = routeLoader$(async () => {
@@ -27,8 +26,6 @@ export const useMineLoader = routeLoader$(async () => {
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const rows = useMineLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -36,14 +33,10 @@ export default component$(() => {
   return (
     <CategoryTokenTable
       locale={L}
-      title="Mineable"
-      subtitle="Listados minables / PoW (datos sincronizados)."
+      title="Minables"
+      subtitle="Tokens minables / PoW — volumen, precio y filtros como en el resto del mercado."
       rows={rows.value as unknown as Record<string, unknown>[]}
-      emptyHint={
-        showSync
-          ? "Aún no hay filas — ejecuta la sincronización desde el resumen del panel."
-          : "No hay datos en caché todavía."
-      }
+      emptyHint="No hay tokens minables en el listado todavía. Vuelve más tarde."
     />
   );
 });

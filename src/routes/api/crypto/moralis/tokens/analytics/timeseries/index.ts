@@ -2,9 +2,9 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import {
   fetchMoralisTokenAnalyticsTimeseries,
   MORALIS_TOKEN_ANALYTICS_TIMESERIES_MAX_TOKENS,
-} from "~/server/crypto-ghost/moralis-api";
-import { getMarketTokenById, isEvmAddress } from "~/server/crypto-ghost/market-queries";
-import { parseTokenApiSnapshot } from "~/server/crypto-ghost/market-token-snapshot";
+} from "~/server/crypto-helper/moralis-api";
+import { getMarketTokenById, isEvmAddress } from "~/server/crypto-helper/market-queries";
+import { parseTokenApiSnapshot } from "~/server/crypto-helper/market-token-snapshot";
 
 const TF = new Set(["1d", "7d", "30d"]);
 

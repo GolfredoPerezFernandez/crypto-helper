@@ -3,8 +3,8 @@ import {
   fetchNansenTgm,
   getDefaultTgmRequest,
   parseTgmEndpoint,
-} from "~/server/crypto-ghost/nansen-smart-money";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+} from "~/server/crypto-helper/nansen-smart-money";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 import { verifyAuth } from "~/utils/auth";
 
 async function readBody(ev: Parameters<RequestHandler>[0]): Promise<unknown> {

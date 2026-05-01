@@ -2,7 +2,7 @@ import { and, eq, or } from "drizzle-orm";
 import { sendPushToUser } from "~/lib/webpush";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens, userPriceAlerts, users } from "../../../drizzle/schema";
-import { syncLogInfo, syncLogWarn } from "~/server/crypto-ghost/sync-logger";
+import { syncLogInfo, syncLogWarn } from "~/server/crypto-helper/sync-logger";
 
 /** Min seconds between repeat pushes for the same rule (crossing can re-fire after cooldown). */
 const COOLDOWN_SEC = 4 * 60 * 60;

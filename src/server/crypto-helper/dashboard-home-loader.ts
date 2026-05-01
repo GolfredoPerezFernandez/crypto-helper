@@ -7,12 +7,36 @@ import { count, desc, eq, gt } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import {
   GLOBAL_CMC_GLOBAL_METRICS,
+  GLOBAL_MORALIS_DISCOVERY_FILTERED,
+  GLOBAL_MORALIS_DISCOVERY_TOP_GAINERS_ETH,
+  GLOBAL_MORALIS_ENTITY_CATEGORIES,
+  GLOBAL_MORALIS_ENTITY_CATEGORY_SAMPLE,
+  GLOBAL_MORALIS_ENTITY_DETAIL_SAMPLE,
+  GLOBAL_MORALIS_ENTITY_SEARCH,
+  GLOBAL_MORALIS_NATIVE_BALANCES_BATCH,
+  GLOBAL_MORALIS_PAIR_STATS_SAMPLE,
+  GLOBAL_MORALIS_PAIR_SWAPS_SAMPLE,
+  GLOBAL_MORALIS_RESOLVE_ENS_SAMPLE,
+  GLOBAL_MORALIS_RESOLVE_REVERSE_SAMPLE,
+  GLOBAL_MORALIS_SOL_BONDING_STATUS_SAMPLE,
+  GLOBAL_MORALIS_SOL_PAIR_STATS_SAMPLE,
+  GLOBAL_MORALIS_SOL_PUMPFUN_BONDING,
+  GLOBAL_MORALIS_SOL_PUMPFUN_GRADUATED,
+  GLOBAL_MORALIS_SOL_PUMPFUN_NEW,
+  GLOBAL_MORALIS_TOKEN_SEARCH,
+  GLOBAL_MORALIS_TOP_PROFITABLE_SAMPLE,
+  GLOBAL_MORALIS_TRENDING_BASE,
+  GLOBAL_MORALIS_TRENDING_ETH,
+  GLOBAL_MORALIS_TX_VERBOSE_SAMPLE,
+  GLOBAL_MORALIS_VOLUME_CAT_BASE,
+  GLOBAL_MORALIS_VOLUME_CAT_ETH,
+  GLOBAL_MORALIS_VOLUME_CHAINS,
   getGlobalSnapshotJson,
   getWalletSnapshotJson,
   GLOBAL_NANSEN_TOKEN_SCREENER,
   GLOBAL_NFT_HOTTEST,
-} from "~/server/crypto-ghost/api-snapshot-sync";
-import type { MoralisWalletTokensResult } from "~/server/crypto-ghost/moralis-api";
+} from "~/server/crypto-helper/api-snapshot-sync";
+import type { MoralisWalletTokensResult } from "~/server/crypto-helper/moralis-api";
 import {
   getLatestSyncRun,
   MARKET_TOKEN_LIGHT_SELECT,
@@ -20,13 +44,13 @@ import {
   queryMostVisitedOrFallback,
   queryRecentSyncRuns,
   queryTrendingOrFallback,
-} from "~/server/crypto-ghost/market-queries";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+} from "~/server/crypto-helper/market-queries";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 import {
   erc20LogoUrl,
   isSolanaWalletAddress,
   normalizeWalletSnapshotAddress,
-} from "~/server/crypto-ghost/wallet-snapshot";
+} from "~/server/crypto-helper/wallet-snapshot";
 import { formatUsdBalance } from "~/utils/format-market";
 import { getUserId } from "~/utils/auth";
 import {
@@ -63,12 +87,137 @@ function dedupeRows<T extends { cmcId?: number | null; slug?: string | null; sym
   return out;
 }
 
+export type MoralisDiscoveryHomePack = {
+  trendingEth: unknown;
+  trendingBase: unknown;
+  volumeChains: unknown;
+  volumeCatEth: unknown;
+  volumeCatBase: unknown;
+  discoveryTopGainersEth: unknown;
+  discoveryFiltered: unknown;
+  entityCategories: unknown;
+  entitySearch: unknown;
+  entityCategorySample: unknown;
+  entityDetailSample: unknown;
+  resolveEnsSample: unknown;
+  resolveReverseSample: unknown;
+  pairSwapsSample: unknown;
+  pairStatsSample: unknown;
+  topProfitableSample: unknown;
+  nativeBalancesBatch: unknown;
+  txVerboseSample: unknown;
+  solPumpfunNew: unknown;
+  solPumpfunBonding: unknown;
+  solPumpfunGraduated: unknown;
+  solBondingStatusSample: unknown;
+  solPairStatsSample: unknown;
+  tokenSearch: unknown;
+};
+
+async function loadMoralisDiscoveryHomePack(): Promise<MoralisDiscoveryHomePack> {
+  const [
+    trendingEth,
+    trendingBase,
+    volumeChains,
+    volumeCatEth,
+    volumeCatBase,
+    discoveryTopGainersEth,
+    discoveryFiltered,
+    entityCategories,
+    entitySearch,
+    entityCategorySample,
+    entityDetailSample,
+    resolveEnsSample,
+    resolveReverseSample,
+    pairSwapsSample,
+    pairStatsSample,
+    topProfitableSample,
+    nativeBalancesBatch,
+    txVerboseSample,
+    solPumpfunNew,
+    solPumpfunBonding,
+    solPumpfunGraduated,
+    solBondingStatusSample,
+    solPairStatsSample,
+    tokenSearch,
+  ] = await Promise.all([
+    getGlobalSnapshotJson(GLOBAL_MORALIS_TRENDING_ETH),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_TRENDING_BASE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_VOLUME_CHAINS),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_VOLUME_CAT_ETH),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_VOLUME_CAT_BASE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_DISCOVERY_TOP_GAINERS_ETH),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_DISCOVERY_FILTERED),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_ENTITY_CATEGORIES),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_ENTITY_SEARCH),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_ENTITY_CATEGORY_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_ENTITY_DETAIL_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_RESOLVE_ENS_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_RESOLVE_REVERSE_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_PAIR_SWAPS_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_PAIR_STATS_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_TOP_PROFITABLE_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_NATIVE_BALANCES_BATCH),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_TX_VERBOSE_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_SOL_PUMPFUN_NEW),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_SOL_PUMPFUN_BONDING),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_SOL_PUMPFUN_GRADUATED),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_SOL_BONDING_STATUS_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_SOL_PAIR_STATS_SAMPLE),
+    getGlobalSnapshotJson(GLOBAL_MORALIS_TOKEN_SEARCH),
+  ]);
+  return {
+    trendingEth,
+    trendingBase,
+    volumeChains,
+    volumeCatEth,
+    volumeCatBase,
+    discoveryTopGainersEth,
+    discoveryFiltered,
+    entityCategories,
+    entitySearch,
+    entityCategorySample,
+    entityDetailSample,
+    resolveEnsSample,
+    resolveReverseSample,
+    pairSwapsSample,
+    pairStatsSample,
+    topProfitableSample,
+    nativeBalancesBatch,
+    txVerboseSample,
+    solPumpfunNew,
+    solPumpfunBonding,
+    solPumpfunGraduated,
+    solBondingStatusSample,
+    solPairStatsSample,
+    tokenSearch,
+  };
+}
+
 export async function loadDashboardHome(ev: RequestEventBase) {
   try {
   const since24h = Math.floor(Date.now() / 1000) - 86_400;
 
-  const [meme, ai, gaming, mineable, earlybird, totalRow, lastSync, topVolume, topVolumeForPulse, trendingPack, mostVisitedPack, whale24, trader24, smart24, syncHistory, globalMetricsSnap, nansenTokenScreenerSnap] =
-    await Promise.all([
+  const [
+    meme,
+    ai,
+    gaming,
+    mineable,
+    earlybird,
+    totalRow,
+    lastSync,
+    topVolume,
+    topVolumeForPulse,
+    trendingPack,
+    mostVisitedPack,
+    whale24,
+    trader24,
+    smart24,
+    syncHistory,
+    globalMetricsSnap,
+    nansenTokenScreenerSnap,
+    moralisDiscovery,
+  ] = await Promise.all([
       db
         .select(MARKET_TOKEN_LIGHT_SELECT)
         .from(cachedMarketTokens)
@@ -128,6 +277,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
       queryRecentSyncRuns(20),
       getGlobalSnapshotJson<any>(GLOBAL_CMC_GLOBAL_METRICS),
       getGlobalSnapshotJson<any>(GLOBAL_NANSEN_TOKEN_SCREENER),
+      loadMoralisDiscoveryHomePack(),
     ]);
 
   const parseNum = (v: unknown): number => {
@@ -289,6 +439,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
             : nftHotSnap.error,
     },
     nansenTokenScreener: nansenTokenScreenerSnap,
+    moralisDiscovery,
   };
   } catch (e) {
     console.error("[loadDashboardHome]", e);
@@ -330,6 +481,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         error: "Base de datos no disponible temporalmente.",
       },
       nansenTokenScreener: null,
+      moralisDiscovery: null,
     };
   }
 }

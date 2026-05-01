@@ -5,7 +5,7 @@ import {
   clampOffset,
   isMarketCategory,
   queryMarketTokens,
-} from "~/server/crypto-ghost/market-queries";
+} from "~/server/crypto-helper/market-queries";
 
 export const onGet: RequestHandler = async ({ query, json }) => {
   const catRaw = query.get("category")?.trim() || "";

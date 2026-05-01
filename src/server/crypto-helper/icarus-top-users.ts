@@ -1,4 +1,5 @@
-import { syncLogError, syncLogInfo } from "~/server/crypto-ghost/sync-logger";
+import { syncLogError, syncLogInfo } from "~/server/crypto-helper/sync-logger";
+import { recordIcarusHttpCall } from "~/server/crypto-helper/sync-usage-context";
 
 export type IcarusTopUser = { account?: string; [key: string]: unknown };
 
@@ -26,6 +27,7 @@ export async function fetchIcarusTopUsersBySwaps(
         ],
       }),
     });
+    recordIcarusHttpCall();
     const ms = Date.now() - t0;
     const raw = await res.text();
     let j: { result?: unknown } = {};

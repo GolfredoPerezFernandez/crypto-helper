@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { clampLimit, querySmartSignalsWithAddresses } from "~/server/crypto-ghost/market-queries";
-import { getUserProAccess } from "~/server/crypto-ghost/user-access";
+import { clampLimit, querySmartSignalsWithAddresses } from "~/server/crypto-helper/market-queries";
+import { getUserProAccess } from "~/server/crypto-helper/user-access";
 import { verifyAuth } from "~/utils/auth";
 
 export const onGet: RequestHandler = async (ev) => {

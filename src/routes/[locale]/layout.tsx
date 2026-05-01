@@ -29,7 +29,7 @@ import {
     LuZap,
 } from '@qwikest/icons/lucide';
 import { verifyAuth } from '~/utils/auth';
-import { getUserProAccess } from '~/server/crypto-ghost/user-access';
+import { getUserProAccess } from '~/server/crypto-helper/user-access';
 import { useWallet } from '~/hooks/useWallet';
 import { DemoModeContext } from '~/contexts/demo';
 import { LanguageSwitcher } from '~/components/ui/language-switcher/language-switcher';
@@ -41,6 +41,13 @@ import { AiChatFab } from '~/components/ai-chat-fab/ai-chat-fab';
 import { logoutUser } from '~/server/auth-logout';
 import { MarketplaceConfigContext } from '~/contexts/config';
 import { DashboardShell, type DashboardAccessState } from '~/components/layout/dashboard-shell';
+
+/** Wallet-only placeholder emails (current + legacy rename). */
+function isWalletPlaceholderSessionEmail(email: string | undefined | null): boolean {
+    if (email == null || String(email).trim() === '') return false;
+    const e = String(email).toLowerCase();
+    return e.endsWith('@crypto-helper.internal') || e.endsWith('@crypto-ghost.internal');
+}
 
 // ---------------- CONFIG LOADER ----------------
 export const useMarketplaceConfigLoader = routeLoader$(async (requestEvent) => {
@@ -263,7 +270,7 @@ export default component$(() => {
 
     const goNotificationSettings = $(async () => {
         accountMenuOpen.value = false;
-        await nav(`/${L}/notifications-settings/`);
+        await nav(`/${L}/alerts/`);
     });
 
     const handleDisconnectWallet = $(async () => {
@@ -528,7 +535,7 @@ export default component$(() => {
                         <NavLink href={`/${L}/top-traders/`} class="rounded-lg px-2 py-1 hover:text-white transition">
                             Portfolio
                         </NavLink>
-                        <NavLink href={`/${L}/notifications-settings/`} class="rounded-lg px-2 py-1 hover:text-white transition">
+                        <NavLink href={`/${L}/alerts/`} class="rounded-lg px-2 py-1 hover:text-white transition">
                             Watchlist
                         </NavLink>
                         <div class="w-40 rounded-lg border border-[#043234] bg-[#001318] px-3 py-1.5 text-slate-500">
@@ -593,9 +600,7 @@ export default component$(() => {
                             title={
                                 auth.value?.isAuthenticated &&
                                 auth.value.sessionEmail &&
-                                !String(auth.value.sessionEmail)
-                                    .toLowerCase()
-                                    .endsWith('@crypto-ghost.internal')
+                                !isWalletPlaceholderSessionEmail(auth.value.sessionEmail)
                                     ? auth.value.sessionEmail
                                     : undefined
                             }
@@ -617,9 +622,7 @@ export default component$(() => {
                             </div>
                             {auth.value?.isAuthenticated &&
                             auth.value.sessionEmail &&
-                            !String(auth.value.sessionEmail)
-                                .toLowerCase()
-                                .endsWith('@crypto-ghost.internal') ? (
+                            !isWalletPlaceholderSessionEmail(auth.value.sessionEmail) ? (
                                 <span class="max-w-[9rem] truncate text-center text-[10px] font-normal leading-tight text-slate-400 sm:max-w-[13rem]">
                                     {auth.value.sessionEmail}
                                 </span>

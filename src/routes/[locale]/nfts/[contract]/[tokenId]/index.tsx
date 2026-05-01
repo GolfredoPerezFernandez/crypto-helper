@@ -4,8 +4,8 @@ import { useDashboardAuth } from "../../../layout";
 import {
   fetchMoralisNftCollectionMetadata,
   fetchMoralisNftMetadata,
-} from "~/server/crypto-ghost/moralis-api";
-import { nftImage } from "~/server/crypto-ghost/wallet-snapshot";
+} from "~/server/crypto-helper/moralis-api";
+import { nftImage } from "~/server/crypto-helper/wallet-snapshot";
 import { formatTokenUsdPrice } from "~/utils/format-market";
 import { EvmAddrLinks, TxHashLink } from "~/components/crypto-dashboard/evm-dash-links";
 

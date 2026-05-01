@@ -3,7 +3,7 @@ import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
 import { useDashboardAuth } from "../layout";
 import { CategoryTokenTable } from "~/components/crypto-dashboard/category-token-table";
-import { queryTrendingOrFallback } from "~/server/crypto-ghost/market-queries";
+import { queryTrendingOrFallback } from "~/server/crypto-helper/market-queries";
 
 export const head: DocumentHead = {
   title: "Trending | Dashboard",
@@ -12,8 +12,7 @@ export const head: DocumentHead = {
 export const useTrendingLoader = routeLoader$(async () => queryTrendingOrFallback(300));
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
+  useDashboardAuth();
   const pack = useTrendingLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
@@ -24,15 +23,11 @@ export default component$(() => {
       title="Trending"
       subtitle={
         usedFallback
-          ? "Ranking “trending” no disponible en este plan — mostramos los mayores movimientos 7d del board de volumen (mismo dataset)."
-          : "Resumen de ganadores / perdedores trending."
+          ? "Mostramos los mayores movimientos en 7d del listado de volumen (mismo universo de tokens)."
+          : "Tokens con mayor movimiento reciente."
       }
       rows={rows as unknown as Record<string, unknown>[]}
-      emptyHint={
-        showSync
-          ? "Sin datos de volumen aún — ejecuta la sincronización desde el resumen del panel."
-          : "No hay datos de volumen todavía. Vuelve más tarde."
-      }
+      emptyHint="No hay datos en esta vista todavía. Vuelve más tarde."
     />
   );
 });

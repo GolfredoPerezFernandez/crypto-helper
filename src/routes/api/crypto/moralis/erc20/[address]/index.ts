@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getMarketTokenByAddressLoose, isEvmAddress } from "~/server/crypto-ghost/market-queries";
+import { getMarketTokenByAddressLoose, isEvmAddress } from "~/server/crypto-helper/market-queries";
 
 export const onGet: RequestHandler = async ({ params, query, json }) => {
   const raw = params.address?.trim() || "";

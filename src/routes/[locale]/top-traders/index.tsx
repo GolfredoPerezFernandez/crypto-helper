@@ -1,61 +1,19 @@
 import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { routeLoader$, useLocation } from "@builder.io/qwik-city";
+import { DataSyncExplainer } from "~/components/crypto-dashboard/data-sync-explainer";
+import { DexActivityWalletsSection } from "~/components/crypto-dashboard/dex-activity-wallets-section";
 import { WatchlistWalletGrid } from "~/components/crypto-dashboard/watchlist-wallet-grid";
-import { useDashboardAuth } from "../layout";
+import type { DexActivityHighlightBundle } from "~/server/crypto-helper/dex-activity-highlight";
+import { getGlobalSnapshotJson, getWalletSnapshotJson, GLOBAL_DEX_ACTIVITY_HIGHLIGHT } from "~/server/crypto-helper/api-snapshot-sync";
 import {
-  getGlobalSnapshotJson,
-  getWalletSnapshotJson,
-  GLOBAL_NANSEN_TGM_PNL,
-} from "~/server/crypto-ghost/api-snapshot-sync";
-import { TRADER_WATCH_WALLETS } from "~/server/crypto-ghost/trader-wallets";
-import { fetchNansenTgmPnlLeaderboard, type NansenTgmPnlRow } from "~/server/crypto-ghost/nansen-smart-money";
+  loadNansenTgmMap,
+  normalizeEvmAddress,
+  rowWithNansenFallback,
+} from "~/server/crypto-helper/watchlist-nansen-merge";
+import { TRADER_WATCH_WALLETS } from "~/server/crypto-helper/trader-wallets";
 
 const PAGE_SIZE = 25;
-
-function pickNumber(v: unknown): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function normalizeAddress(v: unknown): string | null {
-  const a = String(v ?? "")
-    .trim()
-    .toLowerCase();
-  return /^0x[a-f0-9]{40}$/.test(a) ? a : null;
-}
-
-function rowWithNansenFallback(
-  address: string,
-  nansenByAddress: Map<string, NansenTgmPnlRow>,
-  snap: Awaited<ReturnType<typeof getWalletSnapshotJson>>,
-) {
-  const nansen = nansenByAddress.get(address);
-  const pnlFromSnap = snap?.pnlEth ?? { ok: false as const, error: "Sin datos disponibles." };
-  const nwFromSnap = snap?.nwEth ?? { ok: false as const, error: "Sin datos disponibles." };
-  const realizedUsd = pickNumber(nansen?.pnl_usd_realised);
-  const roiPct = pickNumber(nansen?.roi_percent_total ?? nansen?.roi_percent_realised);
-  const holdingUsd = pickNumber(nansen?.holding_usd);
-
-  const pnl =
-    pnlFromSnap.ok || !nansen
-      ? pnlFromSnap
-      : {
-          ok: true as const,
-          data: {
-            total_realized_profit_percentage: roiPct ?? 0,
-            total_realized_profit_usd: realizedUsd ?? 0,
-          },
-        };
-  const nw =
-    nwFromSnap.ok || !nansen
-      ? nwFromSnap
-      : {
-          ok: true as const,
-          data: { total_networth_usd: holdingUsd ?? 0 },
-        };
-  return { address, pnl, nw };
-}
 
 export const head: DocumentHead = {
   title: "Top Crypto Traders Watchlist | Crypto Helper",
@@ -69,44 +27,19 @@ export const head: DocumentHead = {
 };
 
 export const useTopTradersLoader = routeLoader$(async (ev) => {
-  const nansenTokenFromQuery = normalizeAddress(ev.query.get("token"));
-  const nansenTokenFromEnv = normalizeAddress(process.env.NANSEN_TGM_TOKEN_ADDRESS);
-  const nansenToken = nansenTokenFromQuery ?? nansenTokenFromEnv;
+  const nansenTokenFromQuery = normalizeEvmAddress(ev.query.get("token"));
+  const nansenTokenFromEnv = normalizeEvmAddress(process.env.NANSEN_TGM_TOKEN_ADDRESS);
   const nansenDays = Math.max(1, Math.min(365, parseInt(ev.query.get("days") || "30", 10) || 30));
 
-  const nansenRows: NansenTgmPnlRow[] = [];
-  let nansenUsed = false;
-  if (nansenToken) {
-    const cached = await getGlobalSnapshotJson<{
-      token?: string;
-      rows?: NansenTgmPnlRow[];
-    } | null>(GLOBAL_NANSEN_TGM_PNL);
-    const cachedToken = normalizeAddress(cached?.token);
-    if (cachedToken && cachedToken === nansenToken && Array.isArray(cached?.rows)) {
-      nansenRows.push(...cached.rows);
-      nansenUsed = true;
-    } else {
-      const out = await fetchNansenTgmPnlLeaderboard({
-        chain: "ethereum",
-        tokenAddress: nansenToken,
+  const [{ byAddress: nansenByAddress, used: nansenUsed, rowCount: nansenRows }, dexActivityBundle] =
+    await Promise.all([
+      loadNansenTgmMap({
+        queryToken: nansenTokenFromQuery,
+        envToken: nansenTokenFromEnv,
         days: nansenDays,
-        perPage: 100,
-        page: 1,
-        premiumLabels: true,
-      });
-      if (out.ok) {
-        nansenRows.push(...out.rows);
-        nansenUsed = true;
-      }
-    }
-  }
-
-  const nansenByAddress = new Map<string, NansenTgmPnlRow>();
-  for (const row of nansenRows) {
-    const a = normalizeAddress(row.trader_address);
-    if (!a || nansenByAddress.has(a)) continue;
-    nansenByAddress.set(a, row);
-  }
+      }),
+      getGlobalSnapshotJson<DexActivityHighlightBundle | null>(GLOBAL_DEX_ACTIVITY_HIGHLIGHT),
+    ]);
 
   const mergedAddresses = [...new Set([...TRADER_WATCH_WALLETS, ...nansenByAddress.keys()])];
   const page = Math.max(1, parseInt(ev.query.get("page") || "1", 10) || 1);
@@ -124,40 +57,39 @@ export const useTopTradersLoader = routeLoader$(async (ev) => {
     hasMore: start + PAGE_SIZE < mergedAddresses.length,
     total: mergedAddresses.length,
     nansenUsed,
-    nansenRows: nansenByAddress.size,
-    nansenToken: nansenToken ?? null,
+    nansenRows,
+    nansenToken: nansenTokenFromQuery ?? nansenTokenFromEnv ?? null,
+    dexActivityBundle,
   };
 });
 
 export default component$(() => {
-  const dash = useDashboardAuth();
-  const showSync = dash.value.showSyncDebug;
   const data = useTopTradersLoader();
   const loc = useLocation();
   const L = loc.params.locale || "en-us";
   const v = data.value;
 
+  const subtitle = v.nansenUsed
+    ? `Watchlist combinada con ranking ampliado por activo (${v.nansenRows} direcciones) para el contrato configurado; el resto viene del último snapshot de cartera.`
+    : "Watchlist curada y métricas de cartera en caché. Pasá ?token=0x… para mezclar el ranking ampliado si coincide con el último ciclo de sync.";
+
   return (
-    <WatchlistWalletGrid
-      locale={L}
-      title="Most profitable"
-      subtitle={
-        showSync
-          ? `Listado de traders actualizado. ${
-              v.nansenUsed
-                ? `Combinando watchlist + Nansen (${v.nansenRows} wallets Nansen, token ${v.nansenToken}).`
-                : "Ordena y filtra por dirección en esta página."
-            }`
-          : v.nansenUsed
-            ? `Listado combinado de watchlist + Nansen (${v.nansenRows} wallets Nansen).`
-            : "Listado de traders. Ordena y filtra por dirección en esta página."
-      }
-      rows={v.rows}
-      page={v.page}
-      pageSize={PAGE_SIZE}
-      total={v.total}
-      hasMore={v.hasMore}
-      basePath={`/${L}/top-traders/`}
-    />
+    <div class="space-y-10 w-full max-w-[2200px] mx-auto">
+      <DataSyncExplainer />
+
+      <WatchlistWalletGrid
+        locale={L}
+        title="Traders destacados"
+        subtitle={subtitle}
+        rows={v.rows}
+        page={v.page}
+        pageSize={PAGE_SIZE}
+        total={v.total}
+        hasMore={v.hasMore}
+        basePath={`/${L}/top-traders/`}
+      />
+
+      <DexActivityWalletsSection locale={L} bundle={v.dexActivityBundle} />
+    </div>
   );
 });

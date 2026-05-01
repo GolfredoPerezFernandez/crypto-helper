@@ -9,8 +9,8 @@ import {
   parsePercentNumber,
   percentToneClass,
 } from "~/utils/format-market";
-import { MARKET_CATEGORY_LABEL } from "~/server/crypto-ghost/market-category-constants";
-import { moralisChainFromNetworkLabel } from "~/server/crypto-ghost/moralis-chain";
+import { MARKET_CATEGORY_LABEL } from "~/server/crypto-helper/market-category-constants";
+import { moralisChainFromNetworkLabel } from "~/server/crypto-helper/moralis-chain";
 import { EvmAddrLinks } from "~/components/crypto-dashboard/evm-dash-links";
 
 type Row = Record<string, unknown>;
