@@ -667,8 +667,6 @@ export default component$(() => {
       resourcesCopied: tr("resourcesCopied@@Copied"),
       resourcesSeeMore: tr("resourcesSeeMore@@Show full description"),
       resourcesSeeLess: tr("resourcesSeeLess@@Collapse"),
-      resourcesMarketSnap: tr("resourcesMarketSnap@@Market snapshot"),
-      resourcesMcap: tr("resourcesMcap@@Market cap"),
       resourcesCreated: tr("resourcesCreated@@Contract deployed"),
       resourcesOtherChains: tr("resourcesOtherChains@@Bridged / other chains"),
       resourcesWebsite: tr("resourcesWebsite@@Website"),
@@ -1251,55 +1249,6 @@ export default component$(() => {
                     ) : null}
                   </div>
                 </div>
-
-                {live &&
-                (live.price != null ||
-                  live.pct24 != null ||
-                  live.mcap != null ||
-                  live.vol24 != null ||
-                  live.rank != null) ? (
-                  <div class="rounded-xl border border-[#0d5357]/60 bg-black/45 px-3 py-3">
-                    <div class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      <LuFileText class="h-3.5 w-3.5 text-cyan-400/80" />
-                      {tp.value.resourcesMarketSnap}
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {live.price != null ? (
-                        <div>
-                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.price}</div>
-                          <div class="text-[15px] font-bold tabular-nums text-white leading-tight">
-                            ${formatTokenUsdPrice(live.price)}
-                          </div>
-                        </div>
-                      ) : null}
-                      {live.pct24 != null ? (
-                        <div>
-                          <div class="text-[10px] uppercase tracking-wide text-slate-500">24h</div>
-                          <div class={`text-[15px] font-bold tabular-nums leading-tight ${percentToneClass(live.pct24)}`}>
-                            {live.pct24 > 0 ? "+" : ""}
-                            {live.pct24.toFixed(2)}%
-                          </div>
-                        </div>
-                      ) : null}
-                      {live.mcap != null ? (
-                        <div>
-                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.resourcesMcap}</div>
-                          <div class="text-[13px] font-semibold tabular-nums text-slate-100 leading-tight">
-                            {formatUsdLiquidity(live.mcap)}
-                          </div>
-                        </div>
-                      ) : null}
-                      {live.vol24 != null ? (
-                        <div>
-                          <div class="text-[10px] uppercase tracking-wide text-slate-500">{tp.value.volume}</div>
-                          <div class="text-[13px] font-semibold tabular-nums text-slate-100 leading-tight">
-                            {formatUsdLiquidity(live.vol24)}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
 
                 {hasAddr ? (
                   <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-[#0d5357]/55 bg-[#000d10]/80 px-3 py-2.5">
