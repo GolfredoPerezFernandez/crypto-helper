@@ -34,7 +34,7 @@ const SMART_MONEY_SECTIONS: { id: SmartMoneySection; label: string; subtitle: st
   {
     id: "historical-holdings",
     label: "Histórico de tenencias",
-    subtitle: "Serie diaria de holdings agregados (último snapshot disponible).",
+    subtitle: "Serie diaria de holdings agregados (última lectura disponible).",
   },
   {
     id: "dex-trades",

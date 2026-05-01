@@ -75,7 +75,7 @@ export const onPost: RequestHandler = async ({ request, json }) => {
 
   if (isEvmAddress(addrEvm)) {
     if (!chain) {
-      json(400, { ok: false, error: "missing moralisChain on snapshot — run sync first" });
+      json(400, { ok: false, error: "Información de cadena no disponible aún." });
       return;
     }
     const out = await fetchMoralisTokenAnalyticsTimeseries(

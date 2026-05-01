@@ -107,6 +107,7 @@ export default component$(() => {
           symbols={tvSymbols}
           dexUrl={dexUrl}
           dexEmbedUrl={dexEmbedUrl}
+          tokenAddress={String(t.address ?? "")}
           height={560}
         />
       </section>

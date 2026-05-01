@@ -36,6 +36,8 @@ export interface TradingViewAdvancedChartProps {
   dexUrl?: string | null;
   /** Iframe embed URL with chart (on-chain fallback). */
   dexEmbedUrl?: string | null;
+  /** EVM token address used to verify if Dexscreener has pairs (auto-fallback to CEX). */
+  tokenAddress?: string | null;
 }
 
 export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedChartProps) => {
@@ -43,8 +45,47 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
   const pairIndex = useSignal(0);
   const height = props.height ?? 520;
   const list = props.symbols?.length ? props.symbols : ["BINANCE:BTCUSDT"];
-  const hasDex = Boolean(props.dexEmbedUrl);
-  const chartTab = useSignal<"dex" | "cex">(hasDex ? "dex" : "cex");
+  const candidateDex = Boolean(props.dexEmbedUrl);
+  /** Dexscreener pair availability — validated client-side. "ok" enables the DEX tab. */
+  const dexStatus = useSignal<"loading" | "ok" | "missing">(
+    candidateDex ? "loading" : "missing",
+  );
+  const chartTab = useSignal<"dex" | "cex">(candidateDex ? "dex" : "cex");
+
+  /** Probe Dexscreener API once: if no pairs, hide DEX tab and fall back to CEX. */
+  useVisibleTask$(async ({ track }) => {
+    track(() => props.tokenAddress);
+    track(() => props.dexEmbedUrl);
+    if (!candidateDex || !props.tokenAddress) {
+      dexStatus.value = candidateDex ? "ok" : "missing";
+      return;
+    }
+    const addr = String(props.tokenAddress).trim().toLowerCase();
+    if (!/^0x[a-f0-9]{40}$/.test(addr)) {
+      dexStatus.value = "ok";
+      return;
+    }
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const r = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${addr}`,
+        { signal: ctrl.signal, cache: "force-cache" },
+      );
+      clearTimeout(t);
+      const j: { pairs?: unknown } = await r.json().catch(() => ({}));
+      const pairs = Array.isArray(j.pairs) ? j.pairs : [];
+      if (pairs.length === 0) {
+        dexStatus.value = "missing";
+        if (chartTab.value === "dex") chartTab.value = "cex";
+      } else {
+        dexStatus.value = "ok";
+      }
+    } catch {
+      /** On network/CORS/timeout, optimistically allow the iframe (Dexscreener may still render). */
+      dexStatus.value = "ok";
+    }
+  });
 
   useVisibleTask$(async ({ track, cleanup }) => {
     track(() => chartTab.value);
@@ -113,16 +154,20 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
         : "bg-[#001318] text-gray-400 hover:text-gray-200 ring-1 ring-[#043234]"
     }`;
 
+  const dexAvailable = dexStatus.value === "ok";
+  const dexLoading = dexStatus.value === "loading";
+
   return (
     <div class="w-full">
-      {hasDex ? (
+      {candidateDex && (dexAvailable || dexLoading) ? (
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span class="text-[11px] font-medium uppercase tracking-wide text-gray-500 mr-1">Chart</span>
           <button
             type="button"
             class={tabBtn(chartTab.value === "dex")}
+            disabled={dexLoading}
             onClick$={$(() => {
-              chartTab.value = "dex";
+              if (dexStatus.value === "ok") chartTab.value = "dex";
             })}
           >
             On-chain (Dexscreener)
@@ -136,7 +181,7 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
           >
             CEX (TradingView)
           </button>
-          {props.dexUrl ? (
+          {props.dexUrl && dexAvailable ? (
             <a
               href={props.dexUrl}
               target="_blank"
@@ -149,7 +194,7 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
         </div>
       ) : null}
 
-      {hasDex && chartTab.value === "dex" && props.dexEmbedUrl ? (
+      {dexAvailable && chartTab.value === "dex" && props.dexEmbedUrl ? (
         <div class="space-y-2">
           <iframe
             src={props.dexEmbedUrl}
@@ -173,7 +218,7 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
         </div>
       ) : null}
 
-      <div class={chartTab.value === "cex" || !hasDex ? "block" : "hidden"}>
+      <div class={chartTab.value === "cex" || !dexAvailable ? "block" : "hidden"}>
         {list.length > 1 ? (
           <div class="mb-2 flex flex-wrap items-center gap-2 border-b border-[#043234]/40 pb-2">
             <label class="text-[11px] font-medium uppercase tracking-wide text-gray-500 shrink-0">
@@ -194,7 +239,11 @@ export const TradingViewAdvancedChart = component$((props: TradingViewAdvancedCh
             </select>
           </div>
         ) : null}
-        {!hasDex ? (
+        {!dexAvailable && candidateDex ? (
+          <p class="text-[10px] leading-relaxed text-amber-300 mb-2">
+            No on-chain pair found on Dexscreener for this token — showing CEX candles instead.
+          </p>
+        ) : !candidateDex ? (
           <p class="text-[10px] leading-relaxed text-gray-500 mb-2">
             If the chart shows an invalid symbol, use the search tool inside TradingView.
           </p>

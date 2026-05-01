@@ -93,13 +93,13 @@ export default component$(() => {
     subtitle =
       "El ranking por actividad de intercambio no trajo direcciones en el último ciclo — mostramos una muestra fija de referencia. Revisá el sync global.";
   } else {
-    subtitle = `Ranking por actividad de intercambio (${v.icarusCount} entradas en el último snapshot${icarusAge ? ` · ${icarusAge}` : ""}).`;
+    subtitle = `Ranking por actividad de intercambio (${v.icarusCount} entradas en la última lectura${icarusAge ? ` · ${icarusAge}` : ""}).`;
   }
   if (v.nansenUsed) {
     subtitle += ` Incluye ${v.nansenRankCount} direcciones adicionales del ranking ampliado por activo (misma clave ?token= que en Traders destacados).`;
   } else {
     subtitle +=
-      " Podés añadir ?token=0x… para mezclar el ranking ampliado por ese contrato cuando el snapshot lo permita.";
+      " Podés añadir ?token=0x… para mezclar el ranking ampliado por ese contrato cuando los datos lo permitan.";
   }
 
   return (

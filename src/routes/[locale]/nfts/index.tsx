@@ -28,14 +28,14 @@ export const useNftsLoader = routeLoader$(async () => {
     hot: hot?.ok ? hot.data : null,
     hotErr:
       hot == null
-        ? "Sin datos en caché — ejecuta el sync diario."
+        ? "Aún no hay datos disponibles."
         : hot.ok
           ? null
           : hot.error,
     top: top?.ok ? top.data : null,
     topErr:
       top == null
-        ? "Sin datos en caché — ejecuta el sync diario."
+        ? "Aún no hay datos disponibles."
         : top.ok
           ? null
           : top.error,

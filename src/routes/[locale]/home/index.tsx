@@ -15,6 +15,8 @@ import {
   LuRadio,
   LuRefreshCw,
   LuSparkles,
+  LuTrendingUp,
+  LuTrophy,
   LuWaves,
 } from "@qwikest/icons/lucide";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
@@ -79,18 +81,15 @@ export default component$(() => {
     try {
       const r = await triggerOwnerFullMarketSync();
       if (r.ok) {
-        fullSyncSuccess.value = tx(
-          "Actualizacion completa finalizada con exito. Recargando panel...",
-          "Full refresh finished successfully. Reloading dashboard...",
-        );
+        fullSyncSuccess.value = "Actualización completa finalizada con éxito. Recargando panel…";
         await new Promise((resolve) => setTimeout(resolve, 1400));
         willReload = true;
         window.location.reload();
         return;
       }
-      fullSyncError.value = r.error || tx("No se pudo completar la actualización.", "Could not complete the update.");
+      fullSyncError.value = r.error || "No se pudo completar la actualización.";
     } catch (e: unknown) {
-      fullSyncError.value = e instanceof Error ? e.message : tx("No se pudo completar la actualización.", "Could not complete the update.");
+      fullSyncError.value = e instanceof Error ? e.message : "No se pudo completar la actualización.";
     } finally {
       if (!willReload) fullSyncBusy.value = false;
     }
@@ -107,9 +106,9 @@ export default component$(() => {
         window.location.reload();
         return;
       }
-      syncError.value = r.error || tx("No se pudo actualizar", "Could not update");
+      syncError.value = r.error || "No se pudo actualizar";
     } catch (e: unknown) {
-      syncError.value = e instanceof Error ? e.message : tx("No se pudo actualizar", "Could not update");
+      syncError.value = e instanceof Error ? e.message : "No se pudo actualizar";
     } finally {
       if (!willReload) syncBusy.value = false;
     }
@@ -264,7 +263,7 @@ export default component$(() => {
     {
       href: `${base}/top-traders-whales/`,
       title: tx("Top holders", "Top holders"),
-      desc: tx("Direcciones con mayor patrimonio en snapshots recientes.", "Addresses with highest holdings in recent snapshots."),
+      desc: tx("Direcciones con mayor patrimonio en la última lectura.", "Addresses with highest holdings in the latest reading."),
       icon: LuWaves,
     },
     {
@@ -329,16 +328,25 @@ export default component$(() => {
   const visibleQuickLinks = showMoreSections.value
     ? [...prioritizedQuickLinks, ...secondaryQuickLinks]
     : prioritizedQuickLinks;
+  const liquidityScore = (t: Record<string, unknown>): number => Math.max(0, Math.min(100, Math.log10(Math.max(1, n(t.volume))) * 14));
+  const momentumScore = (t: Record<string, unknown>): number => Math.max(0, Math.min(100, 50 + regimeScore(t) * 2.2));
+  const volatilityScore = (t: Record<string, unknown>): number =>
+    Math.max(0, Math.min(100, Math.abs(n(t.percentChange24h)) * 5 + Math.abs(n(t.percentChange7d)) * 2.4));
+  const opportunityScore = (t: Record<string, unknown>): number =>
+    Math.round(momentumScore(t) * 0.45 + liquidityScore(t) * 0.35 + (100 - volatilityScore(t)) * 0.2);
   const radarMomentum = [...data.value.topVolume]
     .sort((a: any, b: any) => regimeScore(b) - regimeScore(a))
-    .slice(0, 3);
+    .slice(0, 4);
   const radarReversal = [...data.value.topVolume]
     .filter((t: any) => n(t.percentChange24h) < 0 && n(t.percentChange7d) > 0)
     .sort((a: any, b: any) => n(b.volume) - n(a.volume))
-    .slice(0, 3);
+    .slice(0, 4);
   const radarVolume = [...data.value.topVolume]
     .sort((a: any, b: any) => n(b.volume) - n(a.volume))
-    .slice(0, 3);
+    .slice(0, 4);
+  const radarBestSet = [...data.value.topVolume]
+    .sort((a: any, b: any) => opportunityScore(b) - opportunityScore(a))
+    .slice(0, 6);
   const HelpTip = (text: string) => <HelpTooltip text={text} placement="top-right" widthClass="w-52" />;
   const InlineHelpTip = (text: string) => <HelpTooltip text={text} placement="inline" widthClass="w-52" />;
 
@@ -493,66 +501,6 @@ export default component$(() => {
         ) : null}
       </div>
 
-      <section class="rounded-2xl border border-[#043234] bg-gradient-to-br from-[#001317] via-[#001117] to-[#000d10] p-4 sm:p-5">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 class="inline-flex items-center text-sm font-semibold text-white">
-            Opportunity Radar
-            <HelpTooltip
-              text={tx(
-                "Señales visuales rápidas para encontrar oportunidades: momentum, reversión y liquidez.",
-                "Quick visual signals for opportunities: momentum, reversal, and liquidity.",
-              )}
-            />
-          </h2>
-          <span class="text-[11px] text-slate-500">{tx("Vista accionable", "Actionable view")}</span>
-        </div>
-        <div class="grid gap-3 lg:grid-cols-3">
-          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
-            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Momentum líder", "Momentum leaders")}</p>
-            <ul class="mt-2 space-y-2">
-              {radarMomentum.map((t: any) => (
-                <li key={`radar-m-${t.id}`}>
-                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
-                    <span class="truncate text-xs text-slate-200">{t.symbol}</span>
-                    <MarketRegimeBadge score={regimeScore(t)} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
-            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Reversión potencial", "Potential reversals")}</p>
-            <ul class="mt-2 space-y-2">
-              {radarReversal.length === 0 ? (
-                <li class="text-xs text-slate-500">{tx("Sin señales claras ahora.", "No clear signals right now.")}</li>
-              ) : (
-                radarReversal.map((t: any) => (
-                  <li key={`radar-r-${t.id}`}>
-                    <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
-                      <span class="truncate text-xs text-slate-200">{t.symbol}</span>
-                      <span class="text-[10px] tabular-nums text-amber-300">{n(t.percentChange24h).toFixed(2)}% / {n(t.percentChange7d).toFixed(2)}%</span>
-                    </Link>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-          <div class="rounded-xl border border-[#043234]/80 bg-[#000D0E]/60 p-3">
-            <p class="text-[10px] uppercase tracking-wide text-slate-500">{tx("Liquidez alta", "High liquidity")}</p>
-            <ul class="mt-2 space-y-2">
-              {radarVolume.map((t: any) => (
-                <li key={`radar-v-${t.id}`}>
-                  <Link href={`/${L}/token/${t.id}/`} class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[#043234]/40">
-                    <span class="truncate text-xs text-slate-200">{t.symbol}</span>
-                    <span class="text-[10px] tabular-nums text-[#04E6E6]">{formatUsdLiquidity(t.volume)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
       <section class="overflow-x-auto pb-1">
         <div class={`grid gap-3 ${showBtcDominance ? "min-w-[980px] grid-cols-5" : "min-w-[780px] grid-cols-4"}`}>
           <article class="relative rounded-xl border border-[#043234] bg-[#001a1c]/80 p-3">
@@ -620,8 +568,8 @@ export default component$(() => {
       {screenerRows.length > 0 ? (
         <section class="rounded-xl border border-[#043234] bg-[#001a1c]/70 overflow-hidden">
           <div class="px-4 py-3 border-b border-[#043234] flex items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-white">Nansen Token Screener</h2>
-            <span class="text-[10px] text-gray-500">Snapshot diario</span>
+            <h2 class="text-sm font-semibold text-white">Token Screener</h2>
+            <span class="text-[10px] text-gray-500">Actualizado a diario</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -1164,6 +1112,318 @@ export default component$(() => {
           ) : null}
         </section>
       </div>
+
+      <section class="relative overflow-hidden rounded-2xl border border-[#0d5357]/90 bg-gradient-to-br from-[#001317] via-[#001b1f] to-[#000c10] shadow-xl shadow-black/30">
+        <div class="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-[#04E6E6]/10 blur-3xl" aria-hidden="true" />
+        <div class="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl" aria-hidden="true" />
+
+        <header class="relative flex flex-wrap items-start justify-between gap-3 border-b border-[#0d5357]/55 px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#04E6E6]/25 to-[#04E6E6]/5 text-[#04E6E6] ring-1 ring-[#04E6E6]/35">
+              <LuRadar class="h-5 w-5" />
+              <span class="absolute inset-0 rounded-xl ring-2 ring-[#04E6E6]/25 animate-ping" aria-hidden="true" />
+            </span>
+            <div class="min-w-0">
+              <h2 class="inline-flex items-center text-base font-semibold text-white">
+                {tx("Radar de oportunidades", "Opportunity Radar")}
+                <HelpTooltip
+                  text={tx(
+                    "Resumen visual: tokens con mejor momentum, posibles reversiones, mayor liquidez y mejor score compuesto.",
+                    "Visual summary: tokens with best momentum, potential reversals, highest liquidity and best composite score.",
+                  )}
+                />
+              </h2>
+              <p class="mt-0.5 max-w-xl text-[11px] leading-snug text-slate-400">
+                {tx(
+                  "Cuatro lecturas rápidas del mercado para detectar oportunidades antes de profundizar en cada token.",
+                  "Four quick market reads to spot opportunities before diving into each token.",
+                )}
+              </p>
+            </div>
+          </div>
+          <span class="rounded-full border border-[#04E6E6]/30 bg-[#04E6E6]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9bf8f8]">
+            {tx("Vista accionable", "Actionable view")}
+          </span>
+        </header>
+
+        <div class="relative grid gap-3 p-4 lg:grid-cols-2 xl:grid-cols-4">
+          <article class="rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-transparent p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300">
+                  <LuTrendingUp class="h-3.5 w-3.5" />
+                </span>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                  {tx("Líderes momentum", "Momentum leaders")}
+                </h3>
+              </span>
+              {InlineHelpTip(
+                tx(
+                  "Tokens con mejor desempeño combinado de 24 h y 7 d.",
+                  "Tokens with the best combined 24h and 7d performance.",
+                ),
+              )}
+            </div>
+            <ul class="space-y-1">
+              {radarMomentum.length === 0 ? (
+                <li class="px-2 py-1.5 text-xs italic text-slate-500">{tx("Sin datos.", "No data.")}</li>
+              ) : (
+                radarMomentum.map((t: any) => (
+                  <li key={`radar-m-${t.id}`}>
+                    <Link
+                      href={`/${L}/token/${t.id}/`}
+                      class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-emerald-500/10"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                        <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                      </span>
+                      <MarketRegimeBadge score={regimeScore(t)} />
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </article>
+
+          <article class="rounded-xl border border-amber-500/25 bg-gradient-to-b from-amber-500/[0.06] to-transparent p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-lg bg-amber-500/20 p-1.5 text-amber-300">
+                  <LuRefreshCw class="h-3.5 w-3.5" />
+                </span>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                  {tx("Reversión potencial", "Potential reversals")}
+                </h3>
+              </span>
+              {InlineHelpTip(
+                tx(
+                  "Tokens en rojo a 24 h pero verdes a 7 d: posible rebote.",
+                  "Red on 24h but green on 7d: possible bounce.",
+                ),
+              )}
+            </div>
+            <ul class="space-y-1">
+              {radarReversal.length === 0 ? (
+                <li class="px-2 py-1.5 text-xs italic text-slate-500">
+                  {tx("Sin señales claras ahora.", "No clear signals right now.")}
+                </li>
+              ) : (
+                radarReversal.map((t: any) => (
+                  <li key={`radar-r-${t.id}`}>
+                    <Link
+                      href={`/${L}/token/${t.id}/`}
+                      class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-amber-500/10"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                        <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                      </span>
+                      <span class="flex shrink-0 items-center gap-1 text-[10px] tabular-nums">
+                        <span class="text-rose-300">{n(t.percentChange24h).toFixed(2)}%</span>
+                        <span class="text-slate-600">/</span>
+                        <span class="text-emerald-300">{n(t.percentChange7d).toFixed(2)}%</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </article>
+
+          <article class="rounded-xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.06] to-transparent p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-lg bg-cyan-500/20 p-1.5 text-cyan-300">
+                  <LuWaves class="h-3.5 w-3.5" />
+                </span>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                  {tx("Liquidez alta", "High liquidity")}
+                </h3>
+              </span>
+              {InlineHelpTip(
+                tx(
+                  "Tokens con mayor volumen de operaciones en 24 h.",
+                  "Tokens with the largest 24h trading volume.",
+                ),
+              )}
+            </div>
+            <ul class="space-y-1">
+              {radarVolume.length === 0 ? (
+                <li class="px-2 py-1.5 text-xs italic text-slate-500">{tx("Sin datos.", "No data.")}</li>
+              ) : (
+                radarVolume.map((t: any) => (
+                  <li key={`radar-v-${t.id}`}>
+                    <Link
+                      href={`/${L}/token/${t.id}/`}
+                      class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-cyan-500/10"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                        <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                      </span>
+                      <span class="shrink-0 text-[10px] font-semibold tabular-nums text-cyan-200">
+                        {formatUsdLiquidity(t.volume)}
+                      </span>
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </article>
+
+          <article class="rounded-xl border border-violet-500/25 bg-gradient-to-b from-violet-500/[0.06] to-transparent p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-lg bg-violet-500/20 p-1.5 text-violet-300">
+                  <LuTrophy class="h-3.5 w-3.5" />
+                </span>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-violet-200">
+                  {tx("Mejor score compuesto", "Best composite score")}
+                </h3>
+              </span>
+              {InlineHelpTip(
+                tx(
+                  "Score 0-100 que mezcla momentum, liquidez y baja volatilidad.",
+                  "0-100 score blending momentum, liquidity and low volatility.",
+                ),
+              )}
+            </div>
+            <ul class="space-y-1">
+              {radarBestSet.slice(0, 4).map((t: any) => (
+                <li key={`radar-s-${t.id}`}>
+                  <Link
+                    href={`/${L}/token/${t.id}/`}
+                    class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10"
+                  >
+                    <span class="flex min-w-0 items-center gap-2">
+                      <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={18} />
+                      <span class="truncate text-xs font-medium text-slate-100">{t.symbol}</span>
+                    </span>
+                    <span class="shrink-0 rounded-md border border-violet-400/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-violet-100">
+                      {opportunityScore(t)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
+
+        <div class="relative px-4 pb-4">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <h3 class="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-slate-300">
+              <LuSparkles class="mr-1.5 h-3.5 w-3.5 text-[#04E6E6]" />
+              {tx("Detalle de los tokens con mejor score", "Top scored tokens detail")}
+            </h3>
+            <span class="text-[10px] text-slate-500">
+              {tx("Toca un token para ver su ficha", "Tap a token to open its page")}
+            </span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-[#0d5357]/70 bg-[#000d10]/60">
+            <table class="w-full min-w-[820px] text-xs">
+              <thead class="bg-[#00151a]/95 text-[10px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="px-3 py-2 text-left">{tx("Token", "Token")}</th>
+                  <th class="px-3 py-2 text-right">24h</th>
+                  <th class="px-3 py-2 text-right">7d</th>
+                  <th class="px-3 py-2 text-right">{tx("Liquidez", "Liquidity")}</th>
+                  <th class="px-3 py-2 text-right">{tx("Volatilidad", "Volatility")}</th>
+                  <th class="px-3 py-2 text-right">{tx("Tendencia", "Trend")}</th>
+                  <th class="px-3 py-2 text-right">{tx("Score", "Score")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {radarBestSet.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} class="px-3 py-6 text-center text-xs italic text-slate-500">
+                      {tx("Sin datos disponibles ahora mismo.", "No data available right now.")}
+                    </td>
+                  </tr>
+                ) : (
+                  radarBestSet.map((t: any) => {
+                    const c24 = n(t.percentChange24h);
+                    const c7 = n(t.percentChange7d);
+                    const liq = Math.round(liquidityScore(t));
+                    const vol = Math.round(volatilityScore(t));
+                    const score = opportunityScore(t);
+                    const scoreColor =
+                      score >= 75
+                        ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                        : score >= 60
+                        ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                        : score >= 45
+                        ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                        : "border-rose-400/40 bg-rose-500/15 text-rose-200";
+                    const pctClass = (v: number) =>
+                      v > 0 ? "text-emerald-300" : v < 0 ? "text-rose-300" : "text-slate-300";
+                    return (
+                      <tr
+                        key={`radar-row-${t.id}`}
+                        class="border-t border-[#0d5357]/50 hover:bg-[#04E6E6]/[0.05] transition-colors"
+                      >
+                        <td class="px-3 py-2">
+                          <Link
+                            href={`/${L}/token/${t.id}/`}
+                            class="flex items-center gap-2 font-medium text-slate-100 hover:text-[#04E6E6]"
+                          >
+                            <TokenLogoImg src={String(t.logo ?? "")} symbol={String(t.symbol)} size={20} />
+                            <span class="truncate">
+                              {t.name} <span class="text-slate-500">({t.symbol})</span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td class={`px-3 py-2 text-right tabular-nums ${pctClass(c24)}`}>
+                          {c24 > 0 ? "+" : ""}
+                          {c24.toFixed(2)}%
+                        </td>
+                        <td class={`px-3 py-2 text-right tabular-nums ${pctClass(c7)}`}>
+                          {c7 > 0 ? "+" : ""}
+                          {c7.toFixed(2)}%
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                          <div class="ml-auto flex w-28 items-center justify-end gap-2">
+                            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-[#0d5357]/60">
+                              <div
+                                class="h-full bg-cyan-400/75"
+                                style={{ width: `${Math.min(100, Math.max(0, liq))}%` }}
+                              />
+                            </div>
+                            <span class="w-7 text-right tabular-nums text-cyan-200">{liq}</span>
+                          </div>
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                          <div class="ml-auto flex w-28 items-center justify-end gap-2">
+                            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-[#0d5357]/60">
+                              <div
+                                class="h-full bg-amber-400/75"
+                                style={{ width: `${Math.min(100, Math.max(0, vol))}%` }}
+                              />
+                            </div>
+                            <span class="w-7 text-right tabular-nums text-amber-200">{vol}</span>
+                          </div>
+                        </td>
+                        <td class="px-3 py-2">
+                          <div class="flex justify-end">
+                            <MiniSparkline points={sparkFromToken(t)} />
+                          </div>
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                          <span
+                            class={`inline-flex min-w-[2.25rem] items-center justify-center rounded-md border px-2 py-0.5 text-[11px] font-bold tabular-nums ${scoreColor}`}
+                          >
+                            {score}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       <section class="grid gap-3 2xl:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div class="relative rounded-xl border border-[#043234] bg-gradient-to-br from-[#001a1c] to-[#000D0E] p-4 2xl:p-5">

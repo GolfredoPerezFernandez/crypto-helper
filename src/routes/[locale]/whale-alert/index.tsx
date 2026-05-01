@@ -125,7 +125,7 @@ export default component$(() => {
           <h1 class="text-2xl font-bold text-white mt-1">{t("whaleAlertPage.title@@Large transfers & REST samples")}</h1>
           <p class="text-sm text-slate-400 mt-2 max-w-2xl leading-relaxed">
             {t(
-              "whaleAlertPage.subtitle@@Responses below are cached during the daily market sync (Turso). Opening this page does not call Whale Alert — add WHALE_ALERT_API_KEY on the server and run sync to refresh.",
+              "whaleAlertPage.subtitle@@Listado de transferencias relevantes. Los datos se refrescan periódicamente para mantener la página rápida y consistente.",
             )}
           </p>
         </div>
@@ -267,7 +267,7 @@ export default component$(() => {
                 <tr>
                   <td colSpan={4} class="px-4 py-8 text-center text-slate-500">
                     {t(
-                      "whaleAlertPage.empty@@No cached rows yet. Set WHALE_ALERT_API_KEY and run the daily sync (or owner full sync).",
+                      "whaleAlertPage.empty@@Aún no hay datos disponibles. Vuelve más tarde.",
                     )}
                   </td>
                 </tr>

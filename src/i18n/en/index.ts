@@ -61,7 +61,7 @@ export default {
       documentationLink: "Documentation",
       riskDisclaimer: "Risk disclaimer",
       footerDisclaimerShort:
-        "Crypto Helper provides analytics and information tools only. Nothing here is financial, investment, tax, or legal advice. Third-party data may be delayed or inaccurate. Use at your own risk.",
+        "Crypto Helper provides analytics and information tools only. Nothing here is financial, investment, tax, or legal advice.",
       navCryptocurrencies: "Cryptocurrencies",
       navDexScan: "DexScan",
       navExchanges: "Exchanges",
@@ -244,16 +244,16 @@ export default {
     chartHintTv: "TradingView · first pair ",
     chartHintSuffix: " — switch CEX pair if it does not load.",
     tabTransfers: "Transfers",
-    tabHolders: "Holders (snapshot)",
-    tabTraders: "Top traders / PnL (snapshot)",
-    tabSwaps: "DEX swaps (snapshot)",
+    tabHolders: "Holders",
+    tabTraders: "Top traders / PnL",
+    tabSwaps: "DEX swaps",
     recentTransfers: "Recent transfers",
-    snapshotChainLabel: "Cached snapshot · chain",
+    snapshotChainLabel: "Reference network",
     colTx: "Tx",
     colFrom: "From",
     colTo: "To",
     colValue: "Value",
-    noTransfersSnapshot: "No recent transfers in the snapshot.",
+    noTransfersSnapshot: "No recent transfers available.",
     topTradersPnl: "Top traders (PnL)",
     swapsDex: "DEX swaps",
     syncFooter:
@@ -281,7 +281,7 @@ export default {
         line1: "Your crypto command center,",
         line2: "clear and fast.",
         lead:
-          "One app: daily market snapshots, whale and smart-money streams, interactive bubbles, trader watchlists and wallet analytics — smooth navigation across the dashboard.",
+          "One app: market overview, whale and smart-money streams, interactive bubbles, trader watchlists and wallet analytics — smooth navigation across the dashboard.",
       },
       cta: {
         register: "Create account",
@@ -316,7 +316,7 @@ export default {
         },
         watchlist: {
           title: "Watchlist & wallets",
-          desc: "Follow addresses with profitability, net worth and cached snapshots.",
+          desc: "Follow addresses with profitability, net worth and cached history.",
           tag: "Wallets",
         },
         nfts: {

@@ -16,7 +16,7 @@ export const onGet: RequestHandler = async ({ params, query, json }) => {
   const r =
     chain === "base" || chain === "base-mainnet" ? snap?.pnlBase : snap?.pnlEth;
   if (!snap || !r) {
-    json(503, { ok: false, error: "No wallet snapshot — run daily sync." });
+    json(503, { ok: false, error: "Datos de la wallet aún no disponibles." });
     return;
   }
   if (!r.ok) {

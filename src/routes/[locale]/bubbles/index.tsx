@@ -163,6 +163,10 @@ export default component$(() => {
   const colorBy = useSignal<BubbleColorBy>("performance");
   const contentBy = useSignal<BubbleContentBy>("symbol-change");
   const view = useSignal<"bubbles" | "list">("bubbles");
+  const listDirection = useSignal<"all" | "up" | "down">("all");
+  const listMinPct = useSignal("0");
+  const listNetwork = useSignal("all");
+  const listMinMetric = useSignal("0");
   const chartHost = useSignal<HTMLDivElement | undefined>(undefined);
   const quoteId = useSignal<BubbleQuoteId>("USD");
   const quoteHydrated = useSignal(false);
@@ -229,6 +233,29 @@ export default component$(() => {
 
   const rawCount = (data.value.tokens as BubbleToken[]).length;
   const list = filteredList.value;
+  const listNetworks = useComputed$(() => {
+    const set = new Set<string>();
+    for (const t of list) {
+      const n = String((t as any).network ?? "").trim();
+      if (n) set.add(n);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  });
+  const listRows = useComputed$(() => {
+    const minPct = Math.max(0, Number(listMinPct.value) || 0);
+    const minMetric = Math.max(0, Number(listMinMetric.value) || 0);
+    return list.filter((t) => {
+      const p = pctForTimeframe(t, timeframe.value);
+      if (listDirection.value === "up" && p <= 0) return false;
+      if (listDirection.value === "down" && p >= 0) return false;
+      if (Math.abs(p) < minPct) return false;
+      const n = String((t as any).network ?? "").trim();
+      if (listNetwork.value !== "all" && n !== listNetwork.value) return false;
+      const sizeVal = sizeBy.value === "fdv" ? Number(t.fullyDilutedValuation || 0) : Number(t.volume || 0);
+      if (sizeVal < minMetric) return false;
+      return true;
+    });
+  });
   const qScale = quoteCtx.value.factor;
   const qId = quoteId.value;
 
@@ -511,14 +538,59 @@ export default component$(() => {
           <div class="mt-6">
             <div class="mb-2 flex items-center justify-between">
               <h3 class="text-sm font-semibold text-white">List format</h3>
+              <span class="text-[11px] text-slate-500">{listRows.value.length} rows</span>
+            </div>
+            <div class="mb-3 grid gap-2 rounded-xl border border-[#043234]/80 bg-[#001217]/70 p-2 sm:grid-cols-2 lg:grid-cols-5">
+              <select
+                class="rounded-md border border-[#043234] bg-[#000d10] px-2 py-1.5 text-xs text-slate-300"
+                value={listDirection.value}
+                onChange$={(e) => (listDirection.value = (e.target as HTMLSelectElement).value as any)}
+              >
+                <option value="all">Direction: all</option>
+                <option value="up">Direction: up only</option>
+                <option value="down">Direction: down only</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={listMinPct.value}
+                onInput$={(e) => (listMinPct.value = (e.target as HTMLInputElement).value)}
+                class="rounded-md border border-[#043234] bg-[#000d10] px-2 py-1.5 text-xs text-slate-300"
+                placeholder="Min |%|"
+              />
+              <select
+                class="rounded-md border border-[#043234] bg-[#000d10] px-2 py-1.5 text-xs text-slate-300"
+                value={listNetwork.value}
+                onChange$={(e) => (listNetwork.value = (e.target as HTMLSelectElement).value)}
+              >
+                <option value="all">Network: all</option>
+                {listNetworks.value.map((n) => (
+                  <option key={`net-inline-${n}`} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="1000000"
+                value={listMinMetric.value}
+                onInput$={(e) => (listMinMetric.value = (e.target as HTMLInputElement).value)}
+                class="rounded-md border border-[#043234] bg-[#000d10] px-2 py-1.5 text-xs text-slate-300"
+                placeholder={sizeBy.value === "fdv" ? "Min FDV (USD)" : "Min Vol (USD)"}
+              />
               <button
                 type="button"
-                class="rounded-md border border-[#043234] px-2 py-1 text-[11px] text-slate-300 hover:border-[#04E6E6]/40 hover:text-[#04E6E6]"
+                class="rounded-md border border-[#043234] bg-[#000d10] px-2 py-1.5 text-xs text-slate-300 hover:border-[#04E6E6]/35 hover:text-[#04E6E6]"
                 onClick$={() => {
-                  view.value = "list";
+                  listDirection.value = "all";
+                  listMinPct.value = "0";
+                  listNetwork.value = "all";
+                  listMinMetric.value = "0";
                 }}
               >
-                Focus list view
+                Reset filters
               </button>
             </div>
             <div class="overflow-x-auto rounded-xl border border-[#043234]">
@@ -535,7 +607,7 @@ export default component$(() => {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((t, i) => {
+                  {listRows.value.map((t, i) => {
                     const p = pctForTimeframe(t, timeframe.value);
                     const sizeVal =
                       sizeBy.value === "fdv"
@@ -602,7 +674,7 @@ export default component$(() => {
               </tr>
             </thead>
             <tbody>
-              {list.map((t, i) => {
+              {listRows.value.map((t, i) => {
                 const p = pctForTimeframe(t, timeframe.value);
                 const sizeVal =
                   sizeBy.value === "fdv"

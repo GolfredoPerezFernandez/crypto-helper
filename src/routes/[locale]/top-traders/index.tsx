@@ -68,7 +68,7 @@ export default component$(() => {
   const v = data.value;
 
   const subtitle = v.nansenUsed
-    ? `Watchlist combinada con ranking ampliado por activo (${v.nansenRows} direcciones) para el contrato configurado; el resto viene del último snapshot de cartera.`
+    ? `Watchlist combinada con ranking ampliado por activo (${v.nansenRows} direcciones) para el contrato configurado; el resto viene de la última lectura de cartera.`
     : "Watchlist curada y métricas de cartera en caché. Pasá ?token=0x… para mezclar el ranking ampliado si coincide con el último ciclo de sync.";
 
   return (

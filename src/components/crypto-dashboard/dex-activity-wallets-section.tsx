@@ -24,7 +24,7 @@ export const DexActivityWalletsSection = component$(
             Wallets con actividad reciente en DEX
           </h2>
           <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
-            Resumen agregado a partir del último panel de operaciones en DEX del sync principal: direcciones que
+            Resumen agregado a partir del último panel de operaciones en DEX: direcciones que
             aparecen con más filas en ese recorte.
             {refreshed ? (
               <>

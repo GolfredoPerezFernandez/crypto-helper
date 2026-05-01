@@ -14,7 +14,7 @@ export const onGet: RequestHandler = async ({ params, query, json }) => {
   if (!row || String(row.address).toLowerCase() !== tokenAddress) {
     json(404, {
       ok: false,
-      error: "Token not in CMC sync cache — no live Moralis call; run market sync.",
+      error: "Token no disponible en este momento.",
     });
     return;
   }

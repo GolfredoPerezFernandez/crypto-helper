@@ -1,8 +1,7 @@
-import { $, component$, useComputed$, useSignal } from "@builder.io/qwik";
+import { $, component$, useComputed$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import { Link, routeLoader$, useLocation } from "@builder.io/qwik-city";
 // @ts-ignore qwik-speak types
 import { useSpeak, inlineTranslate } from "qwik-speak";
-import { LuShield } from "@qwikest/icons/lucide";
 import { useDashboardAuth } from "../../layout";
 import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { TradingViewAdvancedChart } from "~/components/crypto/tradingview-advanced-chart";
@@ -24,6 +23,8 @@ import {
 } from "~/utils/tradingview-symbol";
 import { EvmAddrLinks, TxHashLink, txExplorerBase } from "~/components/crypto-dashboard/evm-dash-links";
 import { upsertWatchlistItem } from "~/server/watchlist-actions";
+import { MiniSparkline } from "~/components/crypto-dashboard/mini-sparkline";
+import { LuWaves } from "@qwikest/icons/lucide";
 
 const CAT_LABEL: Record<string, string> = {
   memes: "Meme",
@@ -99,90 +100,6 @@ function metricNum(m: Record<string, unknown>, ...keys: string[]): number | unde
   return undefined;
 }
 
-/** Moralis batch price `securityScore` (0–100). */
-function parseTokenSecurityScore(raw: unknown): number | null {
-  if (raw == null) return null;
-  const n = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, ""));
-  if (!Number.isFinite(n)) return null;
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function tokenSecurityScoreBadge(score: number): {
-  label: string;
-  hint: string;
-  accentText: string;
-  iconWrap: string;
-  border: string;
-  bg: string;
-  shadow: string;
-  barTrack: string;
-  barFill: string;
-} {
-  if (score < 35) {
-    return {
-      label: "Alto riesgo",
-      hint: "Pocas señales de confianza; extremar precaución.",
-      accentText: "text-rose-200",
-      iconWrap: "bg-rose-500/25 text-rose-100 ring-2 ring-rose-400/40",
-      border: "border-rose-500/45",
-      bg: "bg-gradient-to-br from-rose-950/80 via-[#1a0508]/90 to-black/40",
-      shadow: "shadow-[0_0_28px_-4px_rgba(244,63,94,0.45)]",
-      barTrack: "bg-black/50 ring-1 ring-rose-900/50",
-      barFill: "bg-gradient-to-r from-rose-600 via-rose-500 to-orange-400",
-    };
-  }
-  if (score < 55) {
-    return {
-      label: "Riesgo medio",
-      hint: "Señales mixtas; revisa liquidez y contrato.",
-      accentText: "text-orange-200",
-      iconWrap: "bg-orange-500/20 text-orange-100 ring-2 ring-orange-400/35",
-      border: "border-orange-500/40",
-      bg: "bg-gradient-to-br from-orange-950/70 via-[#1a0f05]/85 to-black/40",
-      shadow: "shadow-[0_0_24px_-6px_rgba(249,115,22,0.35)]",
-      barTrack: "bg-black/50 ring-1 ring-orange-900/40",
-      barFill: "bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-400",
-    };
-  }
-  if (score < 75) {
-    return {
-      label: "Aceptable",
-      hint: "Nivel intermedio; conviene más due diligence.",
-      accentText: "text-amber-200",
-      iconWrap: "bg-amber-500/20 text-amber-100 ring-2 ring-amber-400/35",
-      border: "border-amber-500/35",
-      bg: "bg-gradient-to-br from-amber-950/55 via-[#0f1408]/80 to-black/35",
-      shadow: "shadow-[0_0_20px_-8px_rgba(245,158,11,0.3)]",
-      barTrack: "bg-black/50 ring-1 ring-amber-900/35",
-      barFill: "bg-gradient-to-r from-amber-600 via-yellow-500 to-lime-400",
-    };
-  }
-  if (score < 90) {
-    return {
-      label: "Bueno",
-      hint: "Señales sólidas según el modelo de riesgo del proveedor.",
-      accentText: "text-cyan-100",
-      iconWrap: "bg-cyan-400/20 text-cyan-50 ring-2 ring-cyan-300/45",
-      border: "border-cyan-400/40",
-      bg: "bg-gradient-to-br from-[#043234]/90 via-[#021a1c]/90 to-black/40",
-      shadow: "shadow-[0_0_26px_-6px_rgba(4,230,230,0.28)]",
-      barTrack: "bg-black/50 ring-1 ring-[#043234]",
-      barFill: "bg-gradient-to-r from-teal-600 via-[#04E6E6] to-cyan-300",
-    };
-  }
-  return {
-    label: "Excelente",
-    hint: "Puntuación muy alta en el índice de seguridad.",
-    accentText: "text-emerald-200",
-    iconWrap: "bg-emerald-500/20 text-emerald-100 ring-2 ring-emerald-400/45",
-    border: "border-emerald-500/40",
-    bg: "bg-gradient-to-br from-emerald-950/75 via-[#03120c]/90 to-black/40",
-    shadow: "shadow-[0_0_28px_-4px_rgba(52,211,153,0.4)]",
-    barTrack: "bg-black/50 ring-1 ring-emerald-900/45",
-    barFill: "bg-gradient-to-r from-emerald-600 via-green-400 to-[#04E6E6]",
-  };
-}
-
 function pairLabel(r: Record<string, unknown>): string {
   const a = String(r.pair_label ?? r.pairLabel ?? "").trim();
   if (a) return a;
@@ -208,13 +125,38 @@ function formatMetricScalar(v: unknown): string {
       o.totalUsd ??
       o.total_usd;
     if (typeof leaf === "number" && Number.isFinite(leaf)) return formatUsdLiquidity(leaf);
-    try {
-      return JSON.stringify(v);
-    } catch {
-      return "—";
-    }
+    const windows = [
+      ["10m", o["10m"]],
+      ["30m", o["30m"]],
+      ["1h", o["1h"]],
+      ["4h", o["4h"]],
+      ["12h", o["12h"]],
+      ["1d", o["1d"]],
+      ["7d", o["7d"]],
+      ["30d", o["30d"]],
+    ] as const;
+    const parts = windows
+      .map(([k, raw]) => {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) return null;
+        return `${k} ${formatUsdLiquidity(n)}`;
+      })
+      .filter(Boolean) as string[];
+    if (parts.length > 0) return parts.slice(0, 3).join(" · ");
+    const anyNum = Object.values(o).find((x) => Number.isFinite(Number(x)));
+    if (anyNum != null) return formatUsdLiquidity(Number(anyNum));
+    return "—";
   }
   return String(v);
+}
+
+function formatDateMaybe(raw: unknown): string {
+  if (raw == null) return "—";
+  const d = new Date(String(raw));
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  }
+  return String(raw);
 }
 
 function firstLinkHref(v: unknown): string | null {
@@ -239,6 +181,30 @@ function shortenContract(addr: string): string {
   const a = String(addr).trim();
   if (a.length <= 18) return a;
   return `${a.slice(0, 10)}…${a.slice(-8)}`;
+}
+
+/** Tailwind classes for a chain pill (border/bg/text) given a chain hint or name. */
+function chainBadgeClass(chain: string): string {
+  const c = String(chain || "").toLowerCase();
+  if (c === "eth" || c === "ethereum" || c === "0x1") return "bg-indigo-500/15 text-indigo-200 border-indigo-400/35";
+  if (c === "bsc" || c === "bnb" || c.includes("binance smart") || c.includes("bnb smart") || c === "0x38") return "bg-amber-500/15 text-amber-200 border-amber-400/35";
+  if (c.includes("polygon") || c.includes("matic") || c === "0x89") return "bg-violet-500/15 text-violet-200 border-violet-400/35";
+  if (c.includes("arbitrum") || c === "0xa4b1") return "bg-sky-500/15 text-sky-200 border-sky-400/35";
+  if (c.includes("optimism") || /\bop mainnet\b/.test(c)) return "bg-rose-500/15 text-rose-200 border-rose-400/35";
+  if (c.includes("avalanche") || c.includes("avax")) return "bg-red-500/15 text-red-200 border-red-400/35";
+  if (c === "base" || c === "0x2105") return "bg-blue-500/15 text-blue-200 border-blue-400/35";
+  if (c.includes("harmony")) return "bg-emerald-500/15 text-emerald-200 border-emerald-400/35";
+  if (c.includes("ronin")) return "bg-cyan-500/15 text-cyan-200 border-cyan-400/35";
+  if (c.includes("energi")) return "bg-teal-500/15 text-teal-200 border-teal-400/35";
+  if (c.includes("fantom")) return "bg-blue-500/15 text-blue-200 border-blue-400/35";
+  if (c.includes("gnosis") || c.includes("xdai")) return "bg-emerald-500/15 text-emerald-200 border-emerald-400/35";
+  if (c.includes("linea")) return "bg-slate-500/20 text-slate-200 border-slate-400/35";
+  if (c.includes("blast")) return "bg-orange-500/15 text-orange-200 border-orange-400/35";
+  if (c.includes("cronos")) return "bg-blue-500/15 text-blue-200 border-blue-400/35";
+  if (c.includes("moonbeam") || c.includes("moonriver")) return "bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-400/35";
+  if (c.includes("pulse")) return "bg-pink-500/15 text-pink-200 border-pink-400/35";
+  if (c.includes("sei")) return "bg-orange-500/15 text-orange-200 border-orange-400/35";
+  return "bg-[#043234]/55 text-slate-300 border-[#043234]/80";
 }
 
 function formatSwapBlockTime(r: Record<string, unknown>): { when: string; block: string } {
@@ -268,20 +234,6 @@ function formatSwapTokenSide(t: Record<string, unknown> | undefined): string {
   if (usdAmt != null) s += ` · ${formatUsdLiquidity(usdAmt)}`;
   if (usdP != null) s += ` @${formatTokenUsdPrice(usdP)}`;
   return s;
-}
-
-const TOKEN_ANALYTICS_WINDOWS = ["5m", "1h", "6h", "24h"] as const;
-
-function tokenAnalyticsRecord(data: unknown): Record<string, unknown> | null {
-  if (data == null || typeof data !== "object") return null;
-  const o = data as Record<string, unknown>;
-  if (o.totalBuyVolume != null || o.total_buy_volume != null) return o;
-  const inner = o.data;
-  if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
-    const n = inner as Record<string, unknown>;
-    if (n.totalBuyVolume != null || n.total_buy_volume != null) return n;
-  }
-  return null;
 }
 
 function formatMoralisStatScalar(v: unknown): string {
@@ -320,64 +272,6 @@ function moralisErc20StatsFlatEntries(data: unknown): [string, string][] {
   return out.slice(0, 36);
 }
 
-function analyticsVolumeAt(vol: unknown, w: string): number | undefined {
-  if (vol == null || typeof vol !== "object") return undefined;
-  const o = vol as Record<string, unknown>;
-  const v = o[w];
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(String(v).replace(/,/g, ""));
-    if (Number.isFinite(n)) return n;
-  }
-  return undefined;
-}
-
-function analyticsScalarUsd(v: unknown): string {
-  if (v == null || v === "") return "—";
-  const n = typeof v === "number" ? v : Number(String(v).replace(/,/g, ""));
-  if (!Number.isFinite(n)) return "—";
-  return formatUsdLiquidity(n);
-}
-
-function analyticsScalarPrice(v: unknown): string {
-  if (v == null || v === "") return "—";
-  const n = typeof v === "number" ? v : Number(String(v).replace(/,/g, ""));
-  if (!Number.isFinite(n)) return "—";
-  return `$${formatTokenUsdPrice(n)}`;
-}
-
-type TokenAnalyticsMetricRow = {
-  label: string;
-  camel: string;
-  snake: string;
-  kind: "usd" | "pct";
-};
-
-const TOKEN_ANALYTICS_METRIC_ROWS: TokenAnalyticsMetricRow[] = [
-  { label: "Vol. compra", camel: "totalBuyVolume", snake: "total_buy_volume", kind: "usd" },
-  { label: "Vol. venta", camel: "totalSellVolume", snake: "total_sell_volume", kind: "usd" },
-  { label: "Métrica compradores", camel: "totalBuyers", snake: "total_buyers", kind: "usd" },
-  { label: "Métrica vendedores", camel: "totalSellers", snake: "total_sellers", kind: "usd" },
-  { label: "Total compras", camel: "totalBuys", snake: "total_buys", kind: "usd" },
-  { label: "Total ventas", camel: "totalSells", snake: "total_sells", kind: "usd" },
-  { label: "Wallets únicos", camel: "uniqueWallets", snake: "unique_wallets", kind: "usd" },
-  { label: "Δ precio %", camel: "pricePercentChange", snake: "price_percent_change", kind: "pct" },
-];
-
-function analyticsMetricVol(
-  rec: Record<string, unknown>,
-  camel: string,
-  snake: string,
-): unknown {
-  return rec[camel] ?? rec[snake];
-}
-
-function formatAnalyticsMetricCell(kind: "usd" | "pct", n: number | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  if (kind === "pct") return formatSignedPercent(n);
-  return formatUsdLiquidity(n);
-}
-
 /** Coerce loader `unknown` fields into formatters' input type. */
 function fmtScalar(v: unknown): string | number | null | undefined {
   return v as string | number | null | undefined;
@@ -386,17 +280,53 @@ function fmtScalar(v: unknown): string | number | null | undefined {
 function cmcUsdQuote(
   quotesPayload: unknown,
   cmcId: number,
-): { price?: number; vol24?: number; pct24?: number; pct1h?: number; mcap?: number; updated?: string } | null {
-  const root = quotesPayload as { data?: Record<string, { quote?: { USD?: Record<string, unknown> } }> };
+): {
+  price?: number;
+  vol24?: number;
+  pct24?: number;
+  pct1h?: number;
+  pct7d?: number;
+  pct30d?: number;
+  mcap?: number;
+  fdv?: number;
+  circSupply?: number;
+  totalSupply?: number;
+  maxSupply?: number;
+  marketCapDominance?: number;
+  rank?: number;
+  updated?: string;
+} | null {
+  const root = quotesPayload as {
+    data?: Record<
+      string,
+      {
+        quote?: { USD?: Record<string, unknown> };
+        circulating_supply?: number | string;
+        total_supply?: number | string;
+        max_supply?: number | string;
+        cmc_rank?: number | string;
+      }
+    >;
+  };
   const entry = root?.data?.[String(cmcId)];
   const usd = entry?.quote?.USD;
   if (!usd) return null;
+  const num = (v: unknown): number | undefined =>
+    v != null && Number.isFinite(Number(v)) ? Number(v) : undefined;
   return {
-    price: usd.price != null ? Number(usd.price) : undefined,
-    vol24: usd.volume_24h != null ? Number(usd.volume_24h) : undefined,
-    pct24: usd.percent_change_24h != null ? Number(usd.percent_change_24h) : undefined,
-    pct1h: usd.percent_change_1h != null ? Number(usd.percent_change_1h) : undefined,
-    mcap: usd.market_cap != null ? Number(usd.market_cap) : undefined,
+    price: num(usd.price),
+    vol24: num(usd.volume_24h),
+    pct24: num(usd.percent_change_24h),
+    pct1h: num(usd.percent_change_1h),
+    pct7d: num(usd.percent_change_7d),
+    pct30d: num(usd.percent_change_30d),
+    mcap: num(usd.market_cap),
+    fdv: num(usd.fully_diluted_market_cap),
+    marketCapDominance: num(usd.market_cap_dominance),
+    rank: num(entry?.cmc_rank),
+    circSupply: num(entry?.circulating_supply),
+    totalSupply: num(entry?.total_supply),
+    maxSupply: num(entry?.max_supply),
     updated: usd.last_updated != null ? String(usd.last_updated) : undefined,
   };
 }
@@ -621,6 +551,33 @@ export default component$(() => {
   const dexEmbedUrl = dexScreenerEmbedUrl(String(t.network), String(t.address));
   const moralisChain = String(t.moralisChain ?? "base");
   const tab = useSignal<TabId>("overview");
+  /** Sidebar ref + dynamic chart height: chart matches sidebar height on lg+ screens. */
+  const sidebarRef = useSignal<HTMLElement>();
+  const chartHeight = useSignal<number>(620);
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(({ cleanup }) => {
+    const el = sidebarRef.value;
+    if (!el || typeof window === "undefined") return;
+    const apply = () => {
+      const isLg = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isLg) {
+        chartHeight.value = 620;
+        return;
+      }
+      /** ~110px = chart header (price/Δ/sparkline) + chart-toolbar + paddings; clamp to sane range. */
+      const target = Math.max(620, Math.min(1200, el.offsetHeight - 110));
+      if (Math.abs(target - chartHeight.value) > 8) chartHeight.value = target;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    const onResize = () => apply();
+    window.addEventListener("resize", onResize);
+    cleanup(() => {
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    });
+  });
   const syncedAtSec = t.syncedAt != null ? Number(t.syncedAt) : NaN;
   const syncedAtLabel = Number.isFinite(syncedAtSec)
     ? new Date(syncedAtSec * 1000).toLocaleString(undefined, {
@@ -640,9 +597,6 @@ export default component$(() => {
   const owners = t.owners as { ok: boolean; data?: unknown; error?: string };
   const gainRows = topGainers?.ok ? moralisResultRows(topGainers.data) : [];
   const holderRows = owners?.ok ? moralisResultRows(owners.data) : [];
-
-  const mp = t.moralisPrice as { ok: boolean; data?: unknown; error?: string };
-  const morPrice = mp?.ok && mp.data ? (mp.data as Record<string, unknown>) : null;
 
   const mt = t.moralisTransfers as { ok: boolean; data?: unknown; error?: string };
   const transferRows = mt?.ok ? moralisResultRows(mt.data) : [];
@@ -665,9 +619,6 @@ export default component$(() => {
   const mSwaps = t.moralisSwaps as { ok: boolean; data?: unknown; error?: string } | undefined;
   const swapRows = mSwaps?.ok ? moralisResultRows(mSwaps.data) : [];
 
-  const mTokAnalytics = t.moralisTokenAnalytics as { ok?: boolean; data?: unknown; error?: string } | undefined;
-  const snapAnalyticsRec = mTokAnalytics?.ok ? tokenAnalyticsRecord(mTokAnalytics.data) : null;
-
   const mErc20Stats = t.moralisErc20Stats as { ok?: boolean; data?: unknown; error?: string } | undefined;
   const erc20StatsEntries = mErc20Stats?.ok ? moralisErc20StatsFlatEntries(mErc20Stats.data) : [];
 
@@ -677,16 +628,6 @@ export default component$(() => {
   const nTransfersSnap = (t.nansenTransfers as Record<string, unknown> | null) ?? null;
   const nPerpSnap = (t.nansenPerpPnl as Record<string, unknown> | null) ?? null;
   const nOhlcvSnap = (t.nansenTokenOhlcv as Record<string, unknown> | null) ?? null;
-
-  const analyticsLive = useSignal<Record<string, unknown> | null>(null);
-  const analyticsLoading = useSignal(false);
-  const analyticsErr = useSignal("");
-  const analyticsTsLoading = useSignal(false);
-  const analyticsTsErr = useSignal("");
-  const analyticsTsRows = useSignal<Record<string, unknown>[]>([]);
-  const analyticsTsTf = useSignal<"1d" | "7d" | "30d">("7d");
-
-  const analyticsDisplayRec = useComputed$(() => analyticsLive.value ?? snapAnalyticsRec);
 
   const tokenDbId = Number(t.id);
   const tokenAddrLower = String(t.address || "").trim().toLowerCase();
@@ -715,62 +656,23 @@ export default component$(() => {
     : [];
   const nOhlcvRows = nansenTokenMatches ? nansenDataRows(nOhlcvSnap?.data) : [];
 
-  const loadTokenAnalytics$ = $(async () => {
-    analyticsLoading.value = true;
-    analyticsErr.value = "";
-    try {
-      if (!isEvmContract) {
-        analyticsErr.value = "No es un contrato EVM.";
-        return;
-      }
-      const u = new URL(`/api/crypto/moralis/tokens/${tokenAddrLower}/analytics`, window.location.origin);
-      u.searchParams.set("tokenId", String(tokenDbId));
-      u.searchParams.set("chain", moralisChain);
-      const res = await fetch(u.toString());
-      const j = (await res.json()) as { ok?: boolean; error?: string; data?: unknown };
-      if (!j.ok) {
-        analyticsErr.value = j.error || res.statusText || "Error";
-        return;
-      }
-      const rec = tokenAnalyticsRecord(j.data);
-      analyticsLive.value = rec;
-      if (!rec) analyticsErr.value = "Respuesta sin campos de analytics.";
-    } catch (e: unknown) {
-      analyticsErr.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      analyticsLoading.value = false;
+  /** Build a 7-day sparkline from candle data (close prices), proportional to time. */
+  const sparkPoints7d: { x: number; y: number }[] = (() => {
+    if (!Array.isArray(nOhlcvRows) || nOhlcvRows.length < 2) return [];
+    const cutoffMs = Date.now() - 7 * 24 * 3600 * 1000;
+    const out: { x: number; y: number }[] = [];
+    for (const r of nOhlcvRows) {
+      const tsRaw = r.interval_start ?? r.time ?? r.timestamp;
+      if (tsRaw == null) continue;
+      const ts = Date.parse(String(tsRaw));
+      if (!Number.isFinite(ts) || ts < cutoffMs) continue;
+      const closeNum = Number(r.close ?? r.c);
+      if (!Number.isFinite(closeNum)) continue;
+      out.push({ x: ts, y: closeNum });
     }
-  });
-
-  const loadTokenAnalyticsTimeseries$ = $(async () => {
-    analyticsTsLoading.value = true;
-    analyticsTsErr.value = "";
-    try {
-      const res = await fetch("/api/crypto/moralis/tokens/analytics/timeseries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenId: tokenDbId, timeframe: analyticsTsTf.value }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string; data?: unknown };
-      if (!j.ok) {
-        analyticsTsErr.value = j.error || res.statusText || "Error";
-        analyticsTsRows.value = [];
-        return;
-      }
-      const root = j.data as Record<string, unknown> | null;
-      const arr = Array.isArray(root?.result) ? (root.result as Record<string, unknown>[]) : [];
-      const first = arr[0];
-      const ts = Array.isArray(first?.timeseries)
-        ? (first.timeseries as Record<string, unknown>[])
-        : [];
-      analyticsTsRows.value = ts;
-    } catch (e: unknown) {
-      analyticsTsErr.value = e instanceof Error ? e.message : String(e);
-      analyticsTsRows.value = [];
-    } finally {
-      analyticsTsLoading.value = false;
-    }
-  });
+    out.sort((a, b) => a.x - b.x);
+    return out;
+  })();
 
   const setOverview = $(() => {
     tab.value = "overview";
@@ -801,7 +703,7 @@ export default component$(() => {
   );
 
   return (
-    <div class="mx-auto w-full max-w-[1600px] 2xl:max-w-[1760px]">
+    <div class="mx-auto w-full max-w-[1800px] 2xl:max-w-[2200px]">
       {/* Principal: resumen + chart siempre visibles arriba; las pestañas solo cambian el bloque inferior. */}
       <div class="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-3 mb-2 bg-[#000D0E]/97 backdrop-blur-md border-b border-[#043234]/60">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
@@ -840,8 +742,12 @@ export default component$(() => {
             ☆ Guardar en favoritos
           </button>
         </div>
+      </div>
+
+      <div class="mt-2 grid gap-4 lg:grid-cols-12 items-start">
+        <aside ref={sidebarRef} class="lg:col-span-4 xl:col-span-3 2xl:col-span-2 lg:sticky lg:top-2 lg:self-start space-y-3">
         <div class="rounded-2xl border border-[#043234]/90 bg-gradient-to-br from-[#001a1c] via-[#001318] to-[#000a0c] p-4 sm:p-5 shadow-lg shadow-black/30 ring-1 ring-white/[0.04]">
-          <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
+          <div class="flex flex-col gap-4">
             <div class="flex gap-3 sm:gap-4 min-w-0 flex-1">
               <TokenLogoImg
                 src={String(t.logo ?? "")}
@@ -855,277 +761,534 @@ export default component$(() => {
                     {String(t.name)}{" "}
                     <span class="text-cyan-200 font-semibold">({String(t.symbol)})</span>
                   </h1>
+                  {live?.rank != null ? (
+                    <span
+                      class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400/15 text-amber-100 border border-amber-300/35"
+                      title="Ranking global por capitalización de mercado"
+                    >
+                      Rank #{live.rank}
+                    </span>
+                  ) : null}
                   <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-400/15 text-cyan-100 border border-cyan-300/35">
                     {tp.value.categoryLabel}
                   </span>
                 </div>
                 <p class="text-xs text-slate-400 mt-1.5 leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span>{String(t.network)}</span>
-                  <span class="text-[#043234]">·</span>
-                  <span>ID #{t.cmcId != null ? String(t.cmcId) : "—"}</span>
-                  <span class="text-[#043234]">·</span>
-                  <span class="font-mono text-slate-400">{moralisChain}</span>
-                  {syncedAtLabel ? (
+                  <span class="capitalize">{String(t.network)}</span>
+                  {t.cmcId != null ? (
                     <>
                       <span class="text-[#043234]">·</span>
-                      <span class="text-slate-400 text-[10px]" title="Última actualización de datos mostrados">
-                        Actualizado {syncedAtLabel}
+                      <span class="font-mono text-slate-400">#{String(t.cmcId)}</span>
+                    </>
+                  ) : null}
+                  {t.slug ? (
+                    <>
+                      <span class="text-[#043234]">·</span>
+                      <span class="font-mono text-slate-400 truncate max-w-[10rem]" title={String(t.slug)}>
+                        {String(t.slug)}
                       </span>
                     </>
                   ) : null}
                 </p>
-                {t.slug ? (
-                  <p class="text-[10px] text-slate-400 font-mono mt-1 truncate" title={String(t.slug)}>
-                    {String(t.slug)}
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full lg:w-[min(100%,22rem)] xl:w-[24rem] shrink-0 lg:pt-0.5">
-              <div class="rounded-xl bg-black/35 border border-[#043234]/40 px-2.5 py-2 sm:px-3 sm:py-2.5 min-w-0">
-                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-300">{tp.value.price}</div>
-                <div class="text-sm sm:text-base font-semibold text-white tabular-nums mt-0.5 leading-tight break-words">
-                  ${formatTokenUsdPrice(fmtScalar(t.price))}
-                </div>
-              </div>
-              <div class="rounded-xl bg-black/35 border border-[#043234]/40 px-2.5 py-2 sm:px-3 sm:py-2.5 min-w-0">
-                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-300">{tp.value.volume}</div>
-                <div class="text-sm sm:text-base font-semibold text-slate-50 tabular-nums mt-0.5 leading-tight break-words">
-                  {formatUsdLiquidity(fmtScalar(t.volume))}
-                </div>
-              </div>
-              <div class="rounded-xl bg-black/35 border border-[#043234]/40 px-2.5 py-2 sm:px-3 sm:py-2.5 min-w-0">
-                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-300">{tp.value.fdv}</div>
-                <div class="text-sm sm:text-base font-semibold text-slate-50 tabular-nums mt-0.5 leading-tight break-words">
-                  {formatUsdLiquidity(fmtScalar(t.fullyDilutedValuation))}
-                </div>
-              </div>
+            <div class="w-full">
+              {(() => {
+                const priceVal = live?.price ?? Number(t.price);
+                const pct24 = live?.pct24 != null ? Number(live.pct24) : NaN;
+                const pct24Valid = Number.isFinite(pct24);
+                const tone = pct24Valid
+                  ? pct24 >= 0
+                    ? "text-emerald-400"
+                    : "text-rose-400"
+                  : "text-slate-300";
+                const pillBg = pct24Valid
+                  ? pct24 >= 0
+                    ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-200"
+                    : "bg-rose-500/15 border-rose-400/40 text-rose-200"
+                  : "bg-black/30 border-[#043234]/40 text-slate-300";
+                const arrow = pct24Valid ? (pct24 >= 0 ? "▲" : "▼") : "·";
+                return (
+                  <div class="flex flex-col items-start gap-2">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      {tp.value.price} (USD)
+                    </div>
+                    <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                      <span class={`text-3xl sm:text-[2rem] xl:text-[2.1rem] font-extrabold tabular-nums tracking-tight leading-none break-all ${tone}`}>
+                        ${formatTokenUsdPrice(fmtScalar(priceVal))}
+                      </span>
+                      {pct24Valid ? (
+                        <span class={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm font-bold tabular-nums ${pillBg}`}>
+                          <span class="text-[10px]">{arrow}</span>
+                          {Math.abs(pct24).toFixed(2)}% (24h)
+                        </span>
+                      ) : null}
+                    </div>
+                    {sparkPoints7d.length >= 2 ? (
+                      <div class="flex items-center gap-2">
+                        <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">7d</span>
+                        <MiniSparkline points={sparkPoints7d} width={150} height={36} />
+                      </div>
+                    ) : null}
+                    {live?.updated ? (
+                      <p class="text-[10px] text-slate-500 leading-tight">
+                        {formatDateMaybe(live.updated)}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
           <div class="mt-4 space-y-3">
-            <div class="flex flex-wrap gap-1.5">
-                <span class="inline-flex items-center gap-1.5 rounded-lg bg-black/30 border border-[#043234]/35 px-2 py-1 text-[11px]">
-                  <span class="text-slate-400 font-medium">1h</span>
-                  <span class={`font-semibold tabular-nums ${percentToneClass(fmtScalar(t.percentChange1h))}`}>
-                    {formatSignedPercent(fmtScalar(t.percentChange1h))}
-                  </span>
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-lg bg-black/30 border border-[#043234]/35 px-2 py-1 text-[11px]">
-                  <span class="text-slate-400 font-medium">7d</span>
-                  <span class={`font-semibold tabular-nums ${percentToneClass(fmtScalar(t.percentChange7d))}`}>
-                    {formatSignedPercent(fmtScalar(t.percentChange7d))}
-                  </span>
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-lg bg-black/30 border border-[#043234]/35 px-2 py-1 text-[11px]">
-                  <span class="text-slate-400 font-medium">30d</span>
-                  <span class={`font-semibold tabular-nums ${percentToneClass(fmtScalar(t.percentChange30d))}`}>
-                    {formatSignedPercent(fmtScalar(t.percentChange30d))}
-                  </span>
-                </span>
-            </div>
-
-            <div class="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl bg-black/25 border border-[#043234]/35 px-2.5 py-2 text-[11px]">
-                <div class="flex items-center gap-2 min-w-0 flex-1">
-                  <span class="text-slate-300 shrink-0 font-semibold uppercase text-[10px] tracking-wide">{tp.value.contract}</span>
-                  <code class="font-mono text-cyan-200 truncate" title={String(t.address)}>
-                    {shortenContract(String(t.address))}
-                  </code>
-                </div>
-                <div class="flex items-center gap-3 text-slate-400 shrink-0 border-t sm:border-t-0 sm:border-l border-[#043234]/40 pt-2 sm:pt-0 sm:pl-3">
-                  <span>
-                    <span class="text-slate-500">{tp.value.decimalsShort}</span> {String(t.decimals)}
-                  </span>
-                  <span class="truncate max-w-[11rem] sm:max-w-[15rem]" title={String(t.totalSupply)}>
-                    <span class="text-slate-500">{tp.value.supply}</span>{" "}
-                    <span class="text-slate-200 font-mono tabular-nums text-[10px] sm:text-[11px]">
-                      {formatTokenSupply(fmtScalar(t.totalSupply))}
-                    </span>
-                  </span>
-                </div>
+            <div>
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Variación
               </div>
-
-              {live ? (
-            <div class="mt-4 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
-              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Cotización de mercado
-              </h3>
-              <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                {live.price != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Precio USD</dt>
-                    <dd class="text-white font-medium">${formatTokenUsdPrice(live.price)}</dd>
-                  </div>
-                ) : null}
-                {live.mcap != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Market cap</dt>
-                    <dd class="text-slate-100">{formatUsdLiquidity(live.mcap)}</dd>
-                  </div>
-                ) : null}
-                {live.vol24 != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Vol 24h</dt>
-                    <dd class="text-slate-100">{formatUsdLiquidity(live.vol24)}</dd>
-                  </div>
-                ) : null}
-                {live.pct1h != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Δ 1h</dt>
-                    <dd class={live.pct1h >= 0 ? "text-emerald-400" : "text-rose-400"}>{live.pct1h.toFixed(2)}%</dd>
-                  </div>
-                ) : null}
-                {live.pct24 != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Δ 24h</dt>
-                    <dd class={live.pct24 >= 0 ? "text-emerald-400" : "text-rose-400"}>{live.pct24.toFixed(2)}%</dd>
-                  </div>
-                ) : null}
-                {live.updated ? (
-                  <div class="col-span-2 sm:col-span-1">
-                    <dt class="text-slate-400 font-medium">Actualizado (mercado)</dt>
-                    <dd class="text-slate-400 truncate">{live.updated}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            </div>
-          ) : null}
-
-              {morPrice ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
-              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">
-                Precio on-chain (DEX)
-              </h3>
-              <p class="text-xs text-slate-400 mb-2 leading-relaxed">
-                Precios agregados desde datos on-chain (DEX / pools).
-              </p>
-              <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                <div>
-                  <dt class="text-slate-400 font-medium">usdPrice</dt>
-                  <dd class="text-white">
-                    ${formatTokenUsdPrice(fmtScalar(morPrice.usdPrice ?? morPrice.usd_price ?? 0))}
-                  </dd>
-                </div>
-                {morPrice.exchangeName || morPrice.exchange_name ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Exchange</dt>
-                    <dd class="text-slate-100">{String(morPrice.exchangeName ?? morPrice.exchange_name)}</dd>
-                  </div>
-                ) : null}
-                {morPrice.pairTotalLiquidityUsd != null || morPrice.pair_total_liquidity_usd != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Pair liq USD</dt>
-                    <dd class="text-slate-100">
-                      {formatUsdLiquidity(
-                        fmtScalar(morPrice.pairTotalLiquidityUsd ?? morPrice.pair_total_liquidity_usd),
-                      )}
-                    </dd>
-                  </div>
-                ) : null}
-                {(() => {
-                  const pct =
-                    morPrice.usdPrice24hrPercentChange ??
-                    morPrice.usd_price_24hr_percent_change ??
-                    (morPrice["24hrPercentChange"] != null ? Number(morPrice["24hrPercentChange"]) : null);
-                  if (pct == null || !Number.isFinite(Number(pct))) return null;
-                  const n = Number(pct);
+              <div class="grid grid-cols-4 gap-1.5">
+                {[
+                  { lbl: "1h", v: live?.pct1h ?? fmtScalar(t.percentChange1h) },
+                  { lbl: "24h", v: live?.pct24 ?? fmtScalar(t.percentChange24h) },
+                  { lbl: "7d", v: live?.pct7d ?? fmtScalar(t.percentChange7d) },
+                  { lbl: "30d", v: live?.pct30d ?? fmtScalar(t.percentChange30d) },
+                ].map((p) => {
+                  const n = Number(p.v);
+                  const ok = Number.isFinite(n);
                   return (
-                    <div>
-                      <dt class="text-slate-400 font-medium">Δ 24h (on-chain)</dt>
-                      <dd class={`tabular-nums ${percentToneClass(n)}`}>{formatSignedPercent(n)}</dd>
-                    </div>
-                  );
-                })()}
-                {(() => {
-                  const rawScore = morPrice.securityScore ?? morPrice.security_score;
-                  const sc = parseTokenSecurityScore(rawScore);
-                  if (sc == null) return null;
-                  const b = tokenSecurityScoreBadge(sc);
-                  return (
-                    <div class="col-span-2 sm:col-span-3">
-                      <dt class="text-slate-400 font-medium mb-1.5">Security score</dt>
-                      <dd class="m-0">
-                        <div
-                          class={`flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${b.border} ${b.bg} ${b.shadow}`}
-                        >
-                          <div class="flex min-w-0 flex-1 items-start gap-3">
-                            <span
-                              class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${b.iconWrap}`}
-                              aria-hidden="true"
-                            >
-                              <LuShield class="h-5 w-5" />
-                            </span>
-                            <div class="min-w-0 flex-1">
-                              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                <span class={`text-2xl font-bold tabular-nums tracking-tight ${b.accentText}`}>
-                                  {sc}
-                                </span>
-                                <span class="text-sm font-medium text-slate-400">/ 100</span>
-                                <span
-                                  class={`ml-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide sm:ml-1 ${b.border} ${b.accentText} bg-black/25`}
-                                >
-                                  {b.label}
-                                </span>
-                              </div>
-                              <p class="mt-1 text-xs leading-snug text-slate-200/90">{b.hint}</p>
-                            </div>
-                          </div>
-                          <div class="w-full shrink-0 sm:max-w-[220px] sm:flex-1">
-                            <div
-                              class={`relative h-2.5 overflow-hidden rounded-full ${b.barTrack}`}
-                              role="progressbar"
-                              aria-valuenow={sc}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-label={`Security score ${sc} de 100`}
-                            >
-                              <div
-                                class={`h-full rounded-full ${b.barFill} shadow-sm transition-[width] duration-500 ease-out`}
-                                style={{ width: `${sc}%` }}
-                              />
-                            </div>
-                            <p class="mt-1 text-center text-[9px] font-semibold uppercase tracking-wider text-slate-400 sm:text-right">
-ERC-20
-                            </p>
-                          </div>
-                        </div>
-                      </dd>
-                    </div>
-                  );
-                })()}
-                {morPrice.nativePrice != null && typeof morPrice.nativePrice === "object" ? (
-                  <div class="col-span-2 sm:col-span-1">
-                    <dt class="text-slate-400 font-medium">Precio (nativo)</dt>
-                    <dd class="text-slate-200 font-mono text-[10px]">
-                      {String((morPrice.nativePrice as Record<string, unknown>).value ?? "—")}{" "}
-                      <span class="text-slate-400">
-                        {String((morPrice.nativePrice as Record<string, unknown>).symbol ?? "")}
+                    <div
+                      key={p.lbl}
+                      class={`flex flex-col items-center justify-center rounded-xl px-2 py-1.5 border ${
+                        ok
+                          ? n >= 0
+                            ? "border-emerald-400/30 bg-emerald-500/10"
+                            : "border-rose-400/30 bg-rose-500/10"
+                          : "border-[#043234]/45 bg-black/30"
+                      }`}
+                    >
+                      <span class="text-[9px] font-semibold uppercase text-slate-400 tracking-wide">{p.lbl}</span>
+                      <span class={`text-[12px] font-bold tabular-nums ${percentToneClass(p.v as number | string | null | undefined)}`}>
+                        {ok ? formatSignedPercent(p.v as number | string | null | undefined) : "—"}
                       </span>
-                    </dd>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Estadísticas clave
+              </div>
+              <div class="flex flex-col divide-y divide-[#043234]/45 rounded-lg border border-[#0d5357]/55 bg-black/35 text-[11px] overflow-hidden">
+                {(() => {
+                  const mcap = live?.mcap ?? fmtScalar(t.marketCap);
+                  const vol24 = live?.vol24 ?? fmtScalar(t.volume);
+                  const fdv = live?.fdv ?? fmtScalar(t.fullyDilutedValuation);
+                  const mcapN = Number(mcap);
+                  const volN = Number(vol24);
+                  const ratio = Number.isFinite(mcapN) && mcapN > 0 && Number.isFinite(volN)
+                    ? (volN / mcapN) * 100
+                    : NaN;
+                  const circ = live?.circSupply ?? fmtScalar(t.circulatingSupply);
+                  const total = live?.totalSupply ?? fmtScalar(t.totalSupply);
+                  const maxSup = live?.maxSupply ?? fmtScalar(t.maxSupply);
+                  const circN = Number(circ);
+                  const totN = Number(total);
+                  const supplyPct = Number.isFinite(circN) && Number.isFinite(totN) && totN > 0
+                    ? (circN / totN) * 100
+                    : NaN;
+                  const cells: { label: string; val: string; extra?: string; bar?: number }[] = [
+                    {
+                      label: "Market cap",
+                      val: Number.isFinite(mcapN) ? formatUsdLiquidity(mcapN) : "—",
+                      extra:
+                        live?.marketCapDominance != null && Number.isFinite(live.marketCapDominance)
+                          ? `Dom. ${live.marketCapDominance.toFixed(2)}%`
+                          : undefined,
+                    },
+                    {
+                      label: "Volumen 24h",
+                      val: Number.isFinite(volN) ? formatUsdLiquidity(volN) : "—",
+                    },
+                    {
+                      label: "Vol / Mcap",
+                      val: Number.isFinite(ratio) ? `${ratio.toFixed(2)}%` : "—",
+                      bar: Number.isFinite(ratio) ? Math.min(100, ratio) : undefined,
+                    },
+                    {
+                      label: "FDV",
+                      val: Number.isFinite(Number(fdv)) ? formatUsdLiquidity(Number(fdv)) : "—",
+                    },
+                    {
+                      label: "Circulating",
+                      val: Number.isFinite(circN) ? formatTokenSupply(circN) : "—",
+                      extra: Number.isFinite(supplyPct) ? `${supplyPct.toFixed(1)}% del total` : undefined,
+                      bar: Number.isFinite(supplyPct) ? Math.min(100, supplyPct) : undefined,
+                    },
+                    {
+                      label: "Total supply",
+                      val: Number.isFinite(Number(total)) ? formatTokenSupply(Number(total)) : "—",
+                      extra: Number.isFinite(Number(maxSup)) ? `Max: ${formatTokenSupply(Number(maxSup))}` : "Sin max",
+                    },
+                  ];
+                  return cells.map((c) => (
+                    <div
+                      key={c.label}
+                      class="flex items-center justify-between gap-3 px-2.5 py-2 hover:bg-black/30 transition-colors"
+                    >
+                      <div class="flex flex-col min-w-0">
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">
+                          {c.label}
+                        </span>
+                        {c.extra ? (
+                          <span class="text-[9px] text-slate-500 truncate" title={c.extra}>
+                            {c.extra}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div class="flex flex-col items-end shrink-0 min-w-0">
+                        <span class="text-[12px] font-semibold text-white tabular-nums leading-tight truncate max-w-[8rem]">
+                          {c.val}
+                        </span>
+                        {c.bar != null ? (
+                          <div class="mt-1 h-[3px] w-20 rounded-full bg-[#043234]/70 overflow-hidden">
+                            <div
+                              class="h-full rounded-full bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-300"
+                              style={{ width: `${c.bar}%` }}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {scoreRec ? (
+            <div class="mt-3 rounded-lg border border-[#0d5357]/55 bg-black/35 p-2.5">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Calidad del token
+              </div>
+              {(() => {
+                const sc = scoreRec.score != null ? Number(scoreRec.score) : NaN;
+                const valid = Number.isFinite(sc);
+                const tier = !valid ? "—" : sc >= 80 ? "Excelente" : sc >= 60 ? "Buena" : sc >= 40 ? "Mixta" : "Riesgo";
+                const tierColor = !valid
+                  ? "text-slate-300"
+                  : sc >= 80
+                    ? "text-emerald-300"
+                    : sc >= 60
+                      ? "text-cyan-300"
+                      : sc >= 40
+                        ? "text-amber-300"
+                        : "text-rose-300";
+                const barColor = !valid
+                  ? "from-slate-500 to-slate-400"
+                  : sc >= 80
+                    ? "from-emerald-500 to-emerald-300"
+                    : sc >= 60
+                      ? "from-cyan-500 to-cyan-300"
+                      : sc >= 40
+                        ? "from-amber-500 to-amber-300"
+                        : "from-rose-500 to-rose-300";
+                const w = valid ? Math.max(0, Math.min(100, sc)) : 0;
+                return (
+                  <div class="space-y-2">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <span class={`text-2xl font-extrabold tabular-nums leading-none ${tierColor}`}>
+                        {valid ? sc.toFixed(0) : "—"}
+                      </span>
+                      <span class={`text-[10px] font-semibold uppercase tracking-wider ${tierColor}`}>{tier}</span>
+                    </div>
+                    <div class="h-[5px] w-full rounded-full bg-[#043234]/70 overflow-hidden">
+                      <div
+                        class={`h-full rounded-full bg-gradient-to-r ${barColor}`}
+                        style={{ width: `${w}%` }}
+                      />
+                    </div>
                   </div>
-                ) : null}
-                {morPrice.pairAddress || morPrice.pair_address ? (
-                  <div class="col-span-2 sm:col-span-3">
-                    <dt class="text-slate-400 font-medium">Pair</dt>
-                    <dd class="font-mono text-[10px] text-slate-300 truncate">
-                      {String(morPrice.pairAddress ?? morPrice.pair_address)}
-                    </dd>
-                  </div>
-                ) : null}
-                {morPrice.possibleSpam === true || String(morPrice.possibleSpam) === "true" ? (
-                  <div class="col-span-2 sm:col-span-3">
-                    <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/35">
-                      possible spam (precio)
-                    </span>
-                  </div>
-                ) : null}
-              </dl>
+                );
+              })()}
+              {nRiskIndicators.length > 0 || nRewardIndicators.length > 0 ? (
+                <div class="mt-2 space-y-1.5">
+                  {nRewardIndicators.length > 0 ? (
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span class="text-[9px] font-semibold uppercase tracking-wider text-emerald-400/90 mr-1">+</span>
+                      {nRewardIndicators.slice(0, 3).map((r, i) => (
+                        <span
+                          key={`mini-rw-${i}`}
+                          class="text-[9px] font-medium px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 truncate max-w-[8.5rem]"
+                          title={String(r.indicator_type ?? "")}
+                        >
+                          {String(r.indicator_type ?? "—")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {nRiskIndicators.length > 0 ? (
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span class="text-[9px] font-semibold uppercase tracking-wider text-rose-400/90 mr-1">!</span>
+                      {nRiskIndicators.slice(0, 3).map((r, i) => (
+                        <span
+                          key={`mini-rk-${i}`}
+                          class="text-[9px] font-medium px-1.5 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-200 truncate max-w-[8.5rem]"
+                          title={String(r.indicator_type ?? "")}
+                        >
+                          {String(r.indicator_type ?? "—")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
+
+          {(() => {
+            const socialEntries: { label: string; href: string }[] = [];
+            if (morMeta0?.links && typeof morMeta0.links === "object" && !Array.isArray(morMeta0.links)) {
+              for (const [k, v] of Object.entries(morMeta0.links as Record<string, unknown>)) {
+                const norm = k.toLowerCase();
+                if (norm === "moralis" || norm === "nansen" || norm === "cmc" || norm === "coinmarketcap") continue;
+                const href = firstLinkHref(v);
+                if (!href) continue;
+                if (norm === "website" || norm === "homepage") continue;
+                socialEntries.push({ label: norm.charAt(0).toUpperCase() + norm.slice(1), href });
+              }
+            }
+            const categories = Array.isArray(morMeta0?.categories) ? (morMeta0!.categories as unknown[]).map((x) => String(x)).filter(Boolean) : [];
+            const isVerified = morMeta0?.verified_contract === true || String(morMeta0?.verified_contract) === "true";
+            const isSpam = morMeta0?.possible_spam === true || String(morMeta0?.possible_spam) === "true";
+            const createdRaw = morMeta0?.created_at;
+            const hasAnything = urls.website || urls.explorer || urls.desc || dexUrl || socialEntries.length > 0 || categories.length > 0 || isVerified || isSpam || createdRaw;
+            if (!hasAnything) return null;
+            return (
+              <div class="mt-3 rounded-lg border border-[#0d5357]/55 bg-black/35 p-2.5 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recursos</div>
+                  <div class="flex items-center gap-1">
+                    {isVerified ? (
+                      <span class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-500/30">
+                        Verificado
+                      </span>
+                    ) : null}
+                    {isSpam ? (
+                      <span class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/35">
+                        Spam?
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                {(urls.website || urls.explorer || dexUrl || socialEntries.length > 0) ? (
+                  <div class="flex flex-wrap gap-1">
+                    {urls.website ? (
+                      <a
+                        href={urls.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
+                      >
+                        Web ↗
+                      </a>
+                    ) : null}
+                    {urls.explorer ? (
+                      <a
+                        href={urls.explorer}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
+                      >
+                        Explorador ↗
+                      </a>
+                    ) : null}
+                    {dexUrl ? (
+                      <a
+                        href={dexUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/50 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 hover:bg-cyan-500/10 hover:border-cyan-400/45 transition-colors"
+                      >
+                        DEX ↗
+                      </a>
+                    ) : null}
+                    {socialEntries.slice(0, 6).map((s, i) => (
+                      <a
+                        key={`soc-${i}`}
+                        href={s.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="inline-flex items-center gap-1 rounded-md border border-[#0d5357]/40 bg-black/30 px-1.5 py-0.5 text-[9px] font-medium text-slate-300 hover:bg-cyan-500/10 hover:border-cyan-400/45 hover:text-cyan-100 transition-colors"
+                      >
+                        {s.label} ↗
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+                {categories.length > 0 ? (
+                  <div class="flex flex-wrap gap-1">
+                    {categories.slice(0, 5).map((c, i) => (
+                      <span
+                        key={`cat-${i}`}
+                        class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#043234]/55 text-slate-300 border border-[#043234]/80 truncate max-w-[10rem]"
+                        title={c}
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {(() => {
+                  const impls = Array.isArray(morMeta0?.implementations)
+                    ? (morMeta0!.implementations as Record<string, unknown>[])
+                    : [];
+                  if (impls.length === 0) return null;
+                  return (
+                    <div class="border-t border-[#043234]/40 pt-1.5 space-y-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                          Disponible en otras redes
+                        </span>
+                        <span class="text-[9px] tabular-nums text-slate-400">{impls.length}</span>
+                      </div>
+                      <div class="flex flex-wrap gap-1">
+                        {impls.slice(0, 8).map((imp, i) => {
+                          const chainHint = String(imp.chain ?? imp.chainName ?? "eth").toLowerCase();
+                          const add = String(imp.address ?? "").trim();
+                          const lab = String(imp.chainName ?? imp.chain ?? chainHint);
+                          const isEvm = /^0x[a-fA-F0-9]{40}$/.test(add);
+                          const colorCls = chainBadgeClass(chainHint);
+                          if (isEvm) {
+                            const exHref = `${txExplorerBase(chainHint)}/address/${add.toLowerCase()}`;
+                            return (
+                              <a
+                                key={`impl-${i}`}
+                                href={exHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`${lab} · ${add}`}
+                                class={`inline-flex max-w-[12rem] items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold transition-all hover:brightness-125 ${colorCls}`}
+                              >
+                                <span class="truncate">{lab}</span>
+                                <span class="opacity-70">↗</span>
+                              </a>
+                            );
+                          }
+                          return (
+                            <span
+                              key={`impl-${i}`}
+                              title={`${lab} · ${add}`}
+                              class={`inline-flex max-w-[12rem] items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold ${colorCls}`}
+                            >
+                              <span class="truncate">{lab}</span>
+                            </span>
+                          );
+                        })}
+                        {impls.length > 8 ? (
+                          <span class="inline-flex items-center rounded-md border border-[#043234]/80 bg-[#043234]/40 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400">
+                            +{impls.length - 8}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })()}
+                {createdRaw ? (
+                  <div class="flex items-center justify-between gap-2 text-[9px] border-t border-[#043234]/40 pt-1.5">
+                    <span class="text-slate-500 uppercase tracking-wider font-semibold">Contrato creado</span>
+                    <span class="text-slate-300 truncate" title={String(createdRaw)}>{formatDateMaybe(createdRaw)}</span>
+                  </div>
+                ) : null}
+                {urls.desc ? (
+                  <p class="text-[10px] text-slate-400 leading-relaxed line-clamp-3 border-t border-[#043234]/40 pt-1.5" title={urls.desc}>
+                    {urls.desc}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })()}
+
+          <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl bg-black/25 border border-[#043234]/35 px-2.5 py-2 text-[11px]">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="text-slate-300 shrink-0 font-semibold uppercase text-[10px] tracking-wide">{tp.value.contract}</span>
+              <code class="font-mono text-cyan-200 truncate" title={String(t.address)}>
+                {shortenContract(String(t.address))}
+              </code>
+              <button
+                type="button"
+                class="shrink-0 rounded-md border border-[#043234]/60 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-300 hover:text-cyan-100 hover:border-cyan-400/40"
+                onClick$={async () => {
+                  try {
+                    await navigator.clipboard.writeText(String(t.address));
+                  } catch {
+                    /** clipboard might be blocked */
+                  }
+                }}
+                aria-label="Copiar dirección del contrato"
+                title="Copiar dirección"
+              >
+                Copy
+              </button>
+              {urls.explorer ? (
+                <a
+                  href={urls.explorer}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="shrink-0 rounded-md border border-[#043234]/60 bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-300 hover:text-cyan-100 hover:border-cyan-400/40"
+                  title="Abrir en explorador"
+                >
+                  Explorer ↗
+                </a>
+              ) : null}
+            </div>
+            <div class="flex items-center gap-3 text-slate-400 shrink-0 border-t sm:border-t-0 sm:border-l border-[#043234]/40 pt-2 sm:pt-0 sm:pl-3">
+              <span>
+                <span class="text-slate-500">{tp.value.decimalsShort}</span> {String(t.decimals)}
+              </span>
+            </div>
+          </div>
+        </div>
+        </aside>
+
+        <section class="lg:col-span-8 xl:col-span-9 2xl:col-span-10 space-y-4 min-w-0">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.priceChart}</h2>
+              <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                {dexEmbedUrl ? tp.value.chartHintDex : tp.value.chartHintTv}
+                <span class="font-mono text-slate-300">{tvSymbols[0]}</span>
+                {dexEmbedUrl ? "." : tvSymbols.length > 1 ? tp.value.chartHintSuffix : null}
+              </p>
+            </div>
+            {dexUrl ? (
+              <a
+                href={dexUrl}
+                target="_blank"
+                rel="noreferrer"
+                class="text-xs font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline shrink-0"
+              >
+                Dexscreener ↗
+              </a>
+            ) : null}
+          </div>
+          <div class="rounded-xl border border-[#043234]/80 overflow-hidden bg-[#0a1214] p-2">
+            <TradingViewAdvancedChart
+              key={`tv-${String(t.id)}`}
+              symbols={tvSymbols}
+              dexUrl={dexUrl}
+              dexEmbedUrl={dexEmbedUrl}
+              tokenAddress={String(t.address)}
+              height={chartHeight.value}
+            />
+          </div>
+
+          <div class="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
 
           {erc20StatsEntries.length > 0 ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+            <div class="mt-3 rounded-xl border border-[#0d5357]/70 bg-[#000f12]/80 p-3 shadow-md shadow-black/20">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">Métricas on-chain del token</h3>
               <p class="text-xs text-slate-400 mb-2 leading-relaxed">
                 Datos agregados de holders y supply cuando están disponibles para este contrato.
@@ -1139,267 +1302,6 @@ ERC-20
                     <dd class="text-slate-100 break-words">{v}</dd>
                   </div>
                 ))}
-              </dl>
-            </div>
-          ) : null}
-
-          {isEvmContract ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
-                <h3 class="text-sm font-semibold tracking-tight text-cyan-50">Analytics de trading</h3>
-                <button
-                  type="button"
-                  class="shrink-0 rounded-lg border border-cyan-400/45 bg-cyan-400/15 px-2.5 py-1 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-400/25 hover:text-white disabled:opacity-50"
-                  disabled={analyticsLoading.value}
-                  onClick$={loadTokenAnalytics$}
-                >
-                  {analyticsLoading.value ? "Cargando…" : "Actualizar en vivo"}
-                </button>
-              </div>
-              <p class="text-xs text-slate-400 mb-2 leading-relaxed">
-                Resumen de volumen, liquidez y valoración a partir de datos on-chain.
-              </p>
-              {analyticsErr.value ? (
-                <p class="text-[11px] text-rose-400/90 mb-2">{analyticsErr.value}</p>
-              ) : null}
-              {analyticsDisplayRec.value ? (
-                <>
-                  <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] mb-3">
-                    <div>
-                      <dt class="text-slate-400 font-medium">usdPrice</dt>
-                      <dd class="text-white tabular-nums">
-                        {analyticsScalarPrice(
-                          analyticsDisplayRec.value.usdPrice ?? analyticsDisplayRec.value.usd_price,
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="text-slate-400 font-medium">Liquidez total</dt>
-                      <dd class="text-slate-100 tabular-nums">
-                        {analyticsScalarUsd(
-                          analyticsDisplayRec.value.totalLiquidity ?? analyticsDisplayRec.value.total_liquidity,
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="text-slate-400 font-medium">FDV</dt>
-                      <dd class="text-slate-100 tabular-nums">
-                        {analyticsScalarUsd(
-                          analyticsDisplayRec.value.totalFullyDilutedValuation ??
-                            analyticsDisplayRec.value.total_fully_diluted_valuation,
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="text-slate-400 font-medium">chainId</dt>
-                      <dd class="text-slate-300 font-mono text-[10px]">
-                        {String(analyticsDisplayRec.value.chainId ?? analyticsDisplayRec.value.chain_id ?? "—")}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div class="overflow-x-auto text-[10px] mb-4">
-                    <table class="w-full text-left">
-                      <thead>
-                        <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                          <th class="py-1.5 pr-2">Métrica</th>
-                          {TOKEN_ANALYTICS_WINDOWS.map((w) => (
-                            <th key={w} class="py-1.5 pr-2 tabular-nums">
-                              {w}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {TOKEN_ANALYTICS_METRIC_ROWS.map((row) => {
-                          const vol = analyticsMetricVol(
-                            analyticsDisplayRec.value!,
-                            row.camel,
-                            row.snake,
-                          );
-                          return (
-                            <tr key={row.camel} class="border-b border-[#043234]/35 text-slate-200">
-                              <td class="py-1.5 pr-2 text-slate-300">{row.label}</td>
-                              {TOKEN_ANALYTICS_WINDOWS.map((w) => {
-                                const n = analyticsVolumeAt(vol, w);
-                                const cls =
-                                  row.kind === "pct" && n != null && Number.isFinite(n)
-                                    ? percentToneClass(n)
-                                    : "";
-                                return (
-                                  <td key={w} class={`py-1.5 pr-2 tabular-nums ${cls}`}>
-                                    {formatAnalyticsMetricCell(row.kind, n)}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div class="border-t border-[#043234]/40 pt-3">
-                    <h4 class="text-xs font-semibold text-slate-200 mb-1">Serie temporal (Pro)</h4>
-                    <p class="text-[9px] text-slate-400 mb-2 leading-relaxed">
-                      Histórico de métricas para el token (requiere plan Pro).
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2 mb-2">
-                      <span class="text-[10px] font-medium text-slate-400">Ventana:</span>
-                      <button
-                        type="button"
-                        class={`rounded px-2 py-0.5 text-[10px] font-medium border ${
-                          analyticsTsTf.value === "1d"
-                            ? "border-cyan-400/55 bg-cyan-400/15 text-cyan-50"
-                            : "border-[#043234] text-slate-300 hover:border-cyan-400/35"
-                        }`}
-                        onClick$={() => {
-                          analyticsTsTf.value = "1d";
-                        }}
-                      >
-                        1d
-                      </button>
-                      <button
-                        type="button"
-                        class={`rounded px-2 py-0.5 text-[10px] font-medium border ${
-                          analyticsTsTf.value === "7d"
-                            ? "border-cyan-400/55 bg-cyan-400/15 text-cyan-50"
-                            : "border-[#043234] text-slate-300 hover:border-cyan-400/35"
-                        }`}
-                        onClick$={() => {
-                          analyticsTsTf.value = "7d";
-                        }}
-                      >
-                        7d
-                      </button>
-                      <button
-                        type="button"
-                        class={`rounded px-2 py-0.5 text-[10px] font-medium border ${
-                          analyticsTsTf.value === "30d"
-                            ? "border-cyan-400/55 bg-cyan-400/15 text-cyan-50"
-                            : "border-[#043234] text-slate-300 hover:border-cyan-400/35"
-                        }`}
-                        onClick$={() => {
-                          analyticsTsTf.value = "30d";
-                        }}
-                      >
-                        30d
-                      </button>
-                      <button
-                        type="button"
-                        class="ml-auto rounded-lg border border-[#043234] bg-black/20 px-2.5 py-1 text-[10px] text-slate-200 hover:border-cyan-400/40 hover:text-cyan-50 disabled:opacity-50"
-                        disabled={analyticsTsLoading.value}
-                        onClick$={loadTokenAnalyticsTimeseries$}
-                      >
-                        {analyticsTsLoading.value ? "Cargando…" : "Cargar serie"}
-                      </button>
-                    </div>
-                    {analyticsTsErr.value ? (
-                      <p class="text-[11px] text-rose-400/90 mb-2">{analyticsTsErr.value}</p>
-                    ) : null}
-                    {analyticsTsRows.value.length > 0 ? (
-                      <div class="overflow-x-auto max-h-56 overflow-y-auto">
-                        <table class="w-full text-left font-mono text-[9px]">
-                          <thead class="sticky top-0 bg-[#001a1c]">
-                            <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                              <th class="py-1 pr-2">Tiempo</th>
-                              <th class="py-1 pr-2">Compra</th>
-                              <th class="py-1 pr-2">Venta</th>
-                              <th class="py-1 pr-2">Liq USD</th>
-                              <th class="py-1">FDV</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {analyticsTsRows.value.slice(-24).map((pt, i) => {
-                              const ts = String(pt.timestamp ?? pt.time ?? i);
-                              const buy = metricNum(pt, "buyVolume", "buy_volume");
-                              const sell = metricNum(pt, "sellVolume", "sell_volume");
-                              const liq = metricNum(pt, "liquidityUsd", "liquidity_usd");
-                              const fdv = metricNum(
-                                pt,
-                                "fullyDilutedValuation",
-                                "fully_diluted_valuation",
-                              );
-                              return (
-                                <tr key={`${ts}-${i}`} class="border-b border-[#043234]/30 text-slate-300">
-                                  <td class="py-1 pr-2 truncate max-w-[6rem]">{ts}</td>
-                                  <td class="py-1 pr-2 tabular-nums">{buy != null ? formatUsdLiquidity(buy) : "—"}</td>
-                                  <td class="py-1 pr-2 tabular-nums">{sell != null ? formatUsdLiquidity(sell) : "—"}</td>
-                                  <td class="py-1 pr-2 tabular-nums">{liq != null ? formatUsdLiquidity(liq) : "—"}</td>
-                                  <td class="py-1 tabular-nums">{fdv != null ? formatUsdLiquidity(fdv) : "—"}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                <p class="text-xs text-slate-400 leading-relaxed">
-                  {mTokAnalytics?.ok === false && mTokAnalytics?.error
-                    ? "No hay datos de analytics disponibles. Prueba «Actualizar en vivo»."
-                    : "Sin datos de analytics. Usa «Actualizar en vivo» para obtener la vista más reciente."}
-                </p>
-              )}
-            </div>
-          ) : null}
-
-          {scoreRec ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
-              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Token Score
-              </h3>
-              <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                <div>
-                  <dt class="text-slate-400 font-medium">Score</dt>
-                  <dd class="text-white font-semibold tabular-nums">
-                    {scoreRec.score != null ? String(scoreRec.score) : "—"}
-                  </dd>
-                </div>
-                {scoreRec.updatedAt != null || scoreRec.updated_at != null ? (
-                  <div class="col-span-2 sm:col-span-2">
-                    <dt class="text-slate-400 font-medium">Actualizado</dt>
-                    <dd class="text-slate-300 truncate">
-                      {String(scoreRec.updatedAt ?? scoreRec.updated_at)}
-                    </dd>
-                  </div>
-                ) : null}
-                {scoreMetrics ? (
-                  <>
-                    {metricNum(scoreMetrics, "liquidityUsd", "liquidity_usd", "totalLiquidityUsd") != null ? (
-                      <div>
-                        <dt class="text-slate-400 font-medium">Liquidez (métricas)</dt>
-                        <dd class="text-slate-100">
-                          {formatUsdLiquidity(
-                            metricNum(scoreMetrics, "liquidityUsd", "liquidity_usd", "totalLiquidityUsd"),
-                          )}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {scoreMetrics.volumeUsd != null || scoreMetrics.volume_usd != null ? (
-                      <div>
-                        <dt class="text-slate-400 font-medium">Volumen (métricas)</dt>
-                        <dd class="text-slate-100">{formatMetricScalar(scoreMetrics.volumeUsd ?? scoreMetrics.volume_usd)}</dd>
-                      </div>
-                    ) : null}
-                    {scoreMetrics.transactions != null || scoreMetrics.transaction_count != null ? (
-                      <div>
-                        <dt class="text-slate-400 font-medium">Transacciones</dt>
-                        <dd class="text-slate-100 tabular-nums">
-                          {String(scoreMetrics.transactions ?? scoreMetrics.transaction_count ?? "—")}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {scoreMetrics.supply != null || scoreMetrics.total_supply != null ? (
-                      <div>
-                        <dt class="text-slate-400 font-medium">Supply (métricas)</dt>
-                        <dd class="text-slate-100 font-mono text-[10px]">
-                          {String(scoreMetrics.supply ?? scoreMetrics.total_supply)}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
               </dl>
             </div>
           ) : null}
@@ -1437,282 +1339,31 @@ ERC-20
             </div>
           ) : null}
 
-          {mTokPairs != null && mTokPairs.ok && pairRows.length > 0 ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
-              <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-1">
-                Pares DEX
-              </h3>
-              <p class="text-xs text-slate-400 mb-2 leading-relaxed">
-                Pares en DEX con liquidez y volumen. Gráficos OHLC vía TradingView en esta ficha.
-              </p>
-              <div class="overflow-x-auto text-[11px]">
-                <table class="w-full text-left">
-                  <thead>
-                    <tr class="border-b border-[#043234] text-slate-400 font-medium">
-                      <th class="py-1.5 pr-2">DEX</th>
-                      <th class="py-1.5 pr-2">Par</th>
-                      <th class="py-1.5 pr-2">Contrato par</th>
-                      <th class="py-1.5 pr-2">Precio</th>
-                      <th class="py-1.5 pr-2">Δ 24h</th>
-                      <th class="py-1.5 pr-2">Liquidez</th>
-                      <th class="py-1.5 pr-2">Vol 24h</th>
-                      <th class="py-1.5">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pairRows.map((r, i) => {
-                      const ex = String(
-                        r.exchange_name ?? r.exchangeName ?? r.dex_name ?? r.name ?? r.dex ?? "—",
-                      );
-                      const exLogo = String(r.exchange_logo ?? r.exchangeLogo ?? "").trim();
-                      const pairAddr = String(r.pair_address ?? r.pairAddress ?? "").toLowerCase();
-                      const pairIsAddr = /^0x[a-f0-9]{40}$/.test(pairAddr);
-                      const liq = metricNum(r, "liquidity_usd", "liquidityUsd", "total_liquidity_usd");
-                      const vol24 = metricNum(r, "volume_24h_usd", "volume24hUsd", "volume_usd", "volumeUsd");
-                      const volFallback = r.volume_usd ?? r.volumeUsd ?? r.volume_24h_usd ?? r.volume24hUsd;
-                      const usdPrice = metricNum(r, "usd_price", "usdPrice");
-                      const pct24 = metricNum(r, "usd_price_24hr_percent_change", "usdPrice24hrPercentChange");
-                      const inactive = r.inactive_pair === true || r.inactivePair === true;
-                      return (
-                        <tr key={String(r.pair_address ?? r.pairAddress ?? i)} class="border-b border-[#043234]/35 text-slate-200">
-                          <td class="py-1.5 pr-2">
-                            <div class="flex items-center gap-1.5">
-                              {exLogo ? (
-                                <img src={exLogo} alt="" class="h-5 w-5 shrink-0 rounded object-contain bg-white/5" loading="lazy" />
-                              ) : null}
-                              <span>{ex}</span>
-                            </div>
-                          </td>
-                          <td class="py-1.5 pr-2 font-mono text-[10px]">{pairLabel(r)}</td>
-                          <td class="py-1.5 pr-2 font-mono text-[10px]">
-                            {pairIsAddr ? (
-                              <EvmAddrLinks
-                                locale={L}
-                                moralisChain={moralisChain}
-                                address={pairAddr}
-                                variant="token"
-                              />
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td class="py-1.5 pr-2 tabular-nums text-white">
-                            {usdPrice != null ? `$${formatTokenUsdPrice(usdPrice)}` : "—"}
-                          </td>
-                          <td class={`py-1.5 pr-2 tabular-nums ${pct24 != null ? percentToneClass(pct24) : "text-slate-400"}`}>
-                            {pct24 != null ? formatSignedPercent(pct24) : "—"}
-                          </td>
-                          <td class="py-1.5 pr-2 tabular-nums">
-                            {liq != null ? formatUsdLiquidity(liq) : "—"}
-                          </td>
-                          <td class="py-1.5 pr-2 tabular-nums">
-                            {vol24 != null                              ? formatUsdLiquidity(vol24)
-                              : formatMetricScalar(volFallback)}
-                          </td>
-                          <td class="py-1.5">
-                            {inactive ? (
-                              <span class="text-[9px] font-semibold uppercase text-amber-300/90">inactivo</span>
-                            ) : (
-                              <span class="text-[9px] text-emerald-400/80">activo</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-
-          {morMeta0 ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/50 bg-black/20 p-3 space-y-2">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="text-sm font-semibold tracking-tight text-cyan-50">metadata</span>
-                {morMeta0.possible_spam === true || String(morMeta0.possible_spam) === "true" ? (
-                  <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/35">
-                    possible spam
-                  </span>
-                ) : null}
-                {morMeta0.verified_contract === true || String(morMeta0.verified_contract) === "true" ? (
-                  <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-500/30">
-                    verified
-                  </span>
-                ) : null}
-              </div>
-              <p class="text-xs text-slate-400 leading-relaxed">Metadatos enriquecidos del contrato ERC-20.</p>
-              {morMeta0.address_label ? (
-                <p class="text-xs text-slate-300 leading-relaxed">
-                  <span class="font-medium text-slate-400">Label:</span> {String(morMeta0.address_label)}
-                </p>
-              ) : null}
-              <p class="text-sm text-slate-100 font-medium leading-snug">
-                {String(morMeta0.name ?? "")}
-                {morMeta0.symbol != null ? (
-                  <>
-                    {" "}
-                    <span class="text-cyan-200 font-semibold">({String(morMeta0.symbol)})</span>
-                  </>
-                ) : null}
-              </p>
-              <dl class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] border-t border-[#043234]/35 pt-2">
-                {morMeta0.decimals != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Decimals (on-chain)</dt>
-                    <dd class="text-slate-100 tabular-nums">{String(morMeta0.decimals)}</dd>
-                  </div>
-                ) : null}
-                {morMeta0.total_supply_formatted != null ? (
-                  <div class="col-span-2 sm:col-span-2">
-                    <dt class="text-slate-400 font-medium">Total supply (formatted)</dt>
-                    <dd class="text-slate-100 font-mono text-[10px] break-all">
-                      {String(morMeta0.total_supply_formatted)}
-                    </dd>
-                  </div>
-                ) : morMeta0.total_supply != null ? (
-                  <div class="col-span-2 sm:col-span-2">
-                    <dt class="text-slate-400 font-medium">Total supply (raw)</dt>
-                    <dd class="text-slate-100 font-mono text-[10px] break-all">
-                      {formatTokenSupply(fmtScalar(morMeta0.total_supply))}
-                    </dd>
-                  </div>
-                ) : null}
-                {morMeta0.circulating_supply != null ? (
-                  <div class="col-span-2 sm:col-span-3">
-                    <dt class="text-slate-400 font-medium">Circulating supply</dt>
-                    <dd class="text-slate-100 font-mono text-[10px]">{String(morMeta0.circulating_supply)}</dd>
-                  </div>
-                ) : null}
-                {morMeta0.market_cap != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">Market cap (on-chain)</dt>
-                    <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(morMeta0.market_cap))}</dd>
-                  </div>
-                ) : null}
-                {morMeta0.fully_diluted_valuation != null ? (
-                  <div>
-                    <dt class="text-slate-400 font-medium">FDV (on-chain)</dt>
-                    <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(morMeta0.fully_diluted_valuation))}</dd>
-                  </div>
-                ) : null}
-                {morMeta0.created_at != null ? (
-                  <div class="col-span-2 sm:col-span-3">
-                    <dt class="text-slate-400 font-medium">Contract created (API)</dt>
-                    <dd class="text-slate-300 truncate">{String(morMeta0.created_at)}</dd>
-                  </div>
-                ) : null}
-              </dl>
-              {Array.isArray(morMeta0.implementations) && morMeta0.implementations.length > 0 ? (
-                <div class="border-t border-[#043234]/35 pt-2">
-                  <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-300 mb-1.5">
-                    Otros chains (implementations)
-                  </div>
-                  <ul class="space-y-1 text-[11px]">
-                    {(morMeta0.implementations as Record<string, unknown>[]).map((imp, i) => {
-                      const chainHint = String(imp.chain ?? imp.chainName ?? "eth").toLowerCase();
-                      const add = String(imp.address ?? "").trim();
-                      const lab = String(imp.chainName ?? imp.chain ?? chainHint);
-                      return (
-                        <li key={i} class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span class="text-slate-400 shrink-0 font-medium">{lab}</span>
-                          {/^0x[a-fA-F0-9]{40}$/.test(add) ? (
-                            <EvmAddrLinks locale={L} moralisChain={chainHint} address={add} variant="token" />
-                          ) : (
-                            <span class="font-mono text-slate-400">{shortenContract(add)}</span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
-              {Array.isArray(morMeta0.categories) && morMeta0.categories.length > 0 ? (
-                <div class="flex flex-wrap gap-1">
-                  {(morMeta0.categories as unknown[]).map((c, i) => (
-                    <span
-                      key={i}
-                      class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#043234]/50 text-slate-200 border border-[#043234]/80"
-                    >
-                      {String(c)}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              {morMeta0.links != null && typeof morMeta0.links === "object" && !Array.isArray(morMeta0.links) ? (
-                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                  {Object.entries(morMeta0.links as Record<string, unknown>).map(([k, v]) => {
-                    const href = firstLinkHref(v);
-                    if (!href) return null;
-                    const label = k.replace(/_/g, " ");
-                    return (
-                      <a
-                        key={k}
-                        href={href}
-                        target="_blank"
-                        rel="noreferrer"
-                        class="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline"
-                      >
-                        {label}
-                        {" \u2197"}
-                      </a>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {(urls.website || urls.explorer) ? (
-            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
-              {urls.website ? (
-                <a href={urls.website} target="_blank" rel="noreferrer" class="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline">
-                  Sitio web ↗
-                </a>
-              ) : null}
-              {urls.explorer ? (
-                <a href={urls.explorer} target="_blank" rel="noreferrer" class="font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline">
-                  Explorador ↗
-                </a>
-              ) : null}
-            </div>
-          ) : null}
-
-          {urls.desc ? (
-            <p class="text-xs text-slate-300 mt-2 leading-relaxed line-clamp-4" title={urls.desc}>
-              {urls.desc}
-              {urls.desc.length >= 400 ? "…" : ""}
-            </p>
-          ) : null}
-
-          {nInfoRec ? (
+          {nInfoRec && (nInfoSpot?.total_holders != null || nInfoSpot?.volume_total_usd != null) ? (
             <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen · Token Information
+                Métricas adicionales
               </h3>
-              <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                <div>
-                  <dt class="text-slate-400 font-medium">Mcap</dt>
-                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoDetails?.market_cap_usd))}</dd>
-                </div>
-                <div>
-                  <dt class="text-slate-400 font-medium">FDV</dt>
-                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoDetails?.fdv_usd))}</dd>
-                </div>
-                <div>
-                  <dt class="text-slate-400 font-medium">Holders</dt>
-                  <dd class="text-slate-100 tabular-nums">{String(nInfoSpot?.total_holders ?? "—")}</dd>
-                </div>
-                <div>
-                  <dt class="text-slate-400 font-medium">Volumen total</dt>
-                  <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoSpot?.volume_total_usd))}</dd>
-                </div>
+              <dl class="grid grid-cols-2 gap-2 text-[11px]">
+                {nInfoSpot?.total_holders != null ? (
+                  <div>
+                    <dt class="text-slate-400 font-medium">Holders</dt>
+                    <dd class="text-slate-100 tabular-nums">{Number(nInfoSpot.total_holders).toLocaleString(undefined)}</dd>
+                  </div>
+                ) : null}
+                {nInfoSpot?.volume_total_usd != null ? (
+                  <div>
+                    <dt class="text-slate-400 font-medium">Volumen acumulado</dt>
+                    <dd class="text-slate-100">{formatUsdLiquidity(fmtScalar(nInfoSpot.volume_total_usd))}</dd>
+                  </div>
+                ) : null}
               </dl>
             </div>
           ) : null}
           {(nRiskIndicators.length > 0 || nRewardIndicators.length > 0) ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+            <div class="xl:col-span-2 2xl:col-span-2 mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen Indicators
+                Indicadores de riesgo y recompensa
               </h3>
               <div class="grid gap-3 sm:grid-cols-2 text-[11px]">
                 <div>
@@ -1741,9 +1392,9 @@ ERC-20
             </div>
           ) : null}
           {nOhlcvRows.length > 0 ? (
-            <div class="mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
+            <div class="xl:col-span-2 2xl:col-span-3 mt-3 rounded-xl border border-[#043234]/60 bg-black/25 p-3">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen OHLCV (últimas velas)
+                Histórico de precio (últimas velas)
               </h3>
               <div class="overflow-x-auto text-[10px]">
                 <table class="w-full text-left">
@@ -1774,37 +1425,7 @@ ERC-20
             </div>
           ) : null}
           </div>
-        </div>
-
-        <div class="mt-5 flex flex-wrap items-end justify-between gap-3 mb-2">
-          <div>
-            <h2 class="text-lg font-semibold tracking-tight text-cyan-50">{tp.value.priceChart}</h2>
-            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-              {dexEmbedUrl ? tp.value.chartHintDex : tp.value.chartHintTv}
-              <span class="font-mono text-slate-300">{tvSymbols[0]}</span>
-              {dexEmbedUrl ? "." : tvSymbols.length > 1 ? tp.value.chartHintSuffix : null}
-            </p>
-          </div>
-          {dexUrl ? (
-            <a
-              href={dexUrl}
-              target="_blank"
-              rel="noreferrer"
-              class="text-xs font-medium text-cyan-200 hover:text-cyan-50 underline-offset-2 hover:underline shrink-0"
-            >
-              Dexscreener ↗
-            </a>
-          ) : null}
-        </div>
-        <div class="rounded-xl border border-[#043234]/80 overflow-hidden bg-[#0a1214] p-2">
-          <TradingViewAdvancedChart
-            key={`tv-${String(t.id)}`}
-            symbols={tvSymbols}
-            dexUrl={dexUrl}
-            dexEmbedUrl={dexEmbedUrl}
-            height={520}
-          />
-        </div>
+        </section>
       </div>
 
       <div class="mt-4 flex flex-wrap gap-2 border-b border-[#043234] pb-2" role="tablist" aria-label="Token sections">
@@ -1884,7 +1505,7 @@ ERC-20
           {nTransferRows.length > 0 ? (
             <div class="mt-5">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen Transfers (smart money / CEX / DEX)
+                Transferencias destacadas (smart money / CEX / DEX)
               </h3>
               <div class="overflow-x-auto text-[11px]">
                 <table class="w-full text-left">
@@ -1967,7 +1588,7 @@ ERC-20
           {nWhoRows.length > 0 ? (
             <div class="mt-5">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen Who Bought/Sold
+                Quién compró / vendió
               </h3>
               <div class="overflow-x-auto text-[11px]">
                 <table class="w-full text-left">
@@ -1998,7 +1619,7 @@ ERC-20
           {nPerpRows.length > 0 ? (
             <div class="mt-5">
               <h3 class="text-sm font-semibold tracking-tight text-cyan-50 mb-2">
-                Nansen Perp PnL Leaderboard
+                Top traders de perpetuos
               </h3>
               <div class="overflow-x-auto text-[11px]">
                 <table class="w-full text-left">
@@ -2222,6 +1843,127 @@ ERC-20
                     </td>
                   </tr>
                 )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {mTokPairs != null && mTokPairs.ok && pairRows.length > 0 ? (
+        <section class="mt-6 rounded-2xl border border-[#0d5357]/80 bg-gradient-to-br from-[#001317] via-[#001a1c] to-[#000c10] p-4 sm:p-5 shadow-lg shadow-black/25">
+          <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/30">
+                <LuWaves class="h-5 w-5" />
+              </span>
+              <div class="min-w-0">
+                <h2 class="text-base font-semibold text-cyan-50">Pares DEX</h2>
+                <p class="mt-0.5 max-w-xl text-[11px] leading-snug text-slate-400">
+                  Pares listados en exchanges descentralizados con su precio, variación 24h, liquidez y volumen.
+                  Toca el contrato para abrir su ficha.
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-[10px] text-slate-400">
+              <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-semibold uppercase tracking-wide text-emerald-300">
+                {pairRows.filter((r) => !(r.inactive_pair === true || r.inactivePair === true)).length} activos
+              </span>
+              <span class="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-semibold uppercase tracking-wide text-amber-300">
+                {pairRows.filter((r) => r.inactive_pair === true || r.inactivePair === true).length} inactivos
+              </span>
+            </div>
+          </header>
+          <div class="overflow-x-auto rounded-xl border border-[#043234]/65 bg-[#000d10]/55">
+            <table class="w-full min-w-[820px] text-[11px]">
+              <thead class="bg-[#00151a]/95 text-[10px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="px-3 py-2 text-left">DEX</th>
+                  <th class="px-3 py-2 text-left">Par</th>
+                  <th class="px-3 py-2 text-left">Contrato par</th>
+                  <th class="px-3 py-2 text-right">Precio</th>
+                  <th class="px-3 py-2 text-right">Δ 24h</th>
+                  <th class="px-3 py-2 text-right">Liquidez</th>
+                  <th class="px-3 py-2 text-right">Vol 24h</th>
+                  <th class="px-3 py-2 text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairRows.map((r, i) => {
+                  const ex = String(
+                    r.exchange_name ?? r.exchangeName ?? r.dex_name ?? r.name ?? r.dex ?? "—",
+                  );
+                  const exLogo = String(r.exchange_logo ?? r.exchangeLogo ?? "").trim();
+                  const pairAddr = String(r.pair_address ?? r.pairAddress ?? "").toLowerCase();
+                  const pairIsAddr = /^0x[a-f0-9]{40}$/.test(pairAddr);
+                  const liq = metricNum(r, "liquidity_usd", "liquidityUsd", "total_liquidity_usd");
+                  const vol24 = metricNum(r, "volume_24h_usd", "volume24hUsd", "volume_usd", "volumeUsd");
+                  const volFallback = r.volume_usd ?? r.volumeUsd ?? r.volume_24h_usd ?? r.volume24hUsd;
+                  const usdPrice = metricNum(r, "usd_price", "usdPrice");
+                  const pct24 = metricNum(r, "usd_price_24hr_percent_change", "usdPrice24hrPercentChange");
+                  const inactive = r.inactive_pair === true || r.inactivePair === true;
+                  return (
+                    <tr
+                      key={String(r.pair_address ?? r.pairAddress ?? i)}
+                      class={`border-t border-[#043234]/40 transition-colors hover:bg-cyan-500/[0.04] ${inactive ? "opacity-60" : ""}`}
+                    >
+                      <td class="px-3 py-2 align-middle">
+                        <div class="flex items-center gap-2">
+                          {exLogo ? (
+                            <img
+                              src={exLogo}
+                              alt=""
+                              class="h-5 w-5 shrink-0 rounded object-contain bg-white/5"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#043234]/60 text-[8px] font-bold uppercase text-slate-400">
+                              {String(ex).charAt(0)}
+                            </span>
+                          )}
+                          <span class="truncate font-medium text-slate-200">{ex}</span>
+                        </div>
+                      </td>
+                      <td class="px-3 py-2 align-middle font-mono text-[10px] text-slate-200">{pairLabel(r)}</td>
+                      <td class="px-3 py-2 align-middle font-mono text-[10px]">
+                        {pairIsAddr ? (
+                          <EvmAddrLinks
+                            locale={L}
+                            moralisChain={moralisChain}
+                            address={pairAddr}
+                            variant="token"
+                          />
+                        ) : (
+                          <span class="text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td class="px-3 py-2 text-right tabular-nums text-white">
+                        {usdPrice != null ? `$${formatTokenUsdPrice(usdPrice)}` : "—"}
+                      </td>
+                      <td class={`px-3 py-2 text-right tabular-nums ${pct24 != null ? percentToneClass(pct24) : "text-slate-400"}`}>
+                        {pct24 != null ? formatSignedPercent(pct24) : "—"}
+                      </td>
+                      <td class="px-3 py-2 text-right tabular-nums text-cyan-100">
+                        {liq != null ? formatUsdLiquidity(liq) : "—"}
+                      </td>
+                      <td class="px-3 py-2 text-right tabular-nums text-slate-200">
+                        {vol24 != null ? formatUsdLiquidity(vol24) : formatMetricScalar(volFallback)}
+                      </td>
+                      <td class="px-3 py-2 text-right">
+                        {inactive ? (
+                          <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300">
+                            <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            inactivo
+                          </span>
+                        ) : (
+                          <span class="inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            activo
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

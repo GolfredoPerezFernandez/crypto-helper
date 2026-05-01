@@ -87,20 +87,25 @@ function formatPct(p: number): string {
   return `${Number(0).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 }
 
-function gridTargets(count: number, width: number, height: number): { x: number; y: number }[] {
-  const n = Math.max(1, count);
-  const cols = Math.max(1, Math.ceil(Math.sqrt((n * width) / Math.max(height, 1))));
-  const rows = Math.max(1, Math.ceil(n / cols));
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i += 1) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    pts.push({
-      x: ((col + 0.5) * width) / cols,
-      y: ((row + 0.5) * height) / rows,
-    });
-  }
-  return pts;
+function momentumRadiusFactor(pct: number): number {
+  const abs = Math.abs(pct);
+  // Keep relation with % change without making bubbles jump too hard.
+  // ~2.5% => ~0.93x, ~6% => ~1.05x, ~10% => ~1.17x, capped.
+  const raw = 0.88 + abs / 35;
+  return Math.max(0.86, Math.min(1.22, raw));
+}
+
+function spiralSeed(i: number, total: number, width: number, height: number): { x: number; y: number } {
+  const t = Math.max(total, 1);
+  const angle = i * 2.3999632297; // golden angle
+  const rx = width * 0.48;
+  const ry = height * 0.44;
+  const r01 = Math.sqrt((i + 0.5) / t);
+  const jitter = Math.max(4, Math.min(width, height) * 0.012);
+  return {
+    x: width / 2 + Math.cos(angle) * rx * r01 + (Math.random() - 0.5) * jitter,
+    y: height / 2 + Math.sin(angle) * ry * r01 + (Math.random() - 0.5) * jitter,
+  };
 }
 
 export const BubbleChartD3 = component$(
@@ -188,15 +193,12 @@ export const BubbleChartD3 = component$(
         const scaleR = d3.scaleSqrt().domain([minS, maxS]).range([minR, maxR]).clamp(true);
 
         const nodes: SimNode[] = rawList.map((t) => ({ ...t }));
-        const targets = gridTargets(nodes.length, width, height);
-        // Place larger bubbles first on grid targets so packing is more uniform.
+        // Place larger bubbles first in a spiral seed for organic packing.
         const bySize = [...nodes]
           .map((n) => ({ n, s: bubbleDisplaySize(n, sizeBy, quoteScale) }))
           .sort((a, b) => b.s - a.s);
         bySize.forEach(({ n }, i) => {
-          const p = targets[i % targets.length] ?? { x: width / 2, y: height / 2 };
-          n.tx = p.x;
-          n.ty = p.y;
+          const p = spiralSeed(i, bySize.length, width, height);
           n.x = p.x;
           n.y = p.y;
         });
@@ -245,26 +247,29 @@ export const BubbleChartD3 = component$(
 
         const radiusFor = (d: SimNode) => {
           const v = bubbleDisplaySize(d, sizeBy, quoteScale);
-          return scaleR(v);
+          const base = scaleR(v);
+          const p = pctForTimeframe(d, timeframe);
+          const perfFactor = momentumRadiusFactor(p);
+          return base * perfFactor;
         };
 
         simulation?.stop();
-        const collidePad = isTvWide ? 3.2 : isUltraWide ? 4 : isWide ? 4.8 : 5.8;
+        const collidePad = isTvWide ? 2.8 : isUltraWide ? 3.4 : isWide ? 4.2 : 5.2;
         simulation = d3
           .forceSimulation<SimNode>(nodes)
           .force(
             "collide",
             d3
               .forceCollide<SimNode>()
-              .radius((d) => radiusFor(d) + 5 + collidePad)
+              .radius((d) => radiusFor(d) + 3 + collidePad)
               .strength(1)
               .iterations(3),
           )
-          .force("center", d3.forceCenter(width / 2, height / 2).strength(0.014))
-          .force("x", d3.forceX<SimNode>((d) => d.tx ?? width / 2).strength(isTvWide ? 0.048 : isWide ? 0.042 : 0.036))
-          .force("y", d3.forceY<SimNode>((d) => d.ty ?? height / 2).strength(isTvWide ? 0.048 : isWide ? 0.042 : 0.036))
-          .force("charge", d3.forceManyBody().strength(isTvWide ? -22 : isWide ? -28 : -34).distanceMax(Math.max(width, height)))
-          .alphaTarget(0.16)
+          .force("center", d3.forceCenter(width / 2, height / 2).strength(isTvWide ? 0.032 : isWide ? 0.028 : 0.024))
+          .force("x", d3.forceX(width / 2).strength(isTvWide ? 0.01 : isWide ? 0.009 : 0.008))
+          .force("y", d3.forceY(height / 2).strength(isTvWide ? 0.01 : isWide ? 0.009 : 0.008))
+          .force("charge", d3.forceManyBody().strength(isTvWide ? -16 : isWide ? -22 : -28).distanceMax(Math.max(width, height)))
+          .alphaTarget(0.12)
           .restart();
 
         const node = svg.selectAll<SVGGElement, SimNode>("g").data(nodes).enter().append("g");

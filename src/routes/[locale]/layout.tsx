@@ -387,7 +387,7 @@ export default component$(() => {
     );
     const t_footerDisclaimerShort = useComputed$(() =>
         inlineTranslate()(
-            'app.footer.footerDisclaimerShort@@Crypto Helper provides analytics and information tools only. Nothing here is financial, investment, tax, or legal advice. Third-party data may be delayed or inaccurate. Use at your own risk.',
+            'app.footer.footerDisclaimerShort@@Crypto Helper provides analytics and information tools only. Nothing here is financial, investment, tax, or legal advice.',
         ),
     );
     const t_upgradeNav = useComputed$(() => inlineTranslate()('app.proUpgrade.nav@@Upgrade Pro'));

@@ -153,9 +153,7 @@ export async function fetchWhaleAlertBundleForSync(): Promise<{
 }> {
   const syncedAt = Math.floor(Date.now() / 1000);
   const notes: string[] = [
-    "Datos obtenidos en el sync diario; esta página no llama a Whale Alert al cargar.",
-    "WebSocket (alertas en vivo): wss://leviathan.whale-alert.io/ws?api_key=TU_KEY — usar solo en servidor o app segura.",
-    "Endpoints Compliance (owner_attributions) pueden responder 403 sin plan Compliance.",
+    "Datos refrescados periódicamente para mantener la página rápida y consistente.",
   ];
   const key = getApiKey();
   if (!key) {

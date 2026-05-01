@@ -60,7 +60,7 @@ export default {
       documentationLink: "Documentación",
       riskDisclaimer: "Aviso de riesgos",
       footerDisclaimerShort:
-        "Crypto Helper ofrece solo herramientas analíticas e informativas. Nada de lo aquí mostrado constituye asesoramiento financiero, fiscal o legal. Los datos de terceros pueden estar retrasados o ser inexactos. Úsalo bajo tu propio riesgo.",
+        "Crypto Helper ofrece solo herramientas analíticas e informativas. Nada de lo aquí mostrado constituye asesoramiento financiero, fiscal o legal.",
       navCryptocurrencies: "Criptomonedas",
       navDexScan: "DexScan",
       navExchanges: "Exchanges",
@@ -240,16 +240,16 @@ export default {
     chartHintTv: "TradingView · primer par ",
     chartHintSuffix: " — cambia el par CEX si no carga.",
     tabTransfers: "Transferencias",
-    tabHolders: "Holders (snapshot)",
-    tabTraders: "Top traders / PnL (snapshot)",
-    tabSwaps: "Swaps DEX (snapshot)",
+    tabHolders: "Holders",
+    tabTraders: "Top traders / PnL",
+    tabSwaps: "Swaps DEX",
     recentTransfers: "Transferencias recientes",
-    snapshotChainLabel: "Snapshot en caché · cadena",
+    snapshotChainLabel: "Red de referencia",
     colTx: "Tx",
     colFrom: "Origen",
     colTo: "Destino",
     colValue: "Valor",
-    noTransfersSnapshot: "Sin transferencias recientes en el snapshot.",
+    noTransfersSnapshot: "Sin transferencias recientes disponibles.",
     topTradersPnl: "Top traders (PnL)",
     swapsDex: "Swaps DEX",
     syncFooter:
@@ -277,7 +277,7 @@ export default {
         line1: "Tu centro de mando crypto,",
         line2: "claro y rápido.",
         lead:
-          "Una sola app: snapshots de mercado, streams de ballenas y smart money, burbujas interactivas, watchlists de traders y análisis de wallets — navegación fluida en el panel.",
+          "Una sola app: panorámica de mercado, streams de ballenas y smart money, burbujas interactivas, watchlists de traders y análisis de wallets — navegación fluida en el panel.",
       },
       cta: {
         register: "Crear cuenta",
@@ -312,7 +312,7 @@ export default {
         },
         watchlist: {
           title: "Watchlist y wallets",
-          desc: "Sigue direcciones con PnL, patrimonio y snapshots en caché.",
+          desc: "Sigue direcciones con PnL, patrimonio y vista histórica en caché.",
           tag: "Wallets",
         },
         nfts: {

@@ -17,7 +17,7 @@ export const onGet: RequestHandler = async ({ request, params, json }) => {
 
   const snap = await getWalletSnapshotJson(address);
   if (!snap) {
-    json(503, { ok: false, error: "No wallet snapshot — run daily sync." });
+    json(503, { ok: false, error: "Datos de la wallet aún no disponibles." });
     return;
   }
 

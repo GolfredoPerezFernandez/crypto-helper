@@ -9,13 +9,14 @@ export const DataSyncExplainer = component$(() => {
       </h3>
       <ul class="list-disc pl-5 space-y-2">
         <li>
-          <strong class="text-slate-300">Sync principal:</strong> corre con el ciclo de mercado global (rankings,
-          métricas agregadas, flujos y operaciones DEX de alto nivel que alimentan vistas como Smart money).
+          <strong class="text-slate-300">Mercado y rankings:</strong> precios, capitalización, flujos y operaciones DEX
+          de alto nivel que alimentan vistas como Smart money se refrescan de forma periódica para mantener la
+          coherencia entre todas las pantallas.
         </li>
         <li>
-          <strong class="text-slate-300">Sync auxiliar:</strong> corre después y rellena carteras, NFTs, listas de
-          actividad por intercambio y bundles de rendimiento por activo. Lo que ves en estas pantallas viene de
-          snapshots guardados en base de datos, no de llamadas en vivo al abrir la página.
+          <strong class="text-slate-300">Carteras y rendimiento:</strong> los datos de wallets, NFTs, actividad por
+          intercambio y métricas de rendimiento por activo se preparan en segundo plano. Por eso las vistas cargan al
+          instante sin depender de respuestas externas en tiempo real.
         </li>
       </ul>
     </aside>

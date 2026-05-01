@@ -13,7 +13,7 @@ export const onGet: RequestHandler = async ({ query, json }) => {
   if (!cached?.traders) {
     json(503, {
       ok: false,
-      error: "No Icarus snapshot — run daily sync to populate api_global_snapshots.",
+      error: "Datos de Icarus aún no disponibles.",
     });
     return;
   }

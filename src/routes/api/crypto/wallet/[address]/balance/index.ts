@@ -20,11 +20,11 @@ export const onGet: RequestHandler = async ({ params, query, json, cacheControl 
   const snap = await getWalletSnapshotJson(address);
   const r = chain === "eth" ? snap?.nativeEth : snap?.nativeBase;
   if (!snap || !r) {
-    json(503, apiError("SNAPSHOT_MISSING", "No wallet snapshot — run daily sync."));
+    json(503, apiError("SNAPSHOT_MISSING", "Datos de la wallet aún no disponibles."));
     return;
   }
   if (!r.ok) {
-    json(502, apiError("UPSTREAM_ERROR", r.error || "Snapshot native balance unavailable"));
+    json(502, apiError("UPSTREAM_ERROR", r.error || "Balance nativo no disponible"));
     return;
   }
   json(200, apiOk(r.data, { address, chain }));

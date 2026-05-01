@@ -387,7 +387,7 @@ export async function loadDashboardHome(ev: RequestEventBase) {
         const err =
           m && !m.ok
             ? m.error
-            : "Sin snapshot Base en Turso (sync diario). Registra la wallet o espera al próximo sync.";
+            : "Datos de la wallet aún no disponibles. Regístrala o vuelve más tarde.";
         wallet.walletTokensError = err.length > 160 ? `${err.slice(0, 160)}…` : err;
       }
     }
