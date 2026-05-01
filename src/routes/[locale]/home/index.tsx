@@ -23,6 +23,7 @@ import { TokenLogoImg } from "~/components/crypto-dashboard/token-logo";
 import { triggerCmcMarketSync, triggerOwnerFullMarketSync } from "~/server/crypto-helper-actions";
 import { useDashboardAuth } from "../layout";
 import { effectiveSyncDurationMs, formatDurationMs } from "~/utils/format-duration";
+import { getSyncUsageBreakdown } from "~/utils/format-sync-usage-summary";
 import { formatTokenUsdPrice, formatUsdBalance, formatUsdLiquidity } from "~/utils/format-market";
 import { buildSeo, localeFromParams } from "~/utils/seo";
 import { HelpTooltip } from "~/components/ui/help-tooltip";
@@ -61,6 +62,8 @@ export default component$(() => {
   const fullSyncBusy = useSignal(false);
   const fullSyncError = useSignal("");
   const fullSyncSuccess = useSignal("");
+  const toastMsg = useSignal("");
+  const confirmSyncMode = useSignal<"full" | "market" | null>(null);
   const showMoreSections = useSignal(false);
   const listPages = useSignal<Record<string, number>>({
     topVolume: 1,
@@ -111,6 +114,28 @@ export default component$(() => {
       syncError.value = e instanceof Error ? e.message : "No se pudo actualizar";
     } finally {
       if (!willReload) syncBusy.value = false;
+    }
+  });
+  const requestFullMarketSync = $(() => {
+    confirmSyncMode.value = "full";
+  });
+  const requestMarketSync = $(() => {
+    confirmSyncMode.value = "market";
+  });
+  const closeConfirm = $(() => {
+    confirmSyncMode.value = null;
+  });
+  const confirmAndRun = $(async () => {
+    const mode = confirmSyncMode.value;
+    confirmSyncMode.value = null;
+    if (mode === "full") {
+      toastMsg.value = tx("Iniciando sync completo…", "Starting full sync...");
+      await runFullMarketSync();
+      return;
+    }
+    if (mode === "market") {
+      toastMsg.value = tx("Iniciando sync de mercado…", "Starting market sync...");
+      await runCmcSync();
     }
   });
   const goProOffer = $(() => {
@@ -176,6 +201,15 @@ export default component$(() => {
       const el = document.getElementById("pro-offer");
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  });
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(({ track, cleanup }) => {
+    track(() => toastMsg.value);
+    if (!toastMsg.value) return;
+    const t = setTimeout(() => {
+      toastMsg.value = "";
+    }, 2600);
+    cleanup(() => clearTimeout(t));
   });
 
   const quickLinks = [
@@ -376,6 +410,44 @@ export default component$(() => {
           </div>
         </div>
       ) : null}
+      {confirmSyncMode.value ? (
+        <div class="fixed inset-0 z-[260] flex items-center justify-center bg-black/65 backdrop-blur-sm px-4">
+          <div class="w-full max-w-md rounded-2xl border border-[#043234] bg-[#001a1c] p-5 shadow-2xl shadow-black/50">
+            <h3 class="text-base font-semibold text-white">
+              {confirmSyncMode.value === "full"
+                ? tx("Confirmar sync completo", "Confirm full sync")
+                : tx("Confirmar sync de mercado", "Confirm market sync")}
+            </h3>
+            <p class="mt-2 text-xs leading-relaxed text-slate-400">
+              {tx(
+                "Esta operación puede tardar varios minutos y consumir cuota de APIs. ¿Deseas continuar?",
+                "This operation can take several minutes and consume API quota. Do you want to continue?",
+              )}
+            </p>
+            <div class="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick$={closeConfirm}
+                class="rounded-lg border border-[#043234] bg-[#001217] px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-[#043234]/35"
+              >
+                {tx("Cancelar", "Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick$={confirmAndRun}
+                class="rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/25"
+              >
+                {tx("Sí, ejecutar", "Yes, run")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {toastMsg.value ? (
+        <div class="fixed bottom-4 right-4 z-[270] rounded-lg border border-[#04E6E6]/35 bg-[#001a1c]/95 px-3 py-2 text-xs font-medium text-cyan-100 shadow-lg shadow-black/30">
+          {toastMsg.value}
+        </div>
+      ) : null}
       <div class="w-full max-w-[2200px] mx-auto space-y-10 2xl:space-y-12 px-1 2xl:px-3">
       <header class="flex flex-col gap-4 2xl:gap-5 md:flex-row md:items-end md:justify-between">
         <div>
@@ -406,7 +478,7 @@ export default component$(() => {
                 <button
                   type="button"
                   disabled={anySyncBusy}
-                  onClick$={runFullMarketSync}
+                  onClick$={requestFullMarketSync}
                   class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   title={tx(
                     "Actualizar rankings de mercado y datos relacionados (operación de mantenimiento)",
@@ -695,6 +767,18 @@ export default component$(() => {
                   <th class="px-4 py-2 font-medium">Fin</th>
                   <th class="px-4 py-2 font-medium">Duración</th>
                   <th class="px-4 py-2 font-medium">Estado</th>
+                  <th class="px-4 py-2 font-medium">Detalle</th>
+                  <th class="px-4 py-2 font-medium">
+                    <span class="inline-flex items-center gap-1">
+                      {tx("Consumo", "Usage")}
+                      {HelpTip(
+                        tx(
+                          "Consumo por proveedor en esta corrida (CoinMarketCap, Moralis CU, créditos Nansen, Icarus si aplica). Filas antiguas sin registro detallado muestran —.",
+                          "Per-provider usage for this run (CoinMarketCap, Moralis CUs, Nansen credits, Icarus if used). Older rows without a stored breakdown show —.",
+                        ),
+                      )}
+                    </span>
+                  </th>
                   <th class="px-4 py-2 font-medium">Origen</th>
                 </tr>
               </thead>
@@ -709,6 +793,7 @@ export default component$(() => {
                       : "—";
                   const dur =
                     row.finishedAt != null ? formatDurationMs(effectiveSyncDurationMs(row)) : "—";
+                  const usageBr = getSyncUsageBreakdown(row.usagePayload ?? null, isEs ? "es" : "en");
                   return (
                     <tr key={row.id} class="hover:bg-[#001a1c]/50">
                       <td class="px-4 py-2 tabular-nums text-gray-300 whitespace-nowrap">{fin}</td>
@@ -725,6 +810,31 @@ export default component$(() => {
                         >
                           {row.status}
                         </span>
+                      </td>
+                      <td class="px-4 py-2 max-w-[18rem] truncate text-[11px] text-slate-400" title={row.errorMessage ?? ""}>
+                        {row.errorMessage ?? "—"}
+                      </td>
+                      <td
+                        class="px-4 py-2 w-[min(24rem,44vw)] min-w-[13rem] max-w-[28rem] text-[11px] text-slate-300 align-top"
+                        title={usageBr.tooltip || undefined}
+                      >
+                        {usageBr.lines.length === 0 ? (
+                          "—"
+                        ) : (
+                          <ul class="m-0 list-none space-y-2.5 p-0">
+                            {usageBr.lines.map((line, i) => (
+                              <li key={i} class="border-l-2 border-[#04E6E6]/30 pl-2.5">
+                                <div class="text-[10px] font-semibold tracking-wide text-[#04E6E6]/90">
+                                  {line.provider}
+                                </div>
+                                <div class="mt-0.5 text-[11px] text-slate-200">{line.primary}</div>
+                                {line.secondary ? (
+                                  <div class="mt-0.5 text-[10px] leading-snug text-slate-500">{line.secondary}</div>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </td>
                       <td class="px-4 py-2 max-w-[10rem] truncate" title={row.source ?? ""}>
                         {row.source ?? "—"}
@@ -754,7 +864,7 @@ export default component$(() => {
           <button
             type="button"
             disabled={syncBusy.value}
-            onClick$={runCmcSync}
+            onClick$={requestMarketSync}
             class="inline-flex items-center gap-2 rounded-lg bg-[#04E6E6] px-4 py-2 text-sm font-semibold text-[#001a1c] shadow-md shadow-[#04E6E6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {syncBusy.value ? (
@@ -771,7 +881,7 @@ export default component$(() => {
           </button>
           {syncError.value ? (
             <p class="w-full text-sm text-amber-400/95">
-              No se pudo completar la actualización. Inténtalo de nuevo más tarde.
+              {syncError.value}
             </p>
           ) : null}
         </div>

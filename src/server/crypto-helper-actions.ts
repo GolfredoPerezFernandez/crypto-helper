@@ -36,10 +36,32 @@ export type CmcSyncTriggerResult =
   | { ok: true; Upserted?: number }
   | { ok: false; error?: string };
 
+const SYNC_RATE_WINDOW_MS = 60_000;
+const lastSyncByUser = new Map<number, number>();
+
+function consumeSyncRateLimit(userId: number): { ok: true } | { ok: false; retryInSec: number } {
+  const now = Date.now();
+  const last = lastSyncByUser.get(userId) ?? 0;
+  const remaining = SYNC_RATE_WINDOW_MS - (now - last);
+  if (remaining > 0) {
+    return { ok: false, retryInSec: Math.max(1, Math.ceil(remaining / 1000)) };
+  }
+  lastSyncByUser.set(userId, now);
+  return { ok: true };
+}
+
 /** Logged-in users only; uses server `CMC_API_KEY` (no browser CRON_SECRET). */
 export const triggerCmcMarketSync = server$(async function (): Promise<CmcSyncTriggerResult> {
-  if (!getUserId(this)) {
-    return { ok: false, error: "Sign in to refresh market data." };
+  const uidStr = getUserId(this);
+  if (!uidStr) return { ok: false, error: "Inicia sesión para actualizar datos." };
+  const userId = Number(uidStr);
+  if (!Number.isFinite(userId)) return { ok: false, error: "Sesión no válida." };
+  const { assertUserMayTriggerFullMarketSync } = await import("~/server/crypto-helper/user-access");
+  const gate = await assertUserMayTriggerFullMarketSync(userId);
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const rate = consumeSyncRateLimit(userId);
+  if (!rate.ok) {
+    return { ok: false, error: `Espera ${rate.retryInSec}s antes de lanzar otro sync.` };
   }
   const { runDailyMarketSync } = await import("~/server/crypto-helper/cmc-sync");
   return runDailyMarketSync();
@@ -54,6 +76,10 @@ export const triggerOwnerFullMarketSync = server$(async function (): Promise<Cmc
   const { assertUserMayTriggerFullMarketSync } = await import("~/server/crypto-helper/user-access");
   const gate = await assertUserMayTriggerFullMarketSync(userId);
   if (!gate.ok) return { ok: false, error: gate.error };
+  const rate = consumeSyncRateLimit(userId);
+  if (!rate.ok) {
+    return { ok: false, error: `Espera ${rate.retryInSec}s antes de lanzar otro sync.` };
+  }
   const { runDailyMarketSync } = await import("~/server/crypto-helper/cmc-sync");
   return runDailyMarketSync();
 });

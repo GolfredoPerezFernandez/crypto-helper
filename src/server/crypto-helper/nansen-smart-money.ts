@@ -37,6 +37,17 @@ type NansenSmartMoneyResult =
     };
 
 const NANSEN_BASE_URL = "https://api.nansen.ai";
+const NANSEN_TIMEOUT_MS = 20_000;
+
+async function nansenFetch(url: string, init: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), NANSEN_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: init.signal ?? ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const SMART_MONEY_ENDPOINTS: Record<SmartMoneySection, string> = {
   netflow: "/api/v1/smart-money/netflow",
@@ -158,7 +169,7 @@ export async function fetchNansenSmartMoney(
     const endpoint = SMART_MONEY_ENDPOINTS[section];
     const url = `${NANSEN_BASE_URL}${endpoint}`;
     const body = withRequiredDefaults(section, payload);
-    const res = await fetch(url, {
+    const res = await nansenFetch(url, {
       method: "POST",
       headers: {
         accept: "application/json",
@@ -248,7 +259,7 @@ export async function fetchNansenTgmPnlLeaderboard(opts: {
       body.premium_labels = opts.premiumLabels;
     }
 
-    const res = await fetch(`${NANSEN_BASE_URL}/api/v1/tgm/pnl-leaderboard`, {
+    const res = await nansenFetch(`${NANSEN_BASE_URL}/api/v1/tgm/pnl-leaderboard`, {
       method: "POST",
       headers: {
         accept: "application/json",
@@ -389,7 +400,7 @@ export async function fetchNansenTgm(
     const key = process.env.NANSEN_API_KEY?.trim();
     if (!key) return { ok: false, status: 500, error: "Missing NANSEN_API_KEY" };
     const path = NANSEN_TGM_ENDPOINTS[endpoint];
-    const res = await fetch(`${NANSEN_BASE_URL}${path}`, {
+    const res = await nansenFetch(`${NANSEN_BASE_URL}${path}`, {
       method: "POST",
       headers: {
         accept: "application/json",

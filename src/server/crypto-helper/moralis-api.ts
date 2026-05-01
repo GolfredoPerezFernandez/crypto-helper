@@ -19,6 +19,18 @@ function moralisNetErr(e: unknown): string {
   return String(e);
 }
 
+const MORALIS_TIMEOUT_MS = 15_000;
+
+async function moralisFetch(url: string, init: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), MORALIS_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: init.signal ?? ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Some Moralis endpoints (and their gateways) reply with Express-style HTML when the path is
  * outdated. We never want to surface that raw markup to the UI, so we collapse it to a short
@@ -50,7 +62,7 @@ export async function moralisGet(pathWithQuery: string): Promise<MoralisWalletTo
     const key = process.env.MORALIS_API_KEY?.trim();
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_BASE}${pathWithQuery}`;
-    const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    const res = await moralisFetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
     recordMoralisResponse(res, `deep-index:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
@@ -71,7 +83,7 @@ export async function moralisUniversalGet(
     const key = process.env.MORALIS_API_KEY?.trim();
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_UNIVERSAL_BASE}/v1${pathWithQuery}`;
-    const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    const res = await moralisFetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
     recordMoralisResponse(res, `universal:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) {
       if (res.status === 403) {
@@ -96,7 +108,7 @@ export async function moralisSolanaGet(pathWithQuery: string): Promise<MoralisWa
     const key = process.env.MORALIS_API_KEY?.trim();
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_SOLANA_BASE}${pathWithQuery}`;
-    const res = await fetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
+    const res = await moralisFetch(url, { headers: { accept: "application/json", "X-API-Key": key } });
     recordMoralisResponse(res, `solana:${pathWithQuery.split("?")[0].slice(0, 160)}`);
     if (!res.ok) return { ok: false, error: await readErrBody(res) };
     const json = await res.json();
@@ -111,7 +123,7 @@ async function moralisPostJson(pathWithQuery: string, body: unknown): Promise<Mo
     const key = process.env.MORALIS_API_KEY?.trim();
     if (!key) return { ok: false, error: "Missing MORALIS_API_KEY" };
     const url = `${MORALIS_BASE}${pathWithQuery}`;
-    const res = await fetch(url, {
+    const res = await moralisFetch(url, {
       method: "POST",
       headers: {
         accept: "application/json",

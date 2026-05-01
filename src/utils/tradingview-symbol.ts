@@ -179,7 +179,11 @@ export function dexScreenerEmbedUrl(network: string | undefined | null, address:
     chartTheme: "dark",
     theme: "dark",
     chartType: "usd",
-    interval: "60",
+    // Best-effort defaults for "Full" look at load.
+    interval: "1d",
+    full: "1",
+    timeframe: "max",
+    range: "max",
   });
   return `${base}?${q.toString()}`;
 }

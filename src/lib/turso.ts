@@ -11,33 +11,11 @@ let _db: LibSQLDatabase<typeof schema> | null = null;
 let _client: Client | null = null;
 let _lastUrl: string | undefined;
 
-/** Ensures remote SQLite has columns added after initial deploy (when drizzle migrate was not run). */
-let _cachedMarketTokenMigrations: Promise<void> | null = null;
+/** Runtime schema patches reserved for legacy non-versioned tables only. */
 let _usersSubscriberMigration: Promise<void> | null = null;
-let _syncRunsDurationMsMigration: Promise<void> | null = null;
-let _syncRunsUsagePayloadMigration: Promise<void> | null = null;
 let _proPaymentReceiptsMigration: Promise<void> | null = null;
 let _userPriceAlertsMigration: Promise<void> | null = null;
 let _userWatchlistItemsMigration: Promise<void> | null = null;
-
-function runCachedMarketTokenMigrations(client: Client): Promise<void> {
-    if (!_cachedMarketTokenMigrations) {
-        _cachedMarketTokenMigrations = (async () => {
-            const alters = [
-                "ALTER TABLE cached_market_tokens ADD COLUMN percentChange24h text DEFAULT '0'",
-                "ALTER TABLE cached_market_tokens ADD COLUMN percentChange90d text DEFAULT '0'",
-            ];
-            for (const sql of alters) {
-                try {
-                    await client.execute(sql);
-                } catch {
-                    /* duplicate column / already applied */
-                }
-            }
-        })();
-    }
-    return _cachedMarketTokenMigrations;
-}
 
 function runUsersSubscriberMigration(client: Client): Promise<void> {
     if (!_usersSubscriberMigration) {
@@ -54,31 +32,6 @@ function runUsersSubscriberMigration(client: Client): Promise<void> {
     return _usersSubscriberMigration;
 }
 
-function runSyncRunsDurationMsMigration(client: Client): Promise<void> {
-    if (!_syncRunsDurationMsMigration) {
-        _syncRunsDurationMsMigration = (async () => {
-            try {
-                await client.execute("ALTER TABLE sync_runs ADD COLUMN durationMs integer");
-            } catch {
-                /* duplicate column / already applied */
-            }
-        })();
-    }
-    return _syncRunsDurationMsMigration;
-}
-
-function runSyncRunsUsagePayloadMigration(client: Client): Promise<void> {
-    if (!_syncRunsUsagePayloadMigration) {
-        _syncRunsUsagePayloadMigration = (async () => {
-            try {
-                await client.execute("ALTER TABLE sync_runs ADD COLUMN usage_payload text");
-            } catch {
-                /* duplicate column / already applied */
-            }
-        })();
-    }
-    return _syncRunsUsagePayloadMigration;
-}
 
 function runProPaymentReceiptsMigration(client: Client): Promise<void> {
     if (!_proPaymentReceiptsMigration) {
@@ -156,15 +109,12 @@ function runUserWatchlistItemsMigration(client: Client): Promise<void> {
 }
 
 /**
- * Await before any Drizzle query that touches `cached_market_tokens` new columns.
- * Called from root `onRequest`; `getTurso()` also schedules the same promise.
+ * Await before serving requests that require legacy runtime-only tables.
+ * Versioned schema changes (token/sync columns, indexes) now come from Drizzle migrations.
  */
 export async function waitForTursoMigrations(): Promise<void> {
     getTurso();
-    await runCachedMarketTokenMigrations(_client!);
     await runUsersSubscriberMigration(_client!);
-    await runSyncRunsDurationMsMigration(_client!);
-    await runSyncRunsUsagePayloadMigration(_client!);
     await runProPaymentReceiptsMigration(_client!);
     await runUserPriceAlertsMigration(_client!);
     await runUserWatchlistItemsMigration(_client!);
@@ -201,10 +151,7 @@ export function getTurso(url?: string, authToken?: string) {
     });
     _lastUrl = dbUrl;
 
-    void runCachedMarketTokenMigrations(_client);
     void runUsersSubscriberMigration(_client);
-    void runSyncRunsDurationMsMigration(_client);
-    void runSyncRunsUsagePayloadMigration(_client);
     void runProPaymentReceiptsMigration(_client);
     void runUserPriceAlertsMigration(_client);
     void runUserWatchlistItemsMigration(_client);

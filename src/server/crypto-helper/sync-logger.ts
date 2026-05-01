@@ -54,12 +54,16 @@ export async function timedFetch(
   apiLabel: string,
   input: RequestInfo | URL,
   init?: RequestInit,
+  timeoutMs = 30_000,
 ): Promise<Response> {
   const t0 = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), Math.max(1, timeoutMs));
   try {
     recordCmcHttpCall();
-    const res = await fetch(input, init);
+    const res = await fetch(input, { ...init, signal: init?.signal ?? ctrl.signal });
     const ms = Date.now() - t0;
+    clearTimeout(timer);
     syncLogApi(`HTTP ${apiLabel}`, res.ok ? "ok" : "fail", ms, {
       status: res.status,
       url: typeof input === "string" ? input : String(input),
@@ -67,6 +71,7 @@ export async function timedFetch(
     return res;
   } catch (e: unknown) {
     const ms = Date.now() - t0;
+    clearTimeout(timer);
     syncLogApi(`HTTP ${apiLabel}`, "fail", ms, {
       error: e instanceof Error ? e.message : String(e),
       url: typeof input === "string" ? input : String(input),

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, lt, ne } from "drizzle-orm";
+import { and, asc, eq, lt, ne } from "drizzle-orm";
 import { db } from "~/lib/turso";
 import { cachedMarketTokens, cmcSyncLease, syncRuns } from "../../../drizzle/schema";
 import {
@@ -300,12 +300,18 @@ async function refreshStaleCategoryRows(
   );
   if (maxPerCat === 0) return 0;
 
-  const rows = await db.select().from(cachedMarketTokens).where(eq(cachedMarketTokens.category, category)).all();
+  const freshCutoffSec = Math.max(0, now - 10 * 60);
+  const candidates = await db
+    .select()
+    .from(cachedMarketTokens)
+    .where(and(eq(cachedMarketTokens.category, category), lt(cachedMarketTokens.updatedAt, freshCutoffSec)))
+    .orderBy(asc(cachedMarketTokens.updatedAt))
+    .limit(maxPerCat)
+    .all();
 
-  const stale = rows
-    .filter((r) => r.cmcId != null && Number.isFinite(r.cmcId) && !processedCmcIds.has(r.cmcId))
-    .sort((a, b) => (a.updatedAt ?? 0) - (b.updatedAt ?? 0))
-    .slice(0, maxPerCat);
+  const stale = candidates.filter(
+    (r) => r.cmcId != null && Number.isFinite(r.cmcId) && !processedCmcIds.has(r.cmcId),
+  );
 
   if (stale.length === 0) return 0;
 
@@ -737,23 +743,79 @@ async function runDailyMarketSyncBody(): Promise<{
   const apiKey = process.env.CMC_API_KEY?.trim();
   if (!apiKey) {
     syncLogWarn("CMC_API_KEY missing — skip CMC market fill; running auxiliary APIs only");
+    const startMs = Date.now();
+    const started = Math.floor(startMs / 1000);
+    const [runRow] = await db
+      .insert(syncRuns)
+      .values({ startedAt: started, status: "running", source: "daily-market-sync" })
+      .returning();
     try {
       await runNansenThenAuxiliarySnapshots();
+      if (runRow?.id) {
+        await db
+          .update(syncRuns)
+          .set({
+            finishedAt: Math.floor(Date.now() / 1000),
+            status: "skipped",
+            errorMessage: "CMC_API_KEY missing",
+            durationMs: Math.round(Date.now() - startMs),
+          })
+          .where(eq(syncRuns.id, runRow.id));
+      }
       syncLogInfo("daily market sync — finished (Nansen + auxiliary only, no CMC)", { ok: false });
     } catch (e: unknown) {
       syncLogError("auxiliary snapshot sync failed", e instanceof Error ? e : { error: String(e) });
+      if (runRow?.id) {
+        await db
+          .update(syncRuns)
+          .set({
+            finishedAt: Math.floor(Date.now() / 1000),
+            status: "error",
+            errorMessage: e instanceof Error ? e.message : String(e),
+            durationMs: Math.round(Date.now() - startMs),
+          })
+          .where(eq(syncRuns.id, runRow.id));
+      }
     }
     return { ok: false, error: "CMC_API_KEY missing" };
   }
 
   const gotLease = await tryAcquireCmcSyncLease();
   if (!gotLease) {
+    const startMs = Date.now();
+    const started = Math.floor(startMs / 1000);
+    const [runRow] = await db
+      .insert(syncRuns)
+      .values({ startedAt: started, status: "running", source: "daily-market-sync" })
+      .returning();
     syncLogInfo("CMC lease busy — skip full CMC run; still running auxiliary snapshots");
     try {
       await runNansenThenAuxiliarySnapshots();
+      if (runRow?.id) {
+        await db
+          .update(syncRuns)
+          .set({
+            finishedAt: Math.floor(Date.now() / 1000),
+            status: "skipped",
+            errorMessage: "CMC lease busy",
+            durationMs: Math.round(Date.now() - startMs),
+          })
+          .where(eq(syncRuns.id, runRow.id));
+      }
       syncLogInfo("daily market sync — finished (skipped CMC, Nansen + auxiliary done)", { skipped: true });
     } catch (e: unknown) {
       syncLogError("auxiliary snapshot sync failed", e instanceof Error ? e : { error: String(e) });
+      if (runRow?.id) {
+        await db
+          .update(syncRuns)
+          .set({
+            finishedAt: Math.floor(Date.now() / 1000),
+            status: "error",
+            errorMessage: e instanceof Error ? e.message : String(e),
+            durationMs: Math.round(Date.now() - startMs),
+          })
+          .where(eq(syncRuns.id, runRow.id));
+      }
     }
     return { ok: true, skipped: true };
   }

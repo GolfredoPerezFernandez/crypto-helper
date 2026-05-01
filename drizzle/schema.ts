@@ -99,7 +99,10 @@ export const cachedMarketTokens = table(
     /** Daily sync: JSON with CMC quote/info + Moralis ERC20 payloads (token page reads only DB). */
     apiSnapshot: t.text(),
   },
-  (tbl) => [uniqueIndex("cached_market_tokens_cat_addr").on(tbl.category, tbl.address)],
+  (tbl) => [
+    uniqueIndex("cached_market_tokens_cat_addr").on(tbl.category, tbl.address),
+    uniqueIndex("cached_market_tokens_cat_updated").on(tbl.category, tbl.updatedAt),
+  ],
 );
 
 export const signalWhales = table("signal_whales", {

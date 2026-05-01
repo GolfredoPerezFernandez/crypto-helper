@@ -220,11 +220,7 @@ export async function getMarketTokenByAddressLoose(address: string) {
   );
 }
 
-/**
- * Avoid `.select().from(syncRuns)` here because some environments are still on an older
- * `sync_runs` schema without `usage_payload`. Selecting explicit legacy-safe columns keeps
- * dashboard/status endpoints working until migrations catch up.
- */
+/** Explicit columns for `sync_runs` (includes `usage_payload` when migration 0016 applied). */
 const SYNC_RUN_SELECT_SAFE = {
   id: syncRuns.id,
   source: syncRuns.source,
@@ -233,6 +229,7 @@ const SYNC_RUN_SELECT_SAFE = {
   finishedAt: syncRuns.finishedAt,
   errorMessage: syncRuns.errorMessage,
   durationMs: syncRuns.durationMs,
+  usagePayload: syncRuns.usagePayload,
 } as const;
 
 /** Best row for “última actualización”: última corrida con `finishedAt` (más reciente primero). */
@@ -245,9 +242,9 @@ export async function getLatestSyncRun() {
       .orderBy(desc(syncRuns.finishedAt))
       .limit(1)
       .get();
-    if (completed) return { ...completed, usagePayload: null };
+    if (completed) return completed;
     const latest = await db.select(SYNC_RUN_SELECT_SAFE).from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1).get();
-    return latest ? { ...latest, usagePayload: null } : latest;
+    return latest;
   }, undefined);
 }
 
@@ -260,8 +257,7 @@ export async function queryRecentSyncRuns(limit: number) {
         .from(syncRuns)
         .orderBy(desc(sql`coalesce(${syncRuns.finishedAt}, ${syncRuns.startedAt})`))
         .limit(limit)
-        .all()
-        .then((rows) => rows.map((r) => ({ ...r, usagePayload: null }))),
+        .all(),
     [],
   );
 }
