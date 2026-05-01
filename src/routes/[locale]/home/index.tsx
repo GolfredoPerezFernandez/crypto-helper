@@ -138,7 +138,6 @@ export default component$(() => {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
-  const w = data.value.wallet;
   const cacheEmpty = data.value.meme.length === 0 && data.value.ai.length === 0;
   const { hasPro } = data.value.access;
   const st = data.value.stats;
@@ -1035,38 +1034,6 @@ export default component$(() => {
           ) : null}
         </section>
       </div>
-
-      {w.address ? (
-        <section class="relative rounded-xl border border-[#043234] bg-[#001a1c] p-4">
-          {HelpTip("Resumen de tu cartera en Base para esta cuenta o wallet conectada.")}
-          <h2 class="text-lg font-semibold mb-1">Tu cartera (Base)</h2>
-          <p class="text-xs text-gray-500 font-mono break-all mb-3">{w.address}</p>
-          {w.authProvider === "metamask" ? (
-            <p class="text-xs text-gray-500 mb-2">Sesión MetaMask — cartera solo lectura.</p>
-          ) : (
-            <p class="text-xs text-gray-500 mb-2">Cuenta email — dirección gestionada.</p>
-          )}
-          {w.walletTokensError ? (
-            <p class="text-sm text-amber-400/90">
-              No se pudieron cargar los últimos balances en Base. Mostramos lo que haya disponible.
-            </p>
-          ) : w.tokens.length === 0 ? (
-            <p class="text-sm text-gray-500">No hay tokens ERC-20 detectados en Base para esta cartera.</p>
-          ) : (
-            <ul class="divide-y divide-[#043234] text-sm">
-              {w.tokens.map((t) => (
-                <li key={t.tokenAddress} class="flex items-center justify-between gap-4 py-2">
-                  <span class="flex min-w-0 items-center gap-2">
-                    <TokenLogoImg src={t.logo} symbol={t.symbol} size={28} />
-                    <span class="font-medium text-white">{t.symbol}</span>
-                  </span>
-                  <span class="text-[#04E6E6] shrink-0">{t.usdLabel}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : null}
 
       <div class="grid gap-8 2xl:gap-10 lg:grid-cols-2 2xl:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <section class="relative rounded-xl border border-[#043234] overflow-hidden bg-[#000D0E]/80">

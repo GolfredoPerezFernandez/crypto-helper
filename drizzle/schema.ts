@@ -164,7 +164,8 @@ export const syncRuns = table("sync_runs", {
   source: t.text().default("daily-market-sync"),
   errorMessage: t.text(),
   /** JSON: {@link import("~/server/crypto-helper/sync-usage-context").SyncUsagePayloadV1} */
-  usagePayload: t.text(),
+  // DB column is snake_case (see migration 0016_sync_runs_usage_payload.sql)
+  usagePayload: t.text("usage_payload"),
 });
 
 /** Single-row lease (id=1) so only one instance runs CMC sync when DB is shared (e.g. remote Turso). */

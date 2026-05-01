@@ -133,8 +133,14 @@ export const BubbleChartD3 = component$(
         const width = Math.max(host!.clientWidth || 800, 320);
         const height = Math.max(host!.clientHeight || 520, 360);
         const isMobile = width < 768;
-        const minR = isMobile ? 20 : 24;
-        const maxR = isMobile ? 52 : 76;
+        const isWide = width >= 1400;
+        const isUltraWide = width >= 1900;
+        const count = Math.max(rawList.length, 1);
+        const densityBoost = isUltraWide ? 1.34 : isWide ? 1.2 : 1;
+        const countBoost = count <= 120 ? 1.16 : count <= 180 ? 1.08 : 1;
+        const radiusBoost = densityBoost * countBoost;
+        const minR = (isMobile ? 20 : 24) * (isMobile ? 1 : Math.min(radiusBoost, 1.28));
+        const maxR = (isMobile ? 52 : 76) * (isMobile ? 1 : Math.min(radiusBoost, 1.36));
         const labelThreshold = isMobile ? 28 : 32;
 
         const sizes = rawList.map((t) => bubbleDisplaySize(t, sizeBy, quoteScale));
@@ -201,12 +207,12 @@ export const BubbleChartD3 = component$(
           .forceSimulation<SimNode>(nodes)
           .force(
             "collide",
-            d3.forceCollide<SimNode>().radius((d) => radiusFor(d) + 10).strength(0.92),
+            d3.forceCollide<SimNode>().radius((d) => radiusFor(d) + (isWide ? 5 : 7)).strength(0.95),
           )
-          .force("center", d3.forceCenter(width / 2, height / 2).strength(0.032))
-          .force("x", d3.forceX(width / 2).strength(0.018))
-          .force("y", d3.forceY(height / 2).strength(0.018))
-          .force("charge", d3.forceManyBody().strength(-32))
+          .force("center", d3.forceCenter(width / 2, height / 2).strength(isWide ? 0.048 : 0.036))
+          .force("x", d3.forceX(width / 2).strength(isWide ? 0.026 : 0.02))
+          .force("y", d3.forceY(height / 2).strength(isWide ? 0.026 : 0.02))
+          .force("charge", d3.forceManyBody().strength(isWide ? -20 : -28))
           .alphaTarget(0.22)
           .restart();
 
@@ -372,7 +378,7 @@ export const BubbleChartD3 = component$(
     return (
       <div
         ref={hostRef}
-        class="h-[min(78vh,800px)] w-full min-h-[420px] overflow-hidden rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114]"
+        class="h-[min(84vh,960px)] w-full min-h-[460px] overflow-hidden rounded-xl border border-[#1a2c2e]/90 bg-[#0d1114] 2xl:h-[min(86vh,1100px)]"
       />
     );
   },

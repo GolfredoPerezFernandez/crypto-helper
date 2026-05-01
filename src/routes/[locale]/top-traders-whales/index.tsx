@@ -16,6 +16,10 @@ import {
   GLOBAL_TOP_PERFORMERS_BY_TOKEN,
 } from "~/server/crypto-helper/api-snapshot-sync";
 import { loadTopTokenHoldersGroups } from "~/server/crypto-helper/market-top-owners";
+import {
+  walletNetWorthUsdDisplay,
+  walletProfitabilityDisplay,
+} from "~/server/crypto-helper/moralis-snapshot-display";
 import { TRADER_WATCH_WALLETS } from "~/server/crypto-helper/trader-wallets";
 import { formatUsdBalance } from "~/utils/format-market";
 
@@ -26,16 +30,28 @@ const HOLDERS_PER_TOKEN = 8;
 
 export const useTopWhalesLoader = routeLoader$(async (ev) => {
   const page = Math.max(1, parseInt(ev.query.get("page") || "1", 10) || 1);
-  const start = (page - 1) * PAGE_SIZE;
-  const slice = TRADER_WATCH_WALLETS.slice(start, start + PAGE_SIZE);
-  const rows = await Promise.all(
-    slice.map(async (address) => {
+  const allRows = await Promise.all(
+    TRADER_WATCH_WALLETS.map(async (address) => {
       const snap = await getWalletSnapshotJson(address);
-      const pnl = snap?.pnlEth ?? { ok: false as const, error: "Sin datos disponibles." };
-      const nw = snap?.nwEth ?? { ok: false as const, error: "Sin datos disponibles." };
-      return { address, pnl, nw };
+      // Prefer snapshots with broader chain coverage; fallback to legacy per-chain fields.
+      const pnl = snap?.pnlEth?.ok ? snap.pnlEth : snap?.pnlBase?.ok ? snap.pnlBase : { ok: false as const, error: "Sin datos disponibles." };
+      const nw = snap?.nw?.ok ? snap.nw : snap?.nwEth?.ok ? snap.nwEth : { ok: false as const, error: "Sin datos disponibles." };
+      const nwUsd = walletNetWorthUsdDisplay(snap) ?? -1;
+      const p = walletProfitabilityDisplay(snap);
+      const roiUsd = p?.total_realized_profit_usd ?? -1;
+      const pnlPct = p?.total_realized_profit_percentage ?? -1;
+      return { address, pnl, nw, nwUsd, roiUsd, pnlPct };
     }),
   );
+  // Global rank first, then paginate. This keeps page 1 aligned with actual whale size.
+  const ranked = allRows.sort((a, b) => {
+    if (b.nwUsd !== a.nwUsd) return b.nwUsd - a.nwUsd;
+    if (b.roiUsd !== a.roiUsd) return b.roiUsd - a.roiUsd;
+    if (b.pnlPct !== a.pnlPct) return b.pnlPct - a.pnlPct;
+    return a.address.localeCompare(b.address);
+  });
+  const start = (page - 1) * PAGE_SIZE;
+  const rows = ranked.slice(start, start + PAGE_SIZE).map(({ address, pnl, nw }) => ({ address, pnl, nw }));
 
   const [holderAgg, topPerformersBundle, dexActivityBundle] = await Promise.all([
     loadTopTokenHoldersGroups({
@@ -49,8 +65,8 @@ export const useTopWhalesLoader = routeLoader$(async (ev) => {
   return {
     page,
     rows,
-    hasMore: start + PAGE_SIZE < TRADER_WATCH_WALLETS.length,
-    total: TRADER_WATCH_WALLETS.length,
+    hasMore: start + PAGE_SIZE < ranked.length,
+    total: ranked.length,
     tokenHolders: holderAgg.groups,
     tokenHoldersMeta: { scanned: holderAgg.tokensScanned },
     topPerformersBundle,
